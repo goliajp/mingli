@@ -1,0 +1,28 @@
+[package]
+name = "mingli-wasm"
+description = "命理大树的 wasm 绑定（整库一包）：engine 全叶 cast/cast_one、跨叶 NMI、释义 prompt 组装、D 族字/词。供浏览器/JS 直接调用引擎，无需服务端（LLM 释义除外）。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+mingli-engine = { workspace = true }
+mingli-analysis = { workspace = true }
+mingli-interpret = { workspace = true }
+mingli-gematria = { workspace = true }
+mingli-abjad = { workspace = true }
+mingli-wuge = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wasm-bindgen = "0.2"
+
+[features]
+default = ["astrology"]
+# 关掉得轻量 wasm（去掉占星 + VSOP87 星历）。
+astrology = ["mingli-engine/astrology"]
+
+[lints]
+workspace = true

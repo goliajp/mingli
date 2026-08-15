@@ -1,0 +1,20 @@
+[package]
+name = "mingli-ifa"
+description = "L3 叶(C 族)：西非约鲁巴 Ifá——双 figure(各 4 位)组成 256 odu。建于 core(gf2 位向量 + sampler 种子)。256 odu 名属🟡查表，本叶只出 16×16 格结构。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "ifa_bench"
+harness = false

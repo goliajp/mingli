@@ -1,0 +1,20 @@
+[package]
+name = "mingli-tibetan"
+description = "L3 叶(A 族/确定性)：藏历循环要素——60 周期(5 元素×12 生肖,阴阳锁生肖) + 年 mewa(sme ba 九宫,逆行)。不做闰月/缺日推步;主流藏历无『年 parkha』,parkha 仅作八卦参考常数。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "tibetan_bench"
+harness = false

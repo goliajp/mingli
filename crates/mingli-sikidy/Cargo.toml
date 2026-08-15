@@ -1,0 +1,20 @@
+[package]
+name = "mingli-sikidy"
+description = "L3 叶(C 族)：马达加斯加 Sikidy——4 母列(种子)→16 列 GF(2) 矩阵。建于 core(gf2 转置/XOR + sampler)。创世者列 C15 恒为偶(与地占法官同一奇偶校验定理)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "sikidy_bench"
+harness = false

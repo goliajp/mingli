@@ -1,0 +1,24 @@
+[package]
+name = "mingli-ephemeris"
+description = "L1 物理石：行星星历——日月五星地心黄道经度(含光行时校正)。基于经审计的 vsop87 系数实现，开启 B 族(占星/七政四余/Jyotish)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+vsop87 = "2"
+# 月球地心位置：基于 Chapront ELP-2000/82 月理 + Meeus 章动，已对 Meeus 第 47 章
+# 教科书算例（1992-04-12.0 TD）独立校验（见本 crate 测试），与 vsop87 同属经审计的
+# Meeus 算法系列 Rust 实现。
+astro = "2"
+
+[dev-dependencies]
+mingli-astro = { workspace = true }
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "ephemeris_bench"
+harness = false

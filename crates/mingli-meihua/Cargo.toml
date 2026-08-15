@@ -1,0 +1,21 @@
+[package]
+name = "mingli-meihua"
+description = "L3 叶(C 族/确定性)：梅花易数时间起卦——农历年支/月/日/时辰 mod8/mod6 → 本卦/互卦/之卦。建于 astro(Moment 农历) + gua(六爻代数)。时间→模运算，完全确定。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-gua = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "meihua_bench"
+harness = false

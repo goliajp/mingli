@@ -1,0 +1,53 @@
+[package]
+name = "mingli-engine"
+description = "L3.5 编排：CastingEngine trait + 共享上下文记忆化 + rayon 并行 fan-out 注册表。一个输入算一次共享层，并行排所有叶，统一 JSON 输出供跨叶分析。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-bazi = { workspace = true }
+mingli-ziwei = { workspace = true }
+# 占星(B 族)连带 ephemeris→VSOP87(唯一重依赖)，做成 feature 可裁(默认开)。
+mingli-astrology = { workspace = true, optional = true }
+mingli-jyotish = { workspace = true, optional = true }
+mingli-qizhengsiyu = { workspace = true, optional = true }
+mingli-yijing = { workspace = true }
+mingli-geomancy = { workspace = true }
+mingli-sikidy = { workspace = true }
+mingli-ifa = { workspace = true }
+mingli-cartomancy = { workspace = true }
+mingli-meihua = { workspace = true }
+mingli-xiaoliuren = { workspace = true }
+mingli-zeri = { workspace = true }
+mingli-maya = { workspace = true }
+mingli-pawukon = { workspace = true }
+mingli-mahabote = { workspace = true }
+mingli-liuren = { workspace = true }
+mingli-qimen = { workspace = true }
+mingli-taiyi = { workspace = true }
+mingli-tibetan = { workspace = true }
+mingli-numerology = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rayon = "1"
+
+[features]
+default = ["astrology", "jyotish", "qizhengsiyu"]
+# 西洋占星叶（B 族）：连带 VSOP87 星历（~唯一重依赖）。关掉可得轻量构建（如轻 wasm）。
+astrology = ["dep:mingli-astrology"]
+# 印度占星(Jyotish)叶,依赖 astrology(Asc/Lagna)+ ephemeris(行星)。
+jyotish = ["astrology", "dep:mingli-jyotish"]
+# 七政四余(中国本土星占)叶,依赖 ephemeris(行星)+ ganzhi(日柱)。
+qizhengsiyu = ["dep:mingli-qizhengsiyu"]
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "engine_bench"
+harness = false

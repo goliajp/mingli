@@ -1,0 +1,22 @@
+[package]
+name = "mingli-qizhengsiyu"
+description = "L3 叶(B 族)：七政四余(中国本土星占)。日月五星 + 罗㬋/计都/月孛(紫炁 🟡)+ 28 宿值日 + 12 宫归。承接 mingli-ephemeris + mingli-astro + mingli-ganzhi。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-ephemeris = { workspace = true }
+mingli-ganzhi = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "qizhengsiyu_bench"
+harness = false
