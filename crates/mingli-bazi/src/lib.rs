@@ -372,7 +372,7 @@ const WX_NAMES: [&str; 5] = ["木", "火", "土", "金", "水"];
 #[must_use]
 pub fn team_weakest(wx: &WuxingPower) -> (String, u32) {
     let arr = [wx.wood, wx.fire, wx.earth, wx.metal, wx.water];
-    let (idx, &v) = arr.iter().enumerate().min_by_key(|(_, &v)| v).unwrap_or((0, &0));
+    let (idx, &v) = arr.iter().enumerate().min_by_key(|&(_, &v)| v).unwrap_or((0, &0));
     (WX_NAMES[idx].to_string(), v)
 }
 
@@ -380,7 +380,7 @@ pub fn team_weakest(wx: &WuxingPower) -> (String, u32) {
 #[must_use]
 pub fn team_strongest(wx: &WuxingPower) -> (String, u32) {
     let arr = [wx.wood, wx.fire, wx.earth, wx.metal, wx.water];
-    let (idx, &v) = arr.iter().enumerate().max_by_key(|(_, &v)| v).unwrap_or((0, &0));
+    let (idx, &v) = arr.iter().enumerate().max_by_key(|&(_, &v)| v).unwrap_or((0, &0));
     (WX_NAMES[idx].to_string(), v)
 }
 
@@ -1175,8 +1175,10 @@ pub fn fortune_at(
 
     // extras：本命四柱 + 当前大运柱 + t 流年柱（若解析成功）。
     let mut extras: Vec<GanZhi> = Vec::with_capacity(2);
-    if let Some((_, ref gz_s)) = dayun_active {
-        if let Some(g) = parse_ganzhi(gz_s) { extras.push(g); }
+    if let Some((_, ref gz_s)) = dayun_active
+        && let Some(g) = parse_ganzhi(gz_s)
+    {
+        extras.push(g);
     }
     if let Some(g) = parse_ganzhi(&flow_year_ganzhi) { extras.push(g); }
 
@@ -1281,8 +1283,10 @@ pub fn fortune_supply_timeline(natal_input: BirthInput, max_age: u32) -> Vec<For
             let dayun_ganzhi = dayun_active.as_ref().map(|(_, gz)| gz.clone());
 
             let mut extras: Vec<GanZhi> = Vec::with_capacity(2);
-            if let Some((_, ref gz_s)) = dayun_active {
-                if let Some(g) = parse_ganzhi(gz_s) { extras.push(g); }
+            if let Some((_, ref gz_s)) = dayun_active
+                && let Some(g) = parse_ganzhi(gz_s)
+            {
+                extras.push(g);
             }
             if let Some(g) = parse_ganzhi(&flow_year_gz) { extras.push(g); }
 
