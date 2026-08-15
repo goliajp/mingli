@@ -103,7 +103,7 @@ web/            React 19 + Vite 前端，:6026（dev 期 /api 代理到 :6027）
 cargo run -p mingli-api
 
 # 2) 前端（:6026，另开终端）
-cd web && npm install && npm run dev
+cd web && bun install && bun run dev
 # 打开 http://localhost:6026
 ```
 

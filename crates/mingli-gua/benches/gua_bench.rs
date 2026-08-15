@@ -2,7 +2,8 @@
 #![allow(missing_docs, reason = "criterion 宏生成的 harness 函数无需文档")]
 #![allow(clippy::unreadable_literal, reason = "卦的二进制位型连写更直观")]
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+use criterion::{criterion_group, criterion_main, Criterion};
 use mingli_gua::Hexagram;
 
 fn bench_gua(c: &mut Criterion) {

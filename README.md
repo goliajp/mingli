@@ -105,7 +105,7 @@ web/            React 19 + Vite frontend, :6026 (proxies /api to :6027 in dev)
 cargo run -p mingli-api
 
 # 2) Frontend (:6026, separate terminal)
-cd web && npm install && npm run dev
+cd web && bun install && bun run dev
 # open http://localhost:6026
 ```
 

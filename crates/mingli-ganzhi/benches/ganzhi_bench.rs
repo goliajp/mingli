@@ -1,7 +1,8 @@
 //! mingli-ganzhi 热路径基准。
 #![allow(missing_docs, reason = "criterion 宏生成的 harness 函数无需文档")]
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+use criterion::{criterion_group, criterion_main, Criterion};
 use mingli_ganzhi::{day_ganzhi, month_pillar_stem, year_ganzhi};
 
 fn bench_ganzhi(c: &mut Criterion) {

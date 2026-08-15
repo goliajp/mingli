@@ -9,7 +9,7 @@ license.workspace = true
 mingli-core = { workspace = true }
 
 [dev-dependencies]
-criterion = { version = "0.5", default-features = false }
+criterion = { version = "0.8", default-features = false }
 
 [lints]
 workspace = true
