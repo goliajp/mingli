@@ -6,7 +6,7 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
-vsop87 = "2"
+vsop87 = "3"
 # 月球地心位置：基于 Chapront ELP-2000/82 月理 + Meeus 章动，已对 Meeus 第 47 章
 # 教科书算例（1992-04-12.0 TD）独立校验（见本 crate 测试），与 vsop87 同属经审计的
 # Meeus 算法系列 Rust 实现。
@@ -14,7 +14,7 @@ astro = "2"
 
 [dev-dependencies]
 mingli-astro = { workspace = true }
-criterion = { version = "0.5", default-features = false }
+criterion = { version = "0.8", default-features = false }
 
 [lints]
 workspace = true

@@ -1,7 +1,8 @@
 //! mingli-analysis 跨叶 NMI 基准。
 #![allow(missing_docs, reason = "criterion 宏生成的 harness 函数无需文档")]
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+use criterion::{criterion_group, criterion_main, Criterion};
 use mingli_analysis::{cross_leaf, sample_grid};
 
 fn bench(c: &mut Criterion) {

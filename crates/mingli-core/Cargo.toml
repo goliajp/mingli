@@ -9,7 +9,7 @@ license.workspace = true
 [dependencies]
 
 [dev-dependencies]
-criterion = { version = "0.5", default-features = false }
+criterion = { version = "0.8", default-features = false }
 # 仅测试期：基于性质的测试（随机输入验不变量）。不进运行时依赖，根仍零依赖。
 proptest = "1"
 
