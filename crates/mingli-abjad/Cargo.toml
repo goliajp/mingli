@@ -1,0 +1,19 @@
+[package]
+name = "mingli-abjad"
+description = "L3 叶(D 族/确定性)：阿拉伯 abjad 数字(ḥisāb al-jummal)双序——28 字母按 Mashriqī(东方)序与 Maghribī(西方)序对照式取值 1..1000 求和。含常见 hamza/ta-marbuta/alef-maqsura 标准归一。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "abjad_bench"
+harness = false

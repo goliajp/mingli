@@ -1,0 +1,17 @@
+[package]
+name = "mingli-astro"
+description = "L1 物理石：计算天文学与历法学——儒略日、视黄经与二十四节气、朔望与阴阳合历置闰、干支循环。确定性。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+# 仅测试期：基于性质的测试。
+proptest = "1"
+
+[lints]
+workspace = true

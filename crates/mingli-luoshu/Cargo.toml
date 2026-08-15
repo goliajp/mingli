@@ -1,0 +1,19 @@
+[package]
+name = "mingli-luoshu"
+description = "L2 主干：洛书幻方与九宫飞布——三阶幻方、九宫(八卦/方位)、阳顺阴逆飞星。建于 mingli-core::group。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "luoshu_bench"
+harness = false

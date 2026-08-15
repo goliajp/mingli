@@ -1,0 +1,21 @@
+# Rust
+target/
+**/*.rs.bk
+
+# JS / web
+node_modules/
+dist/
+*.tsbuildinfo
+
+# OS / editors
+.DS_Store
+*.swp
+
+# Environment variables
+.env
+.env.local
+
+# Local working material — design notes, plans, tooling state.
+# The repository ships library sources, tests and the README only.
+.claude/
+docs/

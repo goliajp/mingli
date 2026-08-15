@@ -1,0 +1,21 @@
+[package]
+name = "mingli-bazi"
+description = "L3 叶：四柱推命（八字）排盘——年/月/日/时四柱、十神、五行、农历、大运。建于 astro(天文) + ganzhi(干支)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-ganzhi = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "bazi_bench"
+harness = false

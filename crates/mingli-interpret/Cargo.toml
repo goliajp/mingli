@@ -1,0 +1,21 @@
+[package]
+name = "mingli-interpret"
+description = "L3.5 释义层（与『算』严格分离）：把确定性盘面 + 确定性谱组装成带护栏的释义提示词，经可替换的 Interpreter 后端转人话。只读引擎输出、绝不改算；DET 忠实转述、🟡UND 标欠定、用语克制、标 🔮INT 非计算。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-engine = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "interpret_bench"
+harness = false

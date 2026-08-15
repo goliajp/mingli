@@ -1,0 +1,22 @@
+[package]
+name = "mingli-astrology"
+description = "L3 叶(B 族)：西洋占星本命盘——行星落黄道十二宫(星座) + 相位。建于 ephemeris(星历) + core(量化) + astro(Moment 共享层)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+mingli-astro = { workspace = true }
+mingli-ephemeris = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "astrology_bench"
+harness = false

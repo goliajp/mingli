@@ -1,0 +1,21 @@
+[package]
+name = "mingli-maya"
+description = "L3 叶(A 族/确定性)：玛雅历法——Tzolkʼin 260=13×20(CRT 范例) + Haab 365 + Long Count。由民用日序(JDN)经 GMT 历元(584283)折算，时间→模运算/中国剩余定理，完全确定。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+mingli-astro = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "maya_bench"
+harness = false

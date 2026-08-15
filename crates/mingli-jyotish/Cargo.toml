@@ -1,0 +1,22 @@
+[package]
+name = "mingli-jyotish"
+description = "L3 叶(B 族)：印度占星(Jyotish)。Lahiri ayanamsa 恒星黄道 + 27 nakshatra + 12 rasi + 9 行星(含 Rahu/Ketu)+ Lagna。承接 mingli-ephemeris + mingli-astrology。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-ephemeris = { workspace = true }
+mingli-astrology = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "jyotish_bench"
+harness = false

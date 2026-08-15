@@ -1,0 +1,21 @@
+[package]
+name = "mingli-yijing"
+description = "L3 叶(C 族)：易经起卦——三钱/蓍草法的可复现抽样→六爻→本卦/之卦。建于 core(sampler 种子) + gua(六爻代数)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+mingli-gua = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "yijing_bench"
+harness = false

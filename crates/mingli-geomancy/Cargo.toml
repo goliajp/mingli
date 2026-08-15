@@ -1,0 +1,20 @@
+[package]
+name = "mingli-geomancy"
+description = "L3 叶(C 族)：地占 ʿilm al-raml——4 母图(种子)→盾牌图(女/侄/见证/法官)。建于 core(gf2 转置/XOR/奇偶 + sampler 种子)。法官恒为偶(GF(2) 奇偶校验定理)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "geomancy_bench"
+harness = false

@@ -1,0 +1,21 @@
+[package]
+name = "mingli-analysis"
+description = "L3.5 跨叶分析：同输入分布下全叶的信息论统计（熵 / 互信息 / 归一化互信息 NMI）。实证『A 族同源相关、C 族经 PRNG 与时间去相关』等通行结论。建于 engine 的并行 fan-out 输出。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-engine = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "analysis_bench"
+harness = false

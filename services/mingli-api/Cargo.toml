@@ -1,0 +1,24 @@
+[package]
+name = "mingli-api"
+description = "承接层：axum 服务，暴露 /api/bazi、/api/ziwei 精盘端点与 /api/cast 全叶并行排盘端点。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-bazi = { workspace = true }
+mingli-ziwei = { workspace = true }
+mingli-engine = { workspace = true }
+mingli-analysis = { workspace = true }
+mingli-interpret = { workspace = true }
+mingli-gematria = { workspace = true }
+mingli-abjad = { workspace = true }
+mingli-wuge = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"

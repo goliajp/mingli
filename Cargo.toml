@@ -1,0 +1,103 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mingli-core",
+    "crates/mingli-astro",
+    "crates/mingli-ephemeris",
+    "crates/mingli-ganzhi",
+    "crates/mingli-gua",
+    "crates/mingli-luoshu",
+    "crates/mingli-bazi",
+    "crates/mingli-ziwei",
+    "crates/mingli-astrology",
+    "crates/mingli-jyotish",
+    "crates/mingli-qizhengsiyu",
+    "crates/mingli-yijing",
+    "crates/mingli-geomancy",
+    "crates/mingli-sikidy",
+    "crates/mingli-ifa",
+    "crates/mingli-cartomancy",
+    "crates/mingli-meihua",
+    "crates/mingli-xiaoliuren",
+    "crates/mingli-zeri",
+    "crates/mingli-maya",
+    "crates/mingli-pawukon",
+    "crates/mingli-mahabote",
+    "crates/mingli-tibetan",
+    "crates/mingli-liuren",
+    "crates/mingli-qimen",
+    "crates/mingli-taiyi",
+    "crates/mingli-numerology",
+    "crates/mingli-gematria",
+    "crates/mingli-abjad",
+    "crates/mingli-wuge",
+    "crates/mingli-analysis",
+    "crates/mingli-interpret",
+    "crates/mingli-wasm",
+    "crates/mingli-engine",
+    "services/mingli-api",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+rust-version = "1.97"
+
+[workspace.dependencies]
+mingli-core = { path = "crates/mingli-core" }
+mingli-astro = { path = "crates/mingli-astro" }
+mingli-ephemeris = { path = "crates/mingli-ephemeris" }
+mingli-ganzhi = { path = "crates/mingli-ganzhi" }
+mingli-gua = { path = "crates/mingli-gua" }
+mingli-luoshu = { path = "crates/mingli-luoshu" }
+mingli-astrology = { path = "crates/mingli-astrology" }
+mingli-jyotish = { path = "crates/mingli-jyotish" }
+mingli-qizhengsiyu = { path = "crates/mingli-qizhengsiyu" }
+mingli-engine = { path = "crates/mingli-engine" }
+mingli-analysis = { path = "crates/mingli-analysis" }
+mingli-interpret = { path = "crates/mingli-interpret" }
+mingli-wasm = { path = "crates/mingli-wasm" }
+mingli-bazi = { path = "crates/mingli-bazi" }
+mingli-ziwei = { path = "crates/mingli-ziwei" }
+mingli-yijing = { path = "crates/mingli-yijing" }
+mingli-geomancy = { path = "crates/mingli-geomancy" }
+mingli-sikidy = { path = "crates/mingli-sikidy" }
+mingli-ifa = { path = "crates/mingli-ifa" }
+mingli-cartomancy = { path = "crates/mingli-cartomancy" }
+mingli-meihua = { path = "crates/mingli-meihua" }
+mingli-xiaoliuren = { path = "crates/mingli-xiaoliuren" }
+mingli-zeri = { path = "crates/mingli-zeri" }
+mingli-maya = { path = "crates/mingli-maya" }
+mingli-pawukon = { path = "crates/mingli-pawukon" }
+mingli-mahabote = { path = "crates/mingli-mahabote" }
+mingli-tibetan = { path = "crates/mingli-tibetan" }
+mingli-liuren = { path = "crates/mingli-liuren" }
+mingli-qimen = { path = "crates/mingli-qimen" }
+mingli-taiyi = { path = "crates/mingli-taiyi" }
+mingli-numerology = { path = "crates/mingli-numerology" }
+mingli-gematria = { path = "crates/mingli-gematria" }
+mingli-abjad = { path = "crates/mingli-abjad" }
+mingli-wuge = { path = "crates/mingli-wuge" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+# 全树统一 lint 上限。每个 crate 用 `[lints] workspace = true` 接入；
+# 接入即须 deny-clean（故 crate 在其 Phase 打磨到全文档后才接入）。
+[workspace.lints.rust]
+missing_docs = "deny"
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# 两个对「中文文档 + 数学符号代码」是纯噪音的 pedantic lint，全树豁免：
+doc_markdown = "allow"          # 中文/数学术语(GF(2)/Z_n/S¹)误报缺反引号
+many_single_char_names = "allow" # 数学代码 a,b,m,n,g,p 等单字符是惯例

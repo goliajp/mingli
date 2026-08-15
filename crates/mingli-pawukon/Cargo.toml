@@ -1,0 +1,21 @@
+[package]
+name = "mingli-pawukon"
+description = "L3 叶(A 族/确定性)：巴厘 Pawukon 历——210=2·3·5·7 上的十个并行週(wewaran)。简单週用 core::cyclic 并行相位，派生週(Dasawara/Dwiwara/Ekawara)用 urip 之和，卡日週(Catur/Asta/Sanga)按断点。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+mingli-astro = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "pawukon_bench"
+harness = false

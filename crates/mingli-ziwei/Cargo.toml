@@ -1,0 +1,22 @@
+[package]
+name = "mingli-ziwei"
+description = "L3 叶：紫微斗数排盘——命宫/身宫、五行局、起紫微、十四主星、十二宫。建于 astro(农历) + ganzhi(干支) + core(Z₁₂ 群作用)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-core = { workspace = true }
+mingli-astro = { workspace = true }
+mingli-ganzhi = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "ziwei_bench"
+harness = false

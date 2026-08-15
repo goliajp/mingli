@@ -1,0 +1,20 @@
+[package]
+name = "mingli-mahabote"
+description = "L3 叶(A 族/确定性)：缅甸 Mahabote(မဟာဘုတ်)——本命核心数 = (缅历年 − 星期) mod 7 落七宫之一。另出八天週(周三按午分 Mercury/Rahu)对应行星。由民用日序(JDN)算缅历年/星期。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "mahabote_bench"
+harness = false

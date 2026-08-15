@@ -1,0 +1,21 @@
+[package]
+name = "mingli-liuren"
+description = "L3 叶(⟂ 横切/确定性)：大六壬——天地盘(月将加时,Z₁₂ 旋转) + 天干寄宫 + 四课 + 三传课式判定。天地盘/四课经古法工作例校验;三传流派分歧处只判式不强编取传(诚实标 None)。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-astro = { workspace = true }
+mingli-ganzhi = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "liuren_bench"
+harness = false
