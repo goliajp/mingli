@@ -169,6 +169,45 @@ pub fn build_prompt_with_subject(leaf: &LeafOutput, subject: Subject) -> String 
     s
 }
 
+/// 占事（卜筮）释义的护栏——与本命的「解命」不同，占事要落到**断**。
+pub const EVENT_GUARDRAIL: &str = "你是术数释义助手。下面是【已由确定性引擎算好】的一次占事：\
+问事此刻 + 取机种子 + 数片卜筮叶各自的盘。规则：\
+1) 只读盘面，绝不改动或重算任何数字与名称；\
+2) 这是**占事**不是解命——围绕所问之事给出**断**：成与不成、吉凶、宜忌、可行的时机与方位；\
+3) 多片叶同时在场时，**先看它们指向是否一致**：一致则断得明确，相左则明说分歧在哪、以哪片为主及其理由；\
+4) 标 🟡 欠定的部分照实说「此处流派分歧、引擎诚实留空」，不要替它杜撰；\
+5) 取机种子是可复现的凭据，可点明「同一时刻同一取机可复核此盘」；\
+6) 若未给问句，就断此刻的整体态势与宜忌，不要虚构问的是什么事；\
+7) 用语克制，不堆术语；结尾加一句「仅供研究与娱乐」。\
+篇幅 250 字以内。\n\n";
+
+/// 占事各叶的读法提示。
+fn event_hints() -> &'static str {
+    "\n【读法】易经 / 梅花看本卦之卦与动爻定成败与变数；六壬看四课三传定事之来去；\
+奇门看值符值使所落之宫与门星神的吉凶旺衰定宜忌方位；塔罗看首牌与正逆；\
+地占 / Ifá / Sikidy 看法官（创世者）一柱定结论。诸叶指向一致处最可断，相左处要说明。\n"
+}
+
+/// 组装占事释义提示词（护栏 + 读法 + 占事 JSON）。
+#[must_use]
+pub fn build_event_prompt(event_json: &str) -> String {
+    format!("{EVENT_GUARDRAIL}{}\n占事结果 JSON：\n{event_json}\n", event_hints())
+}
+
+/// 释义一次占事，返回 `Interpretation { leaf: "event" }`。
+///
+/// # Errors
+///
+/// 释义后端不可用时返回其 I/O 错误。
+pub fn interpret_event(it: &dyn Interpreter, event_json: &str) -> std::io::Result<Interpretation> {
+    Ok(Interpretation {
+        leaf: "event".to_string(),
+        text: it.interpret(&build_event_prompt(event_json))?,
+        backend: it.backend(),
+        kind: "INT",
+    })
+}
+
 /// 团队合盘释义的护栏。
 pub const TEAM_GUARDRAIL: &str = "你是术数释义助手。下面是已由确定性引擎算好的【团队合盘】结果。规则：\
 1) 只解释，绝不修改或新增任何数字与名称；\
@@ -380,6 +419,33 @@ mod tests {
         for id in ["maya", "pawukon", "nope"] {
             assert!(semantic_hints(id).is_none());
         }
+    }
+
+    #[test]
+    fn event_prompt_asks_for_a_verdict_not_a_life_reading() {
+        let json = r#"{"asked_at":{"year":2026},"seed":2024,"question":"此事成否","leaves":[{"id":"yijing"}]}"#;
+        let p = build_event_prompt(json);
+        // 占事要落到「断」，并要求处理多叶指向不一致
+        assert!(p.contains("占事") && p.contains("断"));
+        assert!(p.contains("成与不成") && p.contains("宜忌"));
+        assert!(p.contains("相左"));
+        // 无问句时不得虚构所问
+        assert!(p.contains("不要虚构"));
+        // 取机可复现这一点要点明
+        assert!(p.contains("复核"));
+        // 读法提示覆盖到各族卜筮叶
+        for k in ["易经", "六壬", "奇门", "塔罗", "地占"] {
+            assert!(p.contains(k), "读法缺 {k}");
+        }
+        assert!(p.contains("仅供研究与娱乐"));
+        assert!(p.contains(json), "盘面 JSON 应原样注入");
+    }
+
+    #[test]
+    fn event_interpretation_round_trips_through_the_offline_backend() {
+        let r = interpret_event(&Template, r#"{"seed":1,"leaves":[]}"#).expect("模板后端应可用");
+        assert_eq!((r.leaf.as_str(), r.kind), ("event", "INT"));
+        assert_eq!(r.backend, "template");
     }
 
     #[test]

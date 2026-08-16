@@ -424,8 +424,8 @@ pub fn intents() -> &'static [IntentSpec] {
             "event", "事（占事）",
             &["instant(ask)", "seed(draw)", "text(question)"],
             &["yijing", "meihua", "liuren", "qimen", "tarot", "geomancy", "ifa", "sikidy"],
-            "断（成败/吉凶/宜忌）", Pending,
-            "卜筮叶 effective_seed 能力已在，差「问事此刻 + 取机动作」UI 与释义「断」模板；判词 🟡 交 LLM",
+            "断（成败/吉凶/宜忌）", Live,
+            "/api/event 按问事此刻 + 取机种子路由到 8 片卜筮叶各出一盘；释义走「断」模板，判词交 LLM",
         ),
         i(
             "election", "择（择吉）",
@@ -666,8 +666,8 @@ mod tests {
         ];
         let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
         assert_eq!(kind_ids.to_vec(), spec_ids);
-        // natal + onomancy + fortune 为 Live，其余 5 个 Pending。
+        // natal + onomancy + fortune + event 为 Live，其余 4 个 Pending。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
-        assert_eq!(live_count, 3, "natal + onomancy + fortune 为 Live");
+        assert_eq!(live_count, 4, "natal + onomancy + fortune + event 为 Live");
     }
 }
