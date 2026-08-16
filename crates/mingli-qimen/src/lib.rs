@@ -17,8 +17,11 @@
 //! 4. **人盘八门**：值使门自旬首宫按宫序号线性数过本旬时辰位次落宫，八门再沿同一圆周旋转
 //!    （[`gate_plate`]）。
 //!
-//! 诚实边界（🟡 暂缺）：八神布列（第 5/6 位勾陈 / 朱雀两派）暂无权威 oracle，不实现；
-//! 天禽与中宫寄宫取通行的坤 2，古本「阳遁寄艮 8」一派未开关。
+//! 5. **神盘八神**：直符与值符同宫，其余七神阳顺阴逆布外八宫（[`spirit_plate`]）。
+//!
+//! 诚实边界（🟡）：八神第 5 / 6 位的**称谓**两系不一（白虎 / 玄武 与 勾陈 / 朱雀），位序则一致，
+//! 故两名并出；天禽与中宫寄宫取通行的坤 2，古本「阳遁寄艮 8」一派未开关；
+//! 旺相休囚、格局判读尚未实现。
 //! 定局的「拆补法 / 置闰法」差异只在交节临界数日的元/局对齐，本 crate 用**主流拆补法**（符头定元）。
 
 #![allow(
@@ -194,6 +197,50 @@ pub fn gate_plate(xun_yi_palace: u8, head_branch: u8, time_branch: u8, yang_dun:
     }
 }
 
+/// 八神次序：值符 · 腾蛇 · 太阴 · 六合 · 白虎 · 玄武 · 九地 · 九天。
+///
+/// 🟡 第 5 / 6 位的**称谓**有两系：一系两遁通用「白虎 / 玄武」（本 crate 取此），
+/// 另一系阳遁称「勾陈 / 朱雀」、阴遁才称「白虎 / 玄武」（见 [`BA_SHEN_YANG_ALT`]）。
+/// 两系只是名字不同，**位序一致**，故结构确定、命名留待定夺。
+pub const BA_SHEN: [&str; 8] =
+    ["值符", "腾蛇", "太阴", "六合", "白虎", "玄武", "九地", "九天"];
+
+/// 另一系在**阳遁**下对第 5 / 6 位的称谓（勾陈 / 朱雀），其余六神同 [`BA_SHEN`]。
+pub const BA_SHEN_YANG_ALT: [&str; 8] =
+    ["值符", "腾蛇", "太阴", "六合", "勾陈", "朱雀", "九地", "九天"];
+
+/// 神盘八神。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct SpiritPlate {
+    /// 值符（直符）所在宫 1..=9 —— 八神的起点，随天盘值符走。
+    pub start_palace: u8,
+    /// 八神分布，`spirits[k]` = 第 `k+1` 宫；中 5 宫为空串（八神不入中宫）。
+    pub spirits: [&'static str; 9],
+    /// 同上，但第 5 / 6 位用另一系称谓（阳遁作勾陈 / 朱雀）——两系位序相同，只是名字不同。
+    pub spirits_alt: [&'static str; 9],
+}
+
+/// 八神布列：直符与值符同宫，其余七神自值符宫起沿 [`ORBIT`] 阳遁顺时针、阴遁逆时针依次落宫。
+///
+/// 校验：起点坎 1 的阳遁盘 → 坎1值符 艮8腾蛇 震3太阴 巽4六合 离9白虎 坤2玄武 兑7九地 乾6九天，
+/// 8 宫全中（公开教程例题）。
+///
+/// 起点取**天盘**旬首所在宫（即值符宫）；另有一路「地八神」以地盘旬首宫为起点，本 crate 不出。
+#[must_use]
+pub fn spirit_plate(zhi_fu_palace: u8, yang_dun: bool) -> SpiritPlate {
+    let start_palace = lodged_palace(zhi_fu_palace);
+    let start = orbit_index(start_palace);
+    let mut spirits = [""; 9];
+    let mut spirits_alt = [""; 9];
+    for k in 0..8 {
+        let i = if yang_dun { (start + k) % 8 } else { (start + 8 - k) % 8 };
+        let p = ORBIT[i] as usize - 1;
+        spirits[p] = BA_SHEN[k];
+        spirits_alt[p] = if yang_dun { BA_SHEN_YANG_ALT[k] } else { BA_SHEN[k] };
+    }
+    SpiritPlate { start_palace, spirits, spirits_alt }
+}
+
 /// 地盘实排序列：六仪顺 + 三奇逆 → 戊己庚辛壬癸丁丙乙（值为天干序 0..9）。
 /// 阳遁沿宫序 +1 铺这条序列、阴遁沿宫序 −1 铺（互为镜像）：
 /// 镜像后六仪自然逆行、三奇自然顺行（乙丙丁落于宫序递增的三宫），故两遁共用此序。
@@ -355,6 +402,8 @@ pub struct Cast {
     pub sky: SkyPlate,
     /// 人盘：值使门与旋转后的八门分布。
     pub gates: GatePlate,
+    /// 神盘：八神布列。
+    pub spirits: SpiritPlate,
 }
 
 /// 时柱地支（子时寄前夜 23：00）：奇门用「夜子归次日」（主流）。
@@ -464,6 +513,8 @@ pub fn compute_at(m: &Moment) -> Cast {
     let sky = sky_rotation(&earth, xun_yi_palace, zhi_fu_palace);
     // 人盘 — 值使随时辰走：自旬首宫按宫序号线性数过本旬时辰位次。
     let gates = gate_plate(xun_yi_palace, head_branch, time.branch, setup.yang_dun);
+    // 神盘 — 直符与值符同宫，八神阳顺阴逆布外八宫。
+    let spirits = spirit_plate(zhi_fu_palace, setup.yang_dun);
 
     Cast {
         setup,
@@ -482,6 +533,7 @@ pub fn compute_at(m: &Moment) -> Cast {
         jiuxing_earth,
         sky,
         gates,
+        spirits,
     }
 }
 
@@ -493,6 +545,65 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 
 #[cfg(test)]
 mod tests {
+
+    /// 起点坎 1 的阳遁八神（公开教程例题）：沿圆周顺时针依次落 8 宫。
+    #[test]
+    fn qm3_spirits_oracle_yang_from_kan_one() {
+        let s = spirit_plate(1, true);
+        assert_eq!(s.start_palace, 1);
+        assert_eq!(
+            s.spirits,
+            ["值符", "玄武", "太阴", "六合", "", "九天", "九地", "腾蛇", "白虎"],
+            "坎1值符 坤2玄武 震3太阴 巽4六合 中5空 乾6九天 兑7九地 艮8腾蛇 离9白虎"
+        );
+        // 另一系只换第 5 / 6 位的名字，位置不动
+        assert_eq!(s.spirits_alt[8], "勾陈", "离 9 的白虎在另一系作勾陈");
+        assert_eq!(s.spirits_alt[1], "朱雀", "坤 2 的玄武在另一系作朱雀");
+        assert_eq!(s.spirits_alt[0], "值符");
+    }
+
+    /// 阴遁逆布：同一起点下顺序沿圆周反向，且阴遁不改名。
+    #[test]
+    fn qm3_spirits_run_backwards_under_yin_escape() {
+        let s = spirit_plate(1, false);
+        assert_eq!(
+            s.spirits,
+            ["值符", "六合", "九地", "玄武", "", "腾蛇", "太阴", "九天", "白虎"],
+            "坎1值符 乾6腾蛇 兑7太阴 坤2玄武…… 逆时针"
+        );
+        assert_eq!(s.spirits_alt, s.spirits, "阴遁两系同名");
+    }
+
+    /// 任意起点与遁向：八神恒是外八宫的置换，值符恒在起点，中宫恒空。
+    #[test]
+    fn qm3_spirits_are_a_permutation_anchored_at_the_duty_symbol() {
+        let want: std::collections::BTreeSet<&str> = BA_SHEN.iter().copied().collect();
+        for &yang in &[true, false] {
+            for start in [1u8, 2, 3, 4, 5, 6, 7, 8, 9] {
+                let s = spirit_plate(start, yang);
+                assert_eq!(s.spirits[4], "");
+                assert_eq!(s.spirits[s.start_palace as usize - 1], "值符");
+                let got: std::collections::BTreeSet<&str> =
+                    ORBIT.iter().map(|&p| s.spirits[p as usize - 1]).collect();
+                assert_eq!(got, want);
+            }
+        }
+        assert_eq!(spirit_plate(5, true), spirit_plate(2, true), "落中 5 按寄坤 2 论");
+    }
+
+    /// 1987-09-17 15:00（阴遁 3 局，值符宫艮 8）整链回归。
+    #[test]
+    fn qm3_spirits_on_the_reference_moment() {
+        let c = compute(1987, 9, 17, 15, 0, 8.0);
+        assert_eq!(c.spirits.start_palace, 8);
+        assert_eq!(c.spirits.spirits[7], "值符");
+        // 阴遁自艮 8 逆行：艮8 → 坎1 → 乾6 → 兑7 → 坤2 → 离9 → 巽4 → 震3
+        assert_eq!(
+            c.spirits.spirits,
+            ["腾蛇", "白虎", "九天", "九地", "", "太阴", "六合", "值符", "玄武"]
+        );
+    }
+
 
     /// 阳遁一局庚午时（古例）：旬首戊在坎 1，庚午是甲子旬第 7 个时辰，
     /// 值使休门自坎 1 按宫号顺数 6 步落兑 7；八门 8 宫逐宫比对。
