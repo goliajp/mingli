@@ -4,6 +4,11 @@
   --shu: #d8392e; --shu-soft: #e0584c;
   --kin: #c9a24a; --kin-bright: #e6c878;
   --teal: #5fb3bf;
+  /* 木绿：运层、意图 Live、三奇等处一直在引用，此前漏定义 */
+  --mu: #8cb45a; --mu-soft: rgba(140, 180, 90, 0.14);
+  --huo: #e0584c;
+  --kin-soft: rgba(201, 162, 74, 0.14);
+  --washi-soft: #d6c9b0;
   --line: rgba(201, 162, 74, 0.20);
   --line-strong: rgba(201, 162, 74, 0.42);
   --mono: ui-monospace, 'SF Mono', Menlo, monospace;
@@ -805,10 +810,6 @@ body::before {
 .foot { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); margin-top: 22px; text-align: center; }
 
 /* —— 奇门天盘：中宫寄干挂在寄宫格上 —— */
-.qm-lodged { margin-left: 6px; font-size: 13px; color: var(--mu); font-weight: 600; }
-.g9-gate { display: block; font-size: 13px; color: var(--shu); letter-spacing: .04em; }
-.g9-shen { display: block; font-size: 13px; color: var(--mu); letter-spacing: .04em; }
-.g9-vigor { margin-left: 4px; font-size: 12px; color: var(--washi-faint); font-weight: 600; }
 
 /* —— 奇门格局 chip —— */
 .qm-pat { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
@@ -816,3 +817,32 @@ body::before {
 .qm-chip.on { border-color: var(--shu); color: var(--shu); }
 .qm-chip.qi { border-color: var(--mu); color: var(--mu); }
 .qm-chip.none { color: var(--washi-faint); border-style: dashed; }
+
+/* —— 奇门时家盘：一宫四层（神 / 星 · 旺衰 / 门 / 天盘干／地盘干） —— */
+.qm-cell {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 9px; min-height: 92px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: rgba(255, 255, 255, .02);
+}
+.qm-cell.is-zhifu { border-color: var(--shu); box-shadow: inset 0 0 0 1px rgba(188, 71, 71, .25); }
+.qm-cell.is-zhishi { border-color: var(--teal); }
+.qm-cell.is-yi { background: rgba(212, 168, 67, .07); }
+.qm-cell.is-zhifu.is-zhishi { border-color: var(--kin); }
+.qm-r1 { display: flex; justify-content: space-between; align-items: baseline; }
+.qm-shen { font-size: 13px; color: var(--mu); letter-spacing: .04em; }
+.qm-gong { font-size: 12px; color: var(--washi-faint); }
+.qm-r2 { font-size: 15px; color: var(--washi); letter-spacing: .04em; }
+.qm-vigor { margin-left: 5px; font-size: 12px; color: var(--washi-faint); font-weight: 600; }
+.qm-r3 { font-size: 14px; color: var(--shu); letter-spacing: .04em; }
+.qm-r4 { display: flex; align-items: baseline; gap: 2px; margin-top: 1px; }
+.qm-sky-stem { font-size: 19px; color: var(--kin-bright); font-weight: 600; }
+.qm-lodged { margin-left: 4px; font-size: 14px; color: var(--mu); }
+.qm-sep { font-style: normal; color: var(--washi-faint); font-size: 13px; }
+.qm-earth-stem { font-size: 15px; color: var(--washi-dim); }
+.qm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; }
+.qm-key { padding: 2px 9px; border: 1px solid var(--line); border-radius: 10px; color: var(--washi-dim); }
+.qm-key.is-zhifu { border-color: var(--shu); color: var(--shu); }
+.qm-key.is-zhishi { border-color: var(--teal); color: var(--teal); }
+.qm-key.is-yi { background: rgba(212, 168, 67, .07); }
+.qm-key-note { color: var(--washi-faint); }

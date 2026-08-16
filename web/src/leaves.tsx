@@ -908,8 +908,12 @@ interface QimenSky {
 const BRANCH_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 const YUAN_CN: Record<string, string> = { Upper: '上元', Middle: '中元', Lower: '下元' }
 function Qimen({ c }: { c: QimenChart }) {
-  const headGongName = `${c.palace[c.xun_yi_palace - 1]}${c.xun_yi_palace}`
-  const zhiFuGongName = `${c.palace[c.zhi_fu_palace - 1]}${c.zhi_fu_palace}`
+  const gongName = (g: number) => `${c.palace[g - 1]}${g}`
+  const headGongName = gongName(c.xun_yi_palace)
+  const zhiFuGongName = gongName(c.zhi_fu_palace)
+  const pat = c.patterns
+  const noPattern = !pat.full_fu_yin && !pat.star_fu_yin && !pat.star_fan_yin && !pat.gate_fu_yin
+    && !pat.gate_fan_yin && pat.stem_fu_yin_palaces.length === 0 && pat.qi_gates.length === 0
   return (
     <div className="lp">
       <Section title={`${c.setup.yang_dun ? '阳遁' : '阴遁'} ${c.setup.ju} 局 · ${c.setup.term} · ${YUAN_CN[c.setup.yuan] ?? c.setup.yuan}`}>
@@ -921,68 +925,68 @@ function Qimen({ c }: { c: QimenChart }) {
           <Stat k="值符干" v={`${c.zhi_fu_stem_name}${c.time_stem === 0 ? ' (甲遁仪)' : ''}`} hi />
           <Stat k="值符宫" v={zhiFuGongName} hi />
           <Stat k="值符星（本旬）" v={c.zhi_fu_xing} />
-          <Stat k="旬首宫" v={headGongName} />
           <Stat k="值使门" v={c.gates.zhi_shi_gate} hi />
-          <Stat k="值使落宫" v={`${c.palace[c.gates.zhi_shi_palace - 1]}${c.gates.zhi_shi_palace}`} hi />
+          <Stat k="值使落宫" v={gongName(c.gates.zhi_shi_palace)} hi />
           <Stat k="月令" v={`${c.month_element}（${BRANCH_NAMES[c.month_branch]}月）`} />
         </div>
       </Section>
-      <Section title={`天盘 + 人盘 + 神盘（值符随时干转 ${c.sky.shift} 格 · 值使随时辰转 ${c.gates.shift} 格 · 八神${c.setup.yang_dun ? '顺' : '逆'}布）`}>
-        <Grid9 head={`值符星 ${c.zhi_fu_xing} 自 ${headGongName} 转到 ${zhiFuGongName}；中 5 寄坤 2，中宫之干 ${c.sky.center_stem} 随之落 ${c.palace[c.sky.center_palace - 1]}${c.sky.center_palace}`}
+
+      <Section title="时家盘 · 九宫">
+        <Grid9 head={`每宫自上而下：八神 · 天盘星（后缀旺衰） · 八门 · 天盘干／地盘干。值符星 ${c.zhi_fu_xing} 自旬首宫 ${headGongName} 转到 ${zhiFuGongName}（转 ${c.sky.shift} 格）；值使 ${c.gates.zhi_shi_gate} 落 ${gongName(c.gates.zhi_shi_palace)}（转 ${c.gates.shift} 格）；八神自值符宫${c.setup.yang_dun ? '顺' : '逆'}布`}
           render={(g) => {
-            const lodged = g === c.sky.center_palace
+            const k = g - 1
+            const center = g === 5
+            const cls = ['qm-cell']
+            if (g === c.zhi_fu_palace) cls.push('is-zhifu')
+            if (g === c.gates.zhi_shi_palace) cls.push('is-zhishi')
+            if (g === c.xun_yi_palace) cls.push('is-yi')
             return (
-              <div className={`g9 qm${g === c.zhi_fu_palace ? ' qm-zhifu' : ''}`}>
-                <span className="g9-stem">
-                  {c.sky.stems[g - 1] || '—'}
-                  {lodged && <b className="qm-lodged">{c.sky.center_stem}</b>}
-                </span>
-                <span className="g9-star">
-                  {c.sky.stars[g - 1] || '（天禽寄坤 2）'}
-                  {c.star_vigor[g - 1] && <b className="g9-vigor">{c.star_vigor[g - 1]}</b>}
-                </span>
-                <span className="g9-gate">{c.gates.gates[g - 1] || '—'}</span>
-                <span className="g9-shen" title={c.spirits.spirits_alt[g - 1] !== c.spirits.spirits[g - 1] ? `另一系作「${c.spirits.spirits_alt[g - 1]}」` : undefined}>
-                  {c.spirits.spirits[g - 1] || '—'}
-                </span>
-                <span className="g9-gong">{c.palace[g - 1]}{g}</span>
+              <div className={cls.join(' ')}>
+                <div className="qm-r1">
+                  <span className="qm-shen" title={c.spirits.spirits_alt[k] !== c.spirits.spirits[k] ? `另一系作「${c.spirits.spirits_alt[k]}」` : undefined}>
+                    {c.spirits.spirits[k] || (center ? '' : '—')}
+                  </span>
+                  <span className="qm-gong">{c.palace[k]}{g}</span>
+                </div>
+                <div className="qm-r2" title={`原配 ${c.jiuxing_earth[k]}`}>
+                  {center ? '天禽寄坤 2' : (c.sky.stars[k] || '—')}
+                  {c.star_vigor[k] && <b className="qm-vigor">{c.star_vigor[k]}</b>}
+                </div>
+                <div className="qm-r3">{c.gates.gates[k] || (center ? '' : '—')}</div>
+                <div className="qm-r4">
+                  <b className="qm-sky-stem">{c.sky.stems[k] || '—'}</b>
+                  {g === c.sky.center_palace && <b className="qm-lodged" title="中宫寄干，随坤 2 同转">{c.sky.center_stem}</b>}
+                  <i className="qm-sep">／</i>
+                  <span className="qm-earth-stem">{c.earth[k]}</span>
+                </div>
               </div>
             )
           }} />
-      </Section>
-      <Section title="盘面格局（结构事实，吉凶判读交释义层）">
-        <div className="qm-pat">
-          {c.patterns.full_fu_yin && <span className="qm-chip on">全盘伏吟</span>}
-          {c.patterns.star_fu_yin && <span className="qm-chip">星伏吟</span>}
-          {c.patterns.star_fan_yin && <span className="qm-chip">星反吟</span>}
-          {c.patterns.gate_fu_yin && <span className="qm-chip">门伏吟</span>}
-          {c.patterns.gate_fan_yin && <span className="qm-chip">门反吟</span>}
-          {c.patterns.stem_fu_yin_palaces.length > 0 &&
-            <span className="qm-chip">干伏吟 · {c.patterns.stem_fu_yin_palaces.map((g) => `${c.palace[g - 1]}${g}`).join(' ')}</span>}
-          {c.patterns.qi_gates.map((q) => (
-            <span className="qm-chip qi" key={q.palace}>{q.qi} 临 {q.gate} · {c.palace[q.palace - 1]}{q.palace}</span>
-          ))}
-          {!c.patterns.full_fu_yin && !c.patterns.star_fu_yin && !c.patterns.star_fan_yin
-            && !c.patterns.gate_fu_yin && !c.patterns.gate_fan_yin
-            && c.patterns.stem_fu_yin_palaces.length === 0 && c.patterns.qi_gates.length === 0
-            && <span className="qm-chip none">本盘无已收格局</span>}
+        <div className="qm-legend">
+          <span className="qm-key is-zhifu">值符宫</span>
+          <span className="qm-key is-zhishi">值使宫</span>
+          <span className="qm-key is-yi">旬首宫</span>
+          <span className="qm-key-note">天盘干在上、地盘干在下；星名悬停可见其原配宫位</span>
         </div>
       </Section>
-      <Section title="地盘九宫（三奇六仪） + 九星原配">
-        <Grid9 head={`旬首 ${c.xun.head_yi} → ${headGongName}（值符星 ${c.zhi_fu_xing}） · 时干 ${c.zhi_fu_stem_name} → ${zhiFuGongName}（值符宫）`}
-          render={(g) => {
-            const isYiPalace = g === c.xun_yi_palace
-            const isZhiFu = g === c.zhi_fu_palace
-            return (
-              <div className={`g9 qm${isYiPalace ? ' qm-yi' : ''}${isZhiFu ? ' qm-zhifu' : ''}`}>
-                <span className="g9-stem">{c.earth[g - 1]}</span>
-                <span className="g9-star">{c.jiuxing_earth[g - 1]}</span>
-                <span className="g9-gong">{c.palace[g - 1]}{g}</span>
-              </div>
-            )
-          }} />
+
+      <Section title="盘面格局（结构事实，吉凶判读交释义层）">
+        <div className="qm-pat">
+          {pat.full_fu_yin && <span className="qm-chip on">全盘伏吟</span>}
+          {pat.star_fu_yin && <span className="qm-chip">星伏吟</span>}
+          {pat.star_fan_yin && <span className="qm-chip">星反吟</span>}
+          {pat.gate_fu_yin && <span className="qm-chip">门伏吟</span>}
+          {pat.gate_fan_yin && <span className="qm-chip">门反吟</span>}
+          {pat.stem_fu_yin_palaces.length > 0 &&
+            <span className="qm-chip">干伏吟 · {pat.stem_fu_yin_palaces.map(gongName).join(' ')}</span>}
+          {pat.qi_gates.map((q) => (
+            <span className="qm-chip qi" key={q.palace}>{q.qi} 临 {q.gate} · {gongName(q.palace)}</span>
+          ))}
+          {noPattern && <span className="qm-chip none">本盘无已收格局</span>}
+        </div>
       </Section>
-      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · <b>天盘（九星 + 三奇六仪）</b> · <b>人盘八门</b> · <b>神盘八神</b>。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故两名并出，鼠标悬停可见另一系；中宫与天禽寄宫取通行的坤 2。星名后的小字是该星在月令下的旺相休囚死。格局只收无争议的伏吟 / 反吟 / 三奇临吉门，其余 200+ 条各家出入大，未收。</div>
+
+      <div className="lp-note">四盘齐全：地盘三奇六仪 · 天盘（九星 + 三奇六仪随值符转）· 人盘八门（值使随时辰数）· 神盘八神；星名后小字是该星在月令下的旺相休囚死。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故悬停可见另一系；中宫与天禽寄宫取通行的坤 2。格局只收无争议的伏吟 / 反吟 / 三奇临吉门，其余 200+ 条各家出入大，未收。</div>
     </div>
   )
 }
