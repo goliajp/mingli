@@ -871,6 +871,17 @@ interface QimenChart {
   month_branch: number
   month_element: string
   star_vigor: string[]
+  patterns: QimenPatterns
+}
+
+interface QimenPatterns {
+  star_fu_yin: boolean
+  star_fan_yin: boolean
+  gate_fu_yin: boolean
+  gate_fan_yin: boolean
+  stem_fu_yin_palaces: number[]
+  full_fu_yin: boolean
+  qi_gates: { palace: number; qi: string; gate: string }[]
 }
 
 interface QimenSpirits {
@@ -939,6 +950,24 @@ function Qimen({ c }: { c: QimenChart }) {
             )
           }} />
       </Section>
+      <Section title="盘面格局（结构事实，吉凶判读交释义层）">
+        <div className="qm-pat">
+          {c.patterns.full_fu_yin && <span className="qm-chip on">全盘伏吟</span>}
+          {c.patterns.star_fu_yin && <span className="qm-chip">星伏吟</span>}
+          {c.patterns.star_fan_yin && <span className="qm-chip">星反吟</span>}
+          {c.patterns.gate_fu_yin && <span className="qm-chip">门伏吟</span>}
+          {c.patterns.gate_fan_yin && <span className="qm-chip">门反吟</span>}
+          {c.patterns.stem_fu_yin_palaces.length > 0 &&
+            <span className="qm-chip">干伏吟 · {c.patterns.stem_fu_yin_palaces.map((g) => `${c.palace[g - 1]}${g}`).join(' ')}</span>}
+          {c.patterns.qi_gates.map((q) => (
+            <span className="qm-chip qi" key={q.palace}>{q.qi} 临 {q.gate} · {c.palace[q.palace - 1]}{q.palace}</span>
+          ))}
+          {!c.patterns.full_fu_yin && !c.patterns.star_fu_yin && !c.patterns.star_fan_yin
+            && !c.patterns.gate_fu_yin && !c.patterns.gate_fan_yin
+            && c.patterns.stem_fu_yin_palaces.length === 0 && c.patterns.qi_gates.length === 0
+            && <span className="qm-chip none">本盘无已收格局</span>}
+        </div>
+      </Section>
       <Section title="地盘九宫（三奇六仪） + 九星原配">
         <Grid9 head={`旬首 ${c.xun.head_yi} → ${headGongName}（值符星 ${c.zhi_fu_xing}） · 时干 ${c.zhi_fu_stem_name} → ${zhiFuGongName}（值符宫）`}
           render={(g) => {
@@ -953,7 +982,7 @@ function Qimen({ c }: { c: QimenChart }) {
             )
           }} />
       </Section>
-      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · <b>天盘（九星 + 三奇六仪）</b> · <b>人盘八门</b> · <b>神盘八神</b>。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故两名并出，鼠标悬停可见另一系；中宫与天禽寄宫取通行的坤 2。星名后的小字是该星在月令下的旺相休囚死。尚未实现：格局判读。</div>
+      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · <b>天盘（九星 + 三奇六仪）</b> · <b>人盘八门</b> · <b>神盘八神</b>。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故两名并出，鼠标悬停可见另一系；中宫与天禽寄宫取通行的坤 2。星名后的小字是该星在月令下的旺相休囚死。格局只收无争议的伏吟 / 反吟 / 三奇临吉门，其余 200+ 条各家出入大，未收。</div>
     </div>
   )
 }
