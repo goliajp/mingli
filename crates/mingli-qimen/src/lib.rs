@@ -35,6 +35,7 @@ mod engine;
 pub use engine::QimenEngine;
 
 use mingli_astro::Moment;
+use mingli_ganzhi::Element;
 use serde::Serialize;
 
 /// 24 节气名，按 `floor(λ/15)` 索引（春分=0 … 惊蛰=23）。
@@ -241,6 +242,89 @@ pub fn spirit_plate(zhi_fu_palace: u8, yang_dun: bool) -> SpiritPlate {
     SpiritPlate { start_palace, spirits, spirits_alt }
 }
 
+/// 九星五行，与宫号对齐（索引 0 占位）：蓬水 · 芮土 · 冲木 · 辅木 · 禽土 · 心金 · 柱金 · 任土 · 英火。
+pub const JIU_XING_ELEMENT: [Element; 10] = [
+    Element::Earth,
+    Element::Water,
+    Element::Earth,
+    Element::Wood,
+    Element::Wood,
+    Element::Earth,
+    Element::Metal,
+    Element::Metal,
+    Element::Earth,
+    Element::Fire,
+];
+
+/// 五行在月令下的强弱五等级。
+///
+/// 取《五行大义》以来的通行判法：**当令者旺、令生者相、生令者休、克令者囚、令克者死**。
+/// （另有一路以星为主体、含「废」的五等级说法，非通行，本 crate 不取。）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum Vigor {
+    /// 旺：与月令同五行，当令。
+    Wang,
+    /// 相：月令所生，次旺。
+    Xiang,
+    /// 休：生月令者，气已泄。
+    Xiu,
+    /// 囚：克月令者，反受制。
+    Qiu,
+    /// 死：月令所克，气尽。
+    Si,
+}
+
+impl Vigor {
+    /// 中文标签。
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Vigor::Wang => "旺",
+            Vigor::Xiang => "相",
+            Vigor::Xiu => "休",
+            Vigor::Qiu => "囚",
+            Vigor::Si => "死",
+        }
+    }
+}
+
+/// 由节气序号取节气月支 0..=11（0 = 子）。每个「节」开启一个月，故两气一支。
+///
+/// [`SOLAR_TERMS`] 自春分（黄经 0°）起排，立春在 21 位开寅月。
+#[must_use]
+pub fn month_branch_of_term(term_index: usize) -> u8 {
+    let k = ((term_index + 3) % 24) / 2;
+    u8::try_from((k + 2) % 12).unwrap_or(0)
+}
+
+/// 地支五行（寅卯木 · 巳午火 · 申酉金 · 亥子水 · 辰戌丑未土）。
+#[must_use]
+pub fn branch_element_of(branch: u8) -> Element {
+    mingli_ganzhi::branch_element(branch)
+}
+
+/// 判某五行在给定月令下的旺相休囚死。
+#[must_use]
+pub fn vigor_of(subject: Element, month: Element) -> Vigor {
+    if subject == month {
+        Vigor::Wang
+    } else if month.generates() == subject {
+        Vigor::Xiang
+    } else if subject.generates() == month {
+        Vigor::Xiu
+    } else if subject.controls() == month {
+        Vigor::Qiu
+    } else {
+        Vigor::Si
+    }
+}
+
+/// 由星名取其五行（未知星名返回 `None`）。
+#[must_use]
+pub fn star_element(name: &str) -> Option<Element> {
+    (1..=9).find(|&p| JIU_XING_PALACE[p] == name).map(|p| JIU_XING_ELEMENT[p])
+}
+
 /// 地盘实排序列：六仪顺 + 三奇逆 → 戊己庚辛壬癸丁丙乙（值为天干序 0..9）。
 /// 阳遁沿宫序 +1 铺这条序列、阴遁沿宫序 −1 铺（互为镜像）：
 /// 镜像后六仪自然逆行、三奇自然顺行（乙丙丁落于宫序递增的三宫），故两遁共用此序。
@@ -404,6 +488,12 @@ pub struct Cast {
     pub gates: GatePlate,
     /// 神盘：八神布列。
     pub spirits: SpiritPlate,
+    /// 节气月支 0..=11（0 = 子）——判旺相休囚的月令。
+    pub month_branch: u8,
+    /// 月令五行字面。
+    pub month_element: &'static str,
+    /// 各宫**天盘星**在月令下的旺相休囚死，`star_vigor[k]` = 第 `k+1` 宫；中 5 宫为空串。
+    pub star_vigor: [&'static str; 9],
 }
 
 /// 时柱地支（子时寄前夜 23：00）：奇门用「夜子归次日」（主流）。
@@ -515,6 +605,15 @@ pub fn compute_at(m: &Moment) -> Cast {
     let gates = gate_plate(xun_yi_palace, head_branch, time.branch, setup.yang_dun);
     // 神盘 — 直符与值符同宫，八神阳顺阴逆布外八宫。
     let spirits = spirit_plate(zhi_fu_palace, setup.yang_dun);
+    // 旺相休囚 — 以节气月令衡量各宫天盘星的五行。
+    let month_branch = month_branch_of_term(term_index);
+    let month_el = branch_element_of(month_branch);
+    let mut star_vigor = [""; 9];
+    for (slot, star) in star_vigor.iter_mut().zip(sky.stars) {
+        if let Some(e) = star_element(star) {
+            *slot = vigor_of(e, month_el).label();
+        }
+    }
 
     Cast {
         setup,
@@ -534,6 +633,9 @@ pub fn compute_at(m: &Moment) -> Cast {
         sky,
         gates,
         spirits,
+        month_branch,
+        month_element: month_el.name(),
+        star_vigor,
     }
 }
 
@@ -545,6 +647,78 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 
 #[cfg(test)]
 mod tests {
+
+    /// 每个「节」开一个月，两气一支：24 节气恰好铺满 12 支，各支两次，且立春开寅月。
+    #[test]
+    fn qm4_two_terms_per_month_branch() {
+        let mut count = [0u8; 12];
+        for i in 0..24 {
+            count[month_branch_of_term(i) as usize] += 1;
+        }
+        assert_eq!(count, [2; 12]);
+        assert_eq!(month_branch_of_term(21), 2, "立春开寅月");
+        assert_eq!(month_branch_of_term(22), 2, "雨水仍在寅月");
+        assert_eq!(month_branch_of_term(11), 9, "白露属酉月");
+        assert_eq!(month_branch_of_term(18), 0, "冬至属子月");
+    }
+
+    /// 旺相休囚死的通行判法：当令旺、令生相、生令休、克令囚、令克死。
+    #[test]
+    fn qm4_vigor_follows_the_classical_definition() {
+        use Element::{Earth, Fire, Metal, Water, Wood};
+        // 春木当令：木旺、火相（木生火）、水休（水生木）、金囚（金克木）、土死（木克土）
+        assert_eq!(vigor_of(Wood, Wood), Vigor::Wang);
+        assert_eq!(vigor_of(Fire, Wood), Vigor::Xiang);
+        assert_eq!(vigor_of(Water, Wood), Vigor::Xiu);
+        assert_eq!(vigor_of(Metal, Wood), Vigor::Qiu);
+        assert_eq!(vigor_of(Earth, Wood), Vigor::Si);
+        // 五行 × 五行穷举：每个月令下五等级恰好各出现一次
+        for month in [Metal, Wood, Water, Fire, Earth] {
+            let mut seen = std::collections::BTreeSet::new();
+            for s in [Metal, Wood, Water, Fire, Earth] {
+                assert!(seen.insert(vigor_of(s, month).label()));
+            }
+            assert_eq!(seen.len(), 5);
+        }
+    }
+
+    /// 星名 → 五行：9 星齐备，未知名给 None。
+    #[test]
+    fn qm4_star_elements_are_complete() {
+        assert_eq!(star_element("天蓬"), Some(Element::Water));
+        assert_eq!(star_element("天芮"), Some(Element::Earth));
+        assert_eq!(star_element("天英"), Some(Element::Fire));
+        assert_eq!(star_element("天心"), Some(Element::Metal));
+        assert_eq!(star_element("天冲"), Some(Element::Wood));
+        assert!(star_element("").is_none() && star_element("天某").is_none());
+        assert_eq!((1..=9).filter(|&p| star_element(JIU_XING_PALACE[p]).is_some()).count(), 9);
+    }
+
+    /// 1987-09-17 15:00（白露 → 酉月，月令金）：金星旺、水星相、土星休、火星囚、木星死。
+    #[test]
+    fn qm4_vigor_on_the_reference_moment() {
+        let c = compute(1987, 9, 17, 15, 0, 8.0);
+        assert_eq!((c.month_branch, c.month_element), (9, "金"));
+        for k in 0..9 {
+            let star = c.sky.stars[k];
+            if star.is_empty() {
+                assert_eq!(c.star_vigor[k], "");
+                continue;
+            }
+            let want = match star_element(star).expect("九星五行齐备") {
+                Element::Metal => "旺",
+                Element::Water => "相",
+                Element::Earth => "休",
+                Element::Fire => "囚",
+                Element::Wood => "死",
+            };
+            assert_eq!(c.star_vigor[k], want, "{star} 在酉月");
+        }
+        // 抽两宫核对：艮 8 天冲（木）死、兑 7 天心（金）旺
+        assert_eq!((c.sky.stars[7], c.star_vigor[7]), ("天冲", "死"));
+        assert_eq!((c.sky.stars[6], c.star_vigor[6]), ("天心", "旺"));
+    }
+
 
     /// 起点坎 1 的阳遁八神（公开教程例题）：沿圆周顺时针依次落 8 宫。
     #[test]

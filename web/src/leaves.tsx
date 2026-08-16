@@ -868,6 +868,9 @@ interface QimenChart {
   sky: QimenSky
   gates: QimenGates
   spirits: QimenSpirits
+  month_branch: number
+  month_element: string
+  star_vigor: string[]
 }
 
 interface QimenSpirits {
@@ -891,6 +894,7 @@ interface QimenSky {
   center_stem: string
   center_palace: number
 }
+const BRANCH_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 const YUAN_CN: Record<string, string> = { Upper: '上元', Middle: '中元', Lower: '下元' }
 function Qimen({ c }: { c: QimenChart }) {
   const headGongName = `${c.palace[c.xun_yi_palace - 1]}${c.xun_yi_palace}`
@@ -909,6 +913,7 @@ function Qimen({ c }: { c: QimenChart }) {
           <Stat k="旬首宫" v={headGongName} />
           <Stat k="值使门" v={c.gates.zhi_shi_gate} hi />
           <Stat k="值使落宫" v={`${c.palace[c.gates.zhi_shi_palace - 1]}${c.gates.zhi_shi_palace}`} hi />
+          <Stat k="月令" v={`${c.month_element}（${BRANCH_NAMES[c.month_branch]}月）`} />
         </div>
       </Section>
       <Section title={`天盘 + 人盘 + 神盘（值符随时干转 ${c.sky.shift} 格 · 值使随时辰转 ${c.gates.shift} 格 · 八神${c.setup.yang_dun ? '顺' : '逆'}布）`}>
@@ -921,7 +926,10 @@ function Qimen({ c }: { c: QimenChart }) {
                   {c.sky.stems[g - 1] || '—'}
                   {lodged && <b className="qm-lodged">{c.sky.center_stem}</b>}
                 </span>
-                <span className="g9-star">{c.sky.stars[g - 1] || '（天禽寄坤 2）'}</span>
+                <span className="g9-star">
+                  {c.sky.stars[g - 1] || '（天禽寄坤 2）'}
+                  {c.star_vigor[g - 1] && <b className="g9-vigor">{c.star_vigor[g - 1]}</b>}
+                </span>
                 <span className="g9-gate">{c.gates.gates[g - 1] || '—'}</span>
                 <span className="g9-shen" title={c.spirits.spirits_alt[g - 1] !== c.spirits.spirits[g - 1] ? `另一系作「${c.spirits.spirits_alt[g - 1]}」` : undefined}>
                   {c.spirits.spirits[g - 1] || '—'}
@@ -945,7 +953,7 @@ function Qimen({ c }: { c: QimenChart }) {
             )
           }} />
       </Section>
-      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · <b>天盘（九星 + 三奇六仪）</b> · <b>人盘八门</b> · <b>神盘八神</b>。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故两名并出，鼠标悬停可见另一系；中宫与天禽寄宫取通行的坤 2。尚未实现：旺相休囚 · 格局判读。</div>
+      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · <b>天盘（九星 + 三奇六仪）</b> · <b>人盘八门</b> · <b>神盘八神</b>。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故两名并出，鼠标悬停可见另一系；中宫与天禽寄宫取通行的坤 2。星名后的小字是该星在月令下的旺相休囚死。尚未实现：格局判读。</div>
     </div>
   )
 }
