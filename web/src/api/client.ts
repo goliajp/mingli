@@ -1,7 +1,7 @@
 // 后端 HTTP 客户端。所有网络访问集中在这里，组件只调具名端点，不碰 fetch 与路径字面。
 import type {
   Analysis, BaziChart, CastResponse, ChartRequest, Election, EventCast, FortuneResponse, IntentsResponse,
-  Interpretation, Locative, OverlayStrength, Synastry, TeamResult, ZiweiChart,
+  Interpretation, Locative, Mundane, OverlayStrength, Synastry, TeamResult, ZiweiChart,
 } from '../types'
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -86,3 +86,9 @@ export const fetchSynastry = (body: unknown) => post<Synastry>('/api/synastry', 
 
 /** 合盘的「配」释义。 */
 export const fetchSynastryAdvice = (body: unknown) => post<Interpretation>('/api/synastry/interpret', body)
+
+/** 国运：立国盘 + 太乙行宫时间线 + 年度盘。 */
+export const fetchMundane = (body: unknown) => post<Mundane>('/api/mundane', body)
+
+/** 国运的「势」释义。 */
+export const fetchMundaneAdvice = (body: unknown) => post<Interpretation>('/api/mundane/interpret', body)

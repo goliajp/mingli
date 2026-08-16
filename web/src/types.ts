@@ -415,3 +415,25 @@ export interface Synastry {
   b_supplies_a: number
   detail: TeamResult
 }
+
+/** 太乙时间线上的一年（对应 app::mundane::YearStep）。 */
+export interface YearStep {
+  year: number
+  age: number
+  palace: number
+  gua: string
+  year_in_palace: number
+  sancai: string
+  yang_dun: boolean
+  enters_palace: boolean
+}
+
+/** 国运推演（对应 app::mundane::Mundane）。 */
+export interface Mundane {
+  founded_at: { year: number; month: number; day: number; hour: number; minute: number; tz: number }
+  target_year: number
+  founding: CastLeaf[]
+  annual: YearStep | null
+  timeline: YearStep[]
+  span: number
+}

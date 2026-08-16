@@ -13,6 +13,7 @@ pub mod election;
 pub mod event;
 pub mod interpret;
 pub mod locative;
+pub mod mundane;
 pub mod synastry;
 pub mod team;
 pub mod word;

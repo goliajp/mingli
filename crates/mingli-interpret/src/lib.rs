@@ -320,6 +320,45 @@ pub fn interpret_synastry(it: &dyn Interpreter, synastry_json: &str) -> std::io:
     })
 }
 
+/// 国运释义的护栏——输出形态是**势**：阶段 / 转折 / 所处位置，而且要**克制**。
+pub const MUNDANE_GUARDRAIL: &str = "你是术数释义助手。下面是【已由确定性引擎算好】的一次国运推演：\
+政体奠基时刻的立国盘（太乙 / 奇门 / 占星）+ 太乙行宫的年份时间线 + 目标年的年度盘。规则：\
+1) 只读盘面，绝不改动或重算任何数字与名称；\
+2) 这是**周期结构的描述**，不是对现实政体或人物的预言——用「所处阶段 / 周期位置 / 换宫转折」的语言，\
+不点评现实政治、不做具体事件预测、不指名任何现任人物；\
+3) 太乙三年居一宫、廿四年一周、七十二年三期：说清目标年在**哪一宫的第几年**、离上次 / 下次换宫多远、\
+是理天 / 理地 / 理人哪一才，并把它放回自立国起的整段时间线里看；\
+4) 立国盘只作「体」的背景，一两句即可，重点在时间线与目标年；\
+5) 太乙宫的吉凶传统与诸神（文昌 / 始击 / 主客等）引擎未收（标 🟡），不要替它补出这些神；\
+6) 用语克制、篇幅 220 字以内；结尾加一句「仅供研究与娱乐」。\n\n";
+
+/// 国运各字段的读法提示。
+fn mundane_hints() -> &'static str {
+    "\n【字段】`founding[]` 立国盘（各叶原盘）；`timeline[]` 自立国年起逐年：`palace` 洛书宫（不入 5）· `gua` 卦 · \
+`year_in_palace` 入宫第几年（1..3）· `sancai` 三才 · `enters_palace` 是否换宫之年 · `yang_dun`；\
+`annual` 是目标年那一格；`span` 时间线年数（24 = 一周，72 = 三期）。\n"
+}
+
+/// 组装国运释义提示词。
+#[must_use]
+pub fn build_mundane_prompt(mundane_json: &str) -> String {
+    format!("{MUNDANE_GUARDRAIL}{}\n国运结果 JSON：\n{mundane_json}\n", mundane_hints())
+}
+
+/// 释义一次国运推演，返回 `Interpretation { leaf: "mundane" }`。
+///
+/// # Errors
+///
+/// 释义后端不可用时返回其 I/O 错误。
+pub fn interpret_mundane(it: &dyn Interpreter, mundane_json: &str) -> std::io::Result<Interpretation> {
+    Ok(Interpretation {
+        leaf: "mundane".to_string(),
+        text: it.interpret(&build_mundane_prompt(mundane_json))?,
+        backend: it.backend(),
+        kind: "INT",
+    })
+}
+
 /// 团队合盘释义的护栏。
 pub const TEAM_GUARDRAIL: &str = "你是术数释义助手。下面是已由确定性引擎算好的【团队合盘】结果。规则：\
 1) 只解释，绝不修改或新增任何数字与名称；\
@@ -620,6 +659,28 @@ mod tests {
     fn synastry_interpretation_round_trips_through_the_offline_backend() {
         let r = interpret_synastry(&Template, r#"{"a_supplies_b":1}"#).expect("模板后端应可用");
         assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("synastry", "INT", "template"));
+    }
+
+    #[test]
+    fn mundane_prompt_describes_cycles_and_refuses_political_forecasting() {
+        let json = r#"{"founded_at":{"year":1949},"target_year":2026,"annual":{"palace":3,"year_in_palace":2},"timeline":[],"span":24}"#;
+        let p = build_mundane_prompt(json);
+        assert!(p.contains("周期结构") && p.contains("不是对现实政体"));
+        assert!(p.contains("不点评现实政治") && p.contains("不指名任何现任人物"));
+        // 三年一宫 / 廿四年一周 / 三期 与「哪一宫的第几年」都要在
+        assert!(p.contains("三年居一宫") && p.contains("廿四年一周") && p.contains("哪一宫的第几年"));
+        // 未收的诸神不许补
+        assert!(p.contains("文昌") && p.contains("不要替它补出"));
+        for k in ["timeline[]", "year_in_palace", "enters_palace", "annual"] {
+            assert!(p.contains(k), "缺 {k}");
+        }
+        assert!(p.contains("仅供研究与娱乐") && p.contains(json));
+    }
+
+    #[test]
+    fn mundane_interpretation_round_trips_through_the_offline_backend() {
+        let r = interpret_mundane(&Template, r#"{"timeline":[]}"#).expect("模板后端应可用");
+        assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("mundane", "INT", "template"));
     }
 
     #[test]
