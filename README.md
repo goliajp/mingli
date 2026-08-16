@@ -6,7 +6,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 34 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 434 tests green
+> 37 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 456 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -29,6 +29,8 @@ The organizing principle is a strict split between **computing a chart, interpre
 ```
 
 Every leaf is an assembly of *which stones from the roots × which symbolic component from the trunk × which branch (family paradigm)*. **Growing a new leaf never touches the roots.**
+
+Dependencies point strictly inward. Each leaf implements the ports declared in `mingli-contract`; the orchestrator consumes those ports and never names a leaf; the composition root is the only place that enumerates them. That rule is enforced by a test (`crates/mingli-registry/tests/architecture.rs`) which reads every manifest and fails on an outward edge.
 
 ---
 
@@ -53,8 +55,9 @@ Each leaf declares its own DET/STO/UND boundaries through `CastingEngine::profil
 crates/
   L0 math roots  mingli-core         finite cyclic groups / CRT / quantizer / GF(2) lattice / hash ring / group action / seeded sampler
   L1 physical    mingli-astro        Julian day · apparent solar longitude and the 24 solar terms · lunar phase and intercalation · sexagenary cycle
-                 mingli-ephemeris    planetary ephemerides — geocentric ecliptic longitudes (VSOP87 / ELP-2000)
-  L2 trunk       mingli-ganzhi       the sexagenary cycle as a symbol system
+                 mingli-ephemeris    planetary ephemerides — geocentric ecliptic longitudes (VSOP87 / ELP-2000) · ascendant and midheaven geometry
+  L2 ports       mingli-contract     the CastingEngine / WordEngine ports plus the shared query and declaration types
+     trunk       mingli-ganzhi       the sexagenary cycle as a symbol system
                  mingli-gua          the 64-hexagram lattice (Z₂)⁶
                  mingli-luoshu       Luoshu magic square and nine-palace flight
   L3 leaves — family A (cyclic groups / CRT)
@@ -86,11 +89,13 @@ crates/
                  mingli-liuren       Da Liu Ren
                  mingli-qimen        Qi Men Dun Jia (hour-plate rotating method)
                  mingli-taiyi        Tai Yi Shen Shu
-  L3.5 orchestration
-                 mingli-engine       treats the tree as a memoized computation DAG, fanning out across all leaves in parallel
-                 mingli-analysis     information-theoretic statistics across leaves
+  L4 orchestration
+                 mingli-engine       memoized shared context + parallel fan-out over an injected registry; knows no leaf
                  mingli-interpret    interpretation layer — assembles guard-railed prompts, strictly separated from computation
-                 mingli-wasm         wasm bindings for the whole library
+  L5 analysis    mingli-analysis     information-theoretic statistics across leaves
+  L6 use cases   mingli-app          natal / overlay strength / fortune / team / word / interpretation orchestration
+  L7 assembly    mingli-registry     the one place that knows which leaves exist — add a leaf by registering one line here
+  L8 delivery    mingli-wasm         wasm bindings for the whole library
 services/
   mingli-api/   axum service, :6027
 web/            React 19 + Vite frontend, :6026 (proxies /api to :6027 in dev)
@@ -112,7 +117,7 @@ cd web && bun install && bun run dev
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 434 tests
+cargo test --workspace     # 456 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ```

@@ -653,6 +653,7 @@ dependencies = [
  "astro",
  "criterion",
  "mingli-astro",
+ "serde",
  "vsop87",
 ]
 
@@ -724,7 +725,6 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
- "mingli-astrology",
  "mingli-contract",
  "mingli-ephemeris",
  "serde",

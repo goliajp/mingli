@@ -7,7 +7,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 34 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 434 个测试全绿
+> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 456 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -28,6 +28,8 @@
 ```
 
 　　每片叶子 = 「选根的哪几块石头 × 主干的哪个符号零件 × 哪条枝（家族范式）」的组装。**长新叶不动根。**
+
+　　依赖只向内：每片叶实现 `mingli-contract` 声明的端口，编排层只消费端口、不认识任何叶，装配根是唯一列出全部叶的地方。这条规则由测试守着（`crates/mingli-registry/tests/architecture.rs` 读取每份 manifest，一旦出现朝外的依赖就失败）。
 
 ---
 
@@ -52,8 +54,9 @@
 crates/
   L0 数学根    mingli-core         有限循环群 / CRT / 量化器 / GF(2) 格 / 哈希环 / 群作用 / 种子采样
   L1 物理石    mingli-astro        儒略日 · 太阳视黄经与二十四节气 · 月相与农历置闰 · 干支
-               mingli-ephemeris    行星星历——日月五星的地心黄道经度（VSOP87 / ELP-2000）
-  L2 主干      mingli-ganzhi       六十干支符号系统
+               mingli-ephemeris    行星星历——日月五星的地心黄道经度（VSOP87 / ELP-2000）· 上升点与中天几何
+  L2 端口      mingli-contract     CastingEngine / WordEngine 契约 + 共享查询与声明类型
+     主干      mingli-ganzhi       六十干支符号系统
                mingli-gua          六十四卦格 (Z₂)⁶
                mingli-luoshu       洛书幻方与九宫飞布
   L3 叶（A 族 · 循环群 / CRT）
@@ -85,10 +88,12 @@ crates/
                mingli-liuren       大六壬起课
                mingli-qimen        奇门遁甲（时家转盘法）
                mingli-taiyi        太乙神数
-  L3.5 编排    mingli-engine       把命理大树当作一张记忆化计算 DAG，全叶并行 fan-out
-               mingli-analysis     跨叶信息论统计
+  L4 编排      mingli-engine       共享上下文记忆化 + 并行 fan-out；注册表由外部注入，本层不认识任何叶
                mingli-interpret    释义层——组装带护栏的提示词，与「算」严格分离
-               mingli-wasm         整库的 wasm 绑定
+  L5 分析      mingli-analysis     跨叶信息论统计
+  L6 用例      mingli-app          本命 / 岁运叠加 / 运势 / 合盘 / 字词 / 释义的编排
+  L7 装配      mingli-registry     唯一知道「树上有哪些叶」的地方——加新叶在此登记一行
+  L8 交付      mingli-wasm         整库的 wasm 绑定
 services/
   mingli-api/   axum 承接层，:6027
 web/            React 19 + Vite 前端，:6026（dev 期 /api 代理到 :6027）
@@ -110,7 +115,7 @@ cd web && bun install && bun run dev
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 434 个测试
+cargo test --workspace     # 456 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ```
