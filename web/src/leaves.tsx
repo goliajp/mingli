@@ -867,6 +867,13 @@ interface QimenChart {
   jiuxing_earth: string[]
   sky: QimenSky
   gates: QimenGates
+  spirits: QimenSpirits
+}
+
+interface QimenSpirits {
+  start_palace: number
+  spirits: string[]
+  spirits_alt: string[]
 }
 
 interface QimenGates {
@@ -904,7 +911,7 @@ function Qimen({ c }: { c: QimenChart }) {
           <Stat k="值使落宫" v={`${c.palace[c.gates.zhi_shi_palace - 1]}${c.gates.zhi_shi_palace}`} hi />
         </div>
       </Section>
-      <Section title={`天盘 + 人盘（值符随时干转 ${c.sky.shift} 格 · 值使随时辰转 ${c.gates.shift} 格）`}>
+      <Section title={`天盘 + 人盘 + 神盘（值符随时干转 ${c.sky.shift} 格 · 值使随时辰转 ${c.gates.shift} 格 · 八神${c.setup.yang_dun ? '顺' : '逆'}布）`}>
         <Grid9 head={`值符星 ${c.zhi_fu_xing} 自 ${headGongName} 转到 ${zhiFuGongName}；中 5 寄坤 2，中宫之干 ${c.sky.center_stem} 随之落 ${c.palace[c.sky.center_palace - 1]}${c.sky.center_palace}`}
           render={(g) => {
             const lodged = g === c.sky.center_palace
@@ -916,6 +923,9 @@ function Qimen({ c }: { c: QimenChart }) {
                 </span>
                 <span className="g9-star">{c.sky.stars[g - 1] || '（天禽寄坤 2）'}</span>
                 <span className="g9-gate">{c.gates.gates[g - 1] || '—'}</span>
+                <span className="g9-shen" title={c.spirits.spirits_alt[g - 1] !== c.spirits.spirits[g - 1] ? `另一系作「${c.spirits.spirits_alt[g - 1]}」` : undefined}>
+                  {c.spirits.spirits[g - 1] || '—'}
+                </span>
                 <span className="g9-gong">{c.palace[g - 1]}{g}</span>
               </div>
             )
@@ -935,7 +945,7 @@ function Qimen({ c }: { c: QimenChart }) {
             )
           }} />
       </Section>
-      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · 九星原配 · <b>天盘旋转</b> · <b>人盘八门（值使旋转）</b>。🟡 未实现：八神（第 5/6 位勾陈 / 朱雀两派相左，无多源定夺）；中宫与天禽寄宫取通行的坤 2。</div>
+      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · <b>天盘（九星 + 三奇六仪）</b> · <b>人盘八门</b> · <b>神盘八神</b>。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故两名并出，鼠标悬停可见另一系；中宫与天禽寄宫取通行的坤 2。尚未实现：旺相休囚 · 格局判读。</div>
     </div>
   )
 }
