@@ -234,7 +234,7 @@ pub struct AskTime {
 
 /// 问局（需求侧）分类，按「时间轴与切面」模型组织。
 ///
-/// 每变体携带其所需的**输入原子**；一切意图最终都映射到一组叶（见 [`route`]）。
+/// 每变体携带其所需的**输入原子**；一切意图最终都映射到一组叶（由编排层的 `route` 在运行时定夺）。
 /// `Natal` 是当前 webapp 唯一已实现形态，载荷复用现 [`Query`] 结构（向后兼容，API 不破坏）。
 /// 其余变体携最小输入原子。
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
@@ -348,7 +348,7 @@ pub struct IntentSpec {
     pub name_zh: &'static str,
     /// 所需输入原子(instant/geo/sex/seed/text/category/window…)，用于 web 表单生成。
     pub atoms: &'static [&'static str],
-    /// 默认路由叶（声明式；运行时实际可用以 [`route`] 输出 ∩ 当前 registry 为准）。
+    /// 默认路由叶（声明式；运行时实际可用以编排层 `route` 的输出 ∩ 当前注册表为准）。
     pub default_leaves: &'static [&'static str],
     /// 输出形态（盘/势/断/期/序/配/位）。
     pub output_shape: &'static str,
@@ -371,7 +371,7 @@ const fn i(
     IntentSpec { id, name_zh, atoms, default_leaves, output_shape, status, note }
 }
 
-/// 8 类问事意图的清单（声明式，与 [`route`] 同构对偶）。
+/// 8 类问事意图的清单（声明式，与编排层的 `route` 同构对偶）。
 ///
 /// 顺序：Natal / Fortune / Event / Election / Synastry / Mundane / Locative /
 /// Onomancy（D 族字/词，与时刻无关）。

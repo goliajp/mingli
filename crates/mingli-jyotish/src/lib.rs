@@ -1,12 +1,12 @@
 //! L3 叶（B 族）：印度占星（Jyotish）。
 //!
-//! 与西洋占星（B 族 [`mingli_astrology`]）复用同一行星地心经度，但采用**恒星黄道**(sidereal zodiac)
+//! 与西洋占星（B 族）复用同一行星地心经度，但采用**恒星黄道**(sidereal zodiac)
 //! 而非回归黄道(tropical zodiac)。两者差 = `ayanamsa`（春分点岁差累积位移）。
 //!
 //! - 9 行星（Surya/Chandra/Mangala/Budha/Guru/Shukra/Shani + Rahu/Ketu 月升降交点）；
 //! - 27 nakshatra（月宿，每 13°20'）；名表 + Vimshottari mahadasha 主星 9 行星序列；
 //! - 12 rasi（白羊..双鱼，与西洋占星 12 sign 同）；
-//! - Lagna（上升） = Asc(tropical， [`mingli_astrology::asc_mc`]) − ayanamsa。
+//! - Lagna（上升） = Asc(tropical， [`mingli_ephemeris::asc_mc`]) − ayanamsa。
 //!
 //! # Ayanamsa 流派
 //! [`Ayanamsa::Lahiri`] （默认）： 印度政府 1955 历改采用，N. C. Lahiri 提案。
@@ -37,7 +37,7 @@ mod engine;
 pub use engine::JyotishEngine;
 
 use mingli_astro::Moment;
-use mingli_astrology::{asc_mc, GeoLocation};
+use mingli_ephemeris::{asc_mc, GeoLocation};
 use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
 use serde::Serialize;
 

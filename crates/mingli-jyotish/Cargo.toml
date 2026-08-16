@@ -10,7 +10,6 @@ serde_json = { workspace = true }
 mingli-contract = { workspace = true }
 mingli-astro = { workspace = true }
 mingli-ephemeris = { workspace = true }
-mingli-astrology = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]

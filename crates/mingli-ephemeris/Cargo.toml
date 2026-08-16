@@ -6,6 +6,7 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
+serde = { workspace = true }
 vsop87 = "3"
 # 月球地心位置：基于 Chapront ELP-2000/82 月理 + Meeus 章动，已对 Meeus 第 47 章
 # 教科书算例（1992-04-12.0 TD）独立校验（见本 crate 测试），与 vsop87 同属经审计的
