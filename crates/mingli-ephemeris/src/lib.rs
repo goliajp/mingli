@@ -16,6 +16,9 @@
 //! 缺口（🟡）：行星与 JPL Horizons 的逐点校验留作后续（上游 crate 已对 VSOP87 参考验证）；
 //! 行星 apparent 化（加章动）未实现。
 
+mod geometry;
+pub use geometry::{asc_mc, GeoLocation};
+
 use vsop87::vsop87d;
 
 /// 光行时常数：每天文单位约 0.005 775 518 3 天。

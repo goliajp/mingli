@@ -391,7 +391,7 @@ async fn intents_handler() -> impl IntoResponse {
 }
 
 /// 对给定 QueryKind 返回路由叶 id 列表（过滤当前 registry 实际启用）。
-/// 请求体即 [`mingli_engine::QueryKind`] 的 JSON（内部标签 `{"kind":"natal", ...}`）。
+/// 请求体即 [`mingli_contract::QueryKind`] 的 JSON（内部标签 `{"kind":"natal", ...}`）。
 async fn route_handler(Json(kind): Json<mingli_contract::QueryKind>) -> impl IntoResponse {
     let leaves = mingli_engine::route(leaves(), &kind);
     Json(serde_json::json!({

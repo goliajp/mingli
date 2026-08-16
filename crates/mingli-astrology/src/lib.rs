@@ -24,6 +24,8 @@ pub mod placidus;
 mod engine;
 pub use engine::AstrologyEngine;
 
+pub use mingli_ephemeris::{asc_mc, GeoLocation};
+
 use mingli_astro::Moment;
 use mingli_core::quantizer;
 use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
@@ -59,14 +61,6 @@ const ASPECTS: [(f64, &str); 5] = [
 /// 默认相位容许度（度）。
 pub const DEFAULT_ORB: f64 = 6.0;
 
-/// 地理坐标（地心算上升点/中天所需）。
-#[derive(Debug, Clone, Copy, Serialize)]
-pub struct GeoLocation {
-    /// 纬度（度，北纬为正）。
-    pub latitude: f64,
-    /// 经度（度，东经为正）。
-    pub longitude: f64,
-}
 
 /// 一颗星的位置。
 #[derive(Debug, Clone, Serialize)]
@@ -224,28 +218,6 @@ pub fn classify_aspect(a: f64, b: f64, orb: f64) -> Option<(&'static str, f64)> 
         .map(|&(_, name)| (name, sep))
 }
 
-/// 由本地恒星时 RAMC、黄赤交角 ε、地理纬度 φ（皆度）算上升点 Asc 与中天 MC 黄经（度）。
-///
-/// 闭式三角（对齐 Swiss `swehouse.c`，象限由 `atan2` 直接给出）：
-/// - `MC  = atan2(sin RAMC, cos RAMC · cos ε)`
-/// - `Asc = atan2(cos RAMC, −(sin RAMC · cos ε + tan φ · sin ε))`
-#[must_use]
-pub fn asc_mc(ramc_deg: f64, obliquity_deg: f64, lat_deg: f64) -> (f64, f64) {
-    let ramc = ramc_deg.to_radians();
-    let eps = obliquity_deg.to_radians();
-    let phi = lat_deg.to_radians();
-    let mc = ramc
-        .sin()
-        .atan2(ramc.cos() * eps.cos())
-        .to_degrees()
-        .rem_euclid(360.0);
-    let asc = ramc
-        .cos()
-        .atan2(-(ramc.sin() * eps.cos() + phi.tan() * eps.sin()))
-        .to_degrees()
-        .rem_euclid(360.0);
-    (asc, mc)
-}
 
 /// 计算九星落座（与可选宫位）。
 fn compute_planets(jde: f64, asc_sign_idx: Option<usize>) -> Vec<PlanetPos> {

@@ -21,7 +21,7 @@ impl CastingEngine for JyotishEngine {
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         let geo = match (q.latitude, q.longitude) {
-            (Some(latitude), Some(longitude)) => Some(mingli_astrology::GeoLocation { latitude, longitude }),
+            (Some(latitude), Some(longitude)) => Some(mingli_ephemeris::GeoLocation { latitude, longitude }),
             _ => None,
         };
         let mode = crate::Ayanamsa::from_id(q.school_of(self.id(), "lahiri"))
