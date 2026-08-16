@@ -22,6 +22,9 @@
 //! 诚实边界（🟡）：taa marbuta 归到 ه(5) 是常见约定，少数计法按发音作 ت(400)——本 crate
 //! 取 5 并在此标注。
 
+mod engine;
+pub use engine::AbjadEngine;
+
 use serde::Serialize;
 
 /// 阿拉伯 abjad 字母序变体。

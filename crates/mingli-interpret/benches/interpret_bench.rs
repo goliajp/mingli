@@ -3,7 +3,9 @@
 
 use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
-use mingli_engine::{cast_all_detailed, Gender, Query};
+use mingli_contract::{Gender, Query};
+use mingli_engine::cast_all_detailed;
+use mingli_registry::registry;
 use mingli_interpret::build_prompt;
 
 fn bench(c: &mut Criterion) {
@@ -13,7 +15,7 @@ fn bench(c: &mut Criterion) {
         seed: None, name: Some("Ada".to_string()),
         schools: std::collections::BTreeMap::new(),
     };
-    let leaf = cast_all_detailed(&q).into_iter().find(|l| l.id == "liuren").unwrap();
+    let leaf = cast_all_detailed(&registry(), &q).into_iter().find(|l| l.id == "liuren").unwrap();
     c.bench_function("build_prompt", |b| b.iter(|| build_prompt(black_box(&leaf))));
 }
 

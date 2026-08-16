@@ -6,11 +6,14 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
-mingli-engine = { workspace = true }
+mingli-contract = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+mingli-contract = { workspace = true }
+mingli-engine = { workspace = true }
+mingli-registry = { workspace = true }
 criterion = { version = "0.8", default-features = false }
 
 [lints]

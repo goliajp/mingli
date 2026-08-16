@@ -26,11 +26,15 @@
 //! - 27 nakshatra 名表 + Vimshottari 主星序列：Wikipedia + GrahaGuru + Vedicka 3 源完全一致。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_precision_loss,
     reason = "黄经/nakshatra index 全为有界小整数(< 27)，f64 mantissa 充足"
 )]
+
+mod engine;
+pub use engine::JyotishEngine;
 
 use mingli_astro::Moment;
 use mingli_astrology::{asc_mc, GeoLocation};

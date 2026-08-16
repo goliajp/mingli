@@ -16,6 +16,10 @@
 //! 前两者「时间 → 模运算 → 值日」对同一日完全确定；后两者「干支 → 查表 → 禁忌/贵人」对同一干支
 //! 完全确定。
 
+
+mod engine;
+pub use engine::ZeriEngine;
+
 use mingli_astro::Moment;
 use serde::Serialize;
 

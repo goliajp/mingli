@@ -15,10 +15,14 @@
 //! 语域注：本 crate 只做历日换算（确定性数学），不涉玛雅占卜释义。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "全部相位经 rem_euclid 落在 0..260 / 0..365 / 0..20 等小范围，窄化到 u8/usize 受控安全"
 )]
+
+mod engine;
+pub use engine::MayaEngine;
 
 use mingli_astro::Moment;
 use serde::Serialize;

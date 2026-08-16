@@ -1,0 +1,15 @@
+[package]
+name = "mingli-contract"
+description = "端口层：叶与编排之间的契约——CastingEngine / WordEngine trait、共享查询载荷、确定性谱与流派声明、问局意图清单。不认识任何具体叶，也不认识编排实现。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+# 契约里的 `cast(&Moment, ..)` 需要共享时刻这一领域类型；除此之外不依赖任何叶。
+mingli-astro = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

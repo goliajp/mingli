@@ -12,6 +12,7 @@
 //! 极区（|φ|≳66.5°）整宫制以外的分宫制失效。当前覆盖：九星落座 + 相位 + Asc/MC + 整宫制。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "星座序号 0..12 由量化器给出，窄化安全"
@@ -19,6 +20,9 @@
 
 pub mod koch;
 pub mod placidus;
+
+mod engine;
+pub use engine::AstrologyEngine;
 
 use mingli_astro::Moment;
 use mingli_core::quantizer;

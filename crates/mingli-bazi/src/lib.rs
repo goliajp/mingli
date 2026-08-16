@@ -5,11 +5,15 @@
 //! 日柱由民用日序递推，时柱五鼠遁。不含「释义/文案」（那是表达层/LLM 的事）。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
     reason = "干支/大运均为小循环群上的有界模运算与天数折算，整数窄化安全"
 )]
+
+mod engine;
+pub use engine::BaziEngine;
 
 use mingli_astro::{solar_term_jd, solar_term_time_near, Moment};
 use mingli_ganzhi::{

@@ -6,11 +6,15 @@
 //! 闰月生人的「生月」取该月数字（闰月归本月），属已知简化。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
     reason = "十二宫/十四星均为 Z₁₂ 上的有界模运算，整数窄化安全"
 )]
+
+mod engine;
+pub use engine::ZiweiEngine;
 
 use mingli_astro::Moment;
 use mingli_core::group::shift;

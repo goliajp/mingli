@@ -15,6 +15,9 @@
 //! 诚实边界（🟡）：**康熙笔画表**（数千汉字的繁体笔画）属大查表，本 crate **不内置**——笔画由调用方
 //! 提供（错一字毒整枝）。**81 数的吉凶判断**亦属查表 + 流派分歧，本 crate 只给 81 数本身、不下吉凶断言。
 
+mod engine;
+pub use engine::WugeEngine;
+
 use mingli_core::ringhash::fold_81;
 use serde::Serialize;
 

@@ -9,6 +9,10 @@
 //! 语域注：本叶只做 256 odu 的**组合结构**。256 个 odu 名（Ogbe-Ogbe， Oyeku…）及其经文属需逐项
 //! 核对文献的庞大数据表（🟡），错一个即毒化整枝，**绝不在此凭记忆硬编**；odu 以序号标识。
 
+
+mod engine;
+pub use engine::IfaEngine;
+
 use mingli_core::gf2;
 use mingli_core::sampler::SplitMix64;
 use serde::Serialize;

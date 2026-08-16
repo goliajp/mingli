@@ -525,7 +525,9 @@ name = "mingli-abjad"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -533,7 +535,9 @@ name = "mingli-analysis"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-engine",
+ "mingli-registry",
  "serde",
  "serde_json",
 ]
@@ -543,21 +547,32 @@ name = "mingli-api"
 version = "0.1.0"
 dependencies = [
  "axum",
- "mingli-abjad",
- "mingli-analysis",
- "mingli-astro",
- "mingli-bazi",
+ "mingli-app",
+ "mingli-contract",
  "mingli-engine",
- "mingli-gematria",
  "mingli-interpret",
- "mingli-wuge",
- "mingli-ziwei",
+ "mingli-registry",
  "serde",
  "serde_json",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "mingli-app"
+version = "0.1.0"
+dependencies = [
+ "mingli-analysis",
+ "mingli-bazi",
+ "mingli-contract",
+ "mingli-engine",
+ "mingli-interpret",
+ "mingli-registry",
+ "mingli-ziwei",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -575,9 +590,11 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "mingli-ephemeris",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -586,8 +603,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-ganzhi",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -595,8 +614,19 @@ name = "mingli-cartomancy"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "mingli-contract"
+version = "0.1.0"
+dependencies = [
+ "mingli-astro",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -611,31 +641,8 @@ dependencies = [
 name = "mingli-engine"
 version = "0.1.0"
 dependencies = [
- "criterion",
- "mingli-astro",
- "mingli-astrology",
- "mingli-bazi",
- "mingli-cartomancy",
- "mingli-geomancy",
- "mingli-ifa",
- "mingli-jyotish",
- "mingli-liuren",
- "mingli-mahabote",
- "mingli-maya",
- "mingli-meihua",
- "mingli-numerology",
- "mingli-pawukon",
- "mingli-qimen",
- "mingli-qizhengsiyu",
- "mingli-sikidy",
- "mingli-taiyi",
- "mingli-tibetan",
- "mingli-xiaoliuren",
- "mingli-yijing",
- "mingli-zeri",
- "mingli-ziwei",
+ "mingli-contract",
  "rayon",
- "serde",
  "serde_json",
 ]
 
@@ -663,7 +670,9 @@ name = "mingli-gematria"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -671,8 +680,10 @@ name = "mingli-geomancy"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -689,8 +700,10 @@ name = "mingli-ifa"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -698,7 +711,9 @@ name = "mingli-interpret"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-engine",
+ "mingli-registry",
  "serde",
  "serde_json",
 ]
@@ -710,8 +725,10 @@ dependencies = [
  "criterion",
  "mingli-astro",
  "mingli-astrology",
+ "mingli-contract",
  "mingli-ephemeris",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -720,8 +737,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-ganzhi",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -738,7 +757,9 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -747,8 +768,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -757,8 +780,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-gua",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -767,8 +792,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -777,8 +804,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -787,9 +816,11 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-ganzhi",
  "mingli-luoshu",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -798,9 +829,46 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-ephemeris",
  "mingli-ganzhi",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "mingli-registry"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "mingli-abjad",
+ "mingli-astro",
+ "mingli-astrology",
+ "mingli-bazi",
+ "mingli-cartomancy",
+ "mingli-contract",
+ "mingli-engine",
+ "mingli-gematria",
+ "mingli-geomancy",
+ "mingli-ifa",
+ "mingli-jyotish",
+ "mingli-liuren",
+ "mingli-mahabote",
+ "mingli-maya",
+ "mingli-meihua",
+ "mingli-numerology",
+ "mingli-pawukon",
+ "mingli-qimen",
+ "mingli-qizhengsiyu",
+ "mingli-sikidy",
+ "mingli-taiyi",
+ "mingli-tibetan",
+ "mingli-wuge",
+ "mingli-xiaoliuren",
+ "mingli-yijing",
+ "mingli-zeri",
+ "mingli-ziwei",
+ "serde_json",
 ]
 
 [[package]]
@@ -808,8 +876,10 @@ name = "mingli-sikidy"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -818,8 +888,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-luoshu",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -828,19 +900,20 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "mingli-wasm"
 version = "0.1.0"
 dependencies = [
- "mingli-abjad",
- "mingli-analysis",
+ "mingli-app",
+ "mingli-contract",
  "mingli-engine",
- "mingli-gematria",
  "mingli-interpret",
- "mingli-wuge",
+ "mingli-registry",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -851,8 +924,10 @@ name = "mingli-wuge"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -861,9 +936,11 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "mingli-ganzhi",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -871,9 +948,11 @@ name = "mingli-yijing"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mingli-contract",
  "mingli-core",
  "mingli-gua",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -882,9 +961,11 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "mingli-ganzhi",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -893,9 +974,11 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-astro",
+ "mingli-contract",
  "mingli-core",
  "mingli-ganzhi",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

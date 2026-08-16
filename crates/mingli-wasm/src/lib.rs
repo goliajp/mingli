@@ -3,9 +3,10 @@
 //! 把引擎高层 API 以 JSON 字符串进出暴露给 JS：排盘（全叶 / 单叶）、跨叶相关、释义提示词组装、
 //! D 族字/词。让浏览器**全客户端**跑引擎，无需服务端（仅 LLM 释义需外部后端，故此处只出提示词）。
 //!
-//! 注：本包拉入 `mingli-engine` 全 19 叶（含占星 VSOP87 星历），是「整体」测量基准；
+//! 注：本包装配 `mingli-registry` 的全部叶（含占星 VSOP87 星历），是「整体」测量基准；
 
-use mingli_engine::Query;
+use mingli_contract::{Query, WordQuery};
+use mingli_registry::{registry, word_registry};
 use wasm_bindgen::prelude::*;
 
 fn parse_query(s: &str) -> Result<Query, JsValue> {
@@ -15,13 +16,19 @@ fn to_json<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
 }
 
-/// 全叶排盘（含 id/name/family/确定性谱/盘面）。入参为 [`mingli_engine::Query`] 的 JSON。
+/// 字词叶的统一取值：注册表在装配根，派发在用例层，这里只做 JSON 出口。
+fn word_json(system: &str, q: &WordQuery) -> String {
+    mingli_app::word::compute(&word_registry(), system, q)
+        .map_or_else(|_| "null".to_string(), |v| to_json(&v["result"]))
+}
+
+/// 全叶排盘（含 id/name/family/确定性谱/盘面）。入参为 [`mingli_contract::Query`] 的 JSON。
 ///
 /// # Errors
 /// query JSON 解析失败时返回错误。
 #[wasm_bindgen]
 pub fn cast(query_json: &str) -> Result<String, JsValue> {
-    Ok(to_json(&mingli_engine::cast_all_detailed(&parse_query(query_json)?)))
+    Ok(to_json(&mingli_engine::cast_all_detailed(&registry(), &parse_query(query_json)?)))
 }
 
 /// 只排单片叶（按 id），省去其余叶（非占星叶还省掉 VSOP87）。未知 id 返回 `"null"`。
@@ -30,14 +37,14 @@ pub fn cast(query_json: &str) -> Result<String, JsValue> {
 /// query JSON 解析失败时返回错误。
 #[wasm_bindgen]
 pub fn cast_one(id: &str, query_json: &str) -> Result<String, JsValue> {
-    Ok(to_json(&mingli_engine::cast_one(id, &parse_query(query_json)?)))
+    Ok(to_json(&mingli_engine::cast_one(&registry(), id, &parse_query(query_json)?)))
 }
 
 /// 跨叶相关性（固定网格的 NMI 矩阵）。
 #[must_use]
 #[wasm_bindgen]
 pub fn analysis() -> String {
-    to_json(&mingli_analysis::cross_leaf(&mingli_analysis::sample_grid(1980, 2009)))
+    to_json(&mingli_app::analysis::cross_leaf_cached(&registry()))
 }
 
 /// 组装某叶的释义提示词（含护栏）。LLM 调用在外部（浏览器侧或服务端），此处只出提示词。
@@ -46,7 +53,7 @@ pub fn analysis() -> String {
 /// query JSON 解析失败、或未知叶 id 时返回错误。
 #[wasm_bindgen]
 pub fn prompt(id: &str, query_json: &str) -> Result<String, JsValue> {
-    let leaf = mingli_engine::cast_one(id, &parse_query(query_json)?)
+    let leaf = mingli_engine::cast_one(&registry(), id, &parse_query(query_json)?)
         .ok_or_else(|| JsValue::from_str("未知叶"))?;
     Ok(mingli_interpret::build_prompt(&leaf))
 }
@@ -55,14 +62,14 @@ pub fn prompt(id: &str, query_json: &str) -> Result<String, JsValue> {
 #[must_use]
 #[wasm_bindgen]
 pub fn gematria(word: &str) -> String {
-    to_json(&mingli_gematria::compute(word))
+    word_json("gematria", &WordQuery { text: Some(word.to_string()), ..WordQuery::default() })
 }
 
 /// 阿拉伯 abjad（双序对照：Mashriqī 东方序 + Maghribī 西方序）。
 #[must_use]
 #[wasm_bindgen]
 pub fn abjad(word: &str) -> String {
-    to_json(&mingli_abjad::compute(word))
+    word_json("abjad", &WordQuery { text: Some(word.to_string()), ..WordQuery::default() })
 }
 
 /// 姓名五格：`surname_json`/`given_json` 为各字笔画的 JSON 数组（如 `"[7]"` / `"[16,9]"`）。
@@ -73,10 +80,10 @@ pub fn abjad(word: &str) -> String {
 pub fn wuge(surname_json: &str, given_json: &str) -> Result<String, JsValue> {
     let s: Vec<u32> = serde_json::from_str(surname_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
     let g: Vec<u32> = serde_json::from_str(given_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
-    if s.is_empty() || g.is_empty() {
-        return Err(JsValue::from_str("姓与名笔画至少各一字"));
-    }
-    Ok(to_json(&mingli_wuge::five_grids(&s, &g)))
+    let q = WordQuery { surname: Some(s), given: Some(g), ..WordQuery::default() };
+    mingli_app::word::compute(&word_registry(), "wuge", &q)
+        .map(|v| to_json(&v))
+        .map_err(|e| JsValue::from_str(&e))
 }
 
 // host 端只测 Ok/String 路径（wasm-bindgen 的 JsValue 错误对象在非 wasm32 上无法构造）；

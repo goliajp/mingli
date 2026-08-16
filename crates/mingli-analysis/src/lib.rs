@@ -22,7 +22,8 @@
     reason = "信息论计数→f64 精度损失可忽略；px/py 等为数学惯用命名；intern 编码窄化受控；对 0.0/identity 的精确比较是有意为之"
 )]
 
-use mingli_engine::{cast_all_detailed, Family, Gender, Query};
+use mingli_contract::{CastingEngine, Family, Gender, Query};
+use mingli_engine::cast_all_detailed;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -162,8 +163,8 @@ pub struct Analysis {
 
 /// 在一组查询样本上做跨叶分析。
 #[must_use]
-pub fn cross_leaf(queries: &[Query]) -> Analysis {
-    let detailed: Vec<_> = queries.iter().map(cast_all_detailed).collect();
+pub fn cross_leaf(reg: &[Box<dyn CastingEngine>], queries: &[Query]) -> Analysis {
+    let detailed: Vec<_> = queries.iter().map(|q| cast_all_detailed(reg, q)).collect();
     if detailed.is_empty() {
         return Analysis { n: 0, leaves: vec![], nmi: vec![] };
     }
@@ -235,6 +236,7 @@ pub fn sample_grid(start_year: i32, end_year: i32) -> Vec<Query> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mingli_registry::registry;
 
     #[test]
     fn entropy_known() {
@@ -263,7 +265,7 @@ mod tests {
     #[test]
     fn feature_extraction_smoke() {
         let q = sample_grid(1990, 1990);
-        let leaves = cast_all_detailed(&q[0]);
+        let leaves = cast_all_detailed(&registry(), &q[0]);
         for leaf in &leaves {
             let f = feature(leaf.id, &leaf.chart);
             assert!(f.is_some(), "{} 应能取到特征", leaf.id);
@@ -274,7 +276,7 @@ mod tests {
     #[test]
     fn edge_cases() {
         // 空样本 → 空分析。
-        let a = cross_leaf(&[]);
+        let a = cross_leaf(&registry(), &[]);
         assert_eq!(a.n, 0);
         assert!(a.leaves.is_empty() && a.nmi.is_empty());
         // 未知叶 id → 无特征 / 空标签。
@@ -285,7 +287,7 @@ mod tests {
     #[test]
     fn cross_leaf_validates_thesis() {
         // 30 年 × 12 月 × 2 日 = 720 样本。
-        let a = cross_leaf(&sample_grid(1980, 2009));
+        let a = cross_leaf(&registry(), &sample_grid(1980, 2009));
         assert_eq!(a.n, 720);
         let idx = |id: &str| a.leaves.iter().position(|l| l.id == id).unwrap();
         let (bazi, liuren) = (idx("bazi"), idx("liuren"));

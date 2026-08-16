@@ -14,10 +14,14 @@
 //! 五行 / 吉凶 / 含义随流派分歧，属 🟡 释义层，本 crate 不下断言、只给位置与名。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "掐指全在 Z₆ 上：count_to 的 i64 结果恒落 0..6，窄化到 u8 受控安全"
 )]
+
+mod engine;
+pub use engine::XiaoliurenEngine;
 
 use mingli_astro::Moment;
 use mingli_core::group::count_to;

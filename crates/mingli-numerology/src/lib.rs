@@ -15,6 +15,10 @@
 //! 🟡 欠定项：生命灵数有「分量约化」与「全数字相加」两法（本 crate 用分量约化，多数教材主数法）；
 //! 元音是否含 Y 随流派（本 crate 仅 AEIOU 为元音）。两者已文档化，不静默选边。
 
+
+mod engine;
+pub use engine::NumerologyEngine;
+
 use mingli_astro::Moment;
 use mingli_core::ringhash::{pythagorean, reduce_with_master, string_sum};
 use serde::Serialize;

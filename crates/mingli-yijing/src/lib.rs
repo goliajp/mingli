@@ -11,9 +11,13 @@
 //! 数据表（🟡），与 [`mingli_gua`] 一致地不在此凭记忆硬编；卦以「上卦/下卦」复合标识。八卦名仅 8 项、已核实。
 
 #![allow(
+
     clippy::unreadable_literal,
     reason = "卦的二进制位型（如 0b101010）连写比加分隔符更直观对应六爻，沿用 mingli-gua 约定"
 )]
+
+mod engine;
+pub use engine::YijingEngine;
 
 use mingli_core::sampler::SplitMix64;
 use mingli_gua::{Hexagram, Trigram};
