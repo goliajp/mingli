@@ -364,3 +364,27 @@ export interface EventCast {
   question: string | null
   leaves: CastLeaf[]
 }
+
+/** 择吉候选日（对应 app::election::Candidate）。 */
+export interface ElectionCandidate {
+  year: number
+  month: number
+  day: number
+  day_ganzhi: string
+  jianchu: string
+  grade: 'Huang' | 'Usable' | 'Hei' | 'Avoid'
+  grade_label: string
+  mansion: string
+  pengzu_gan: string
+  pengzu_zhi: string
+  tianyi: [string, string]
+}
+
+/** 择吉结果（对应 app::election::Election）。 */
+export interface Election {
+  window_start: { year: number; month: number; day: number; hour: number; minute: number; tz: number }
+  window_end: { year: number; month: number; day: number; hour: number; minute: number; tz: number }
+  category: string | null
+  scanned_days: number
+  candidates: ElectionCandidate[]
+}

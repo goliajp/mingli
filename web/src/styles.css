@@ -878,3 +878,39 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .ev-leaf .lp { grid-template-columns: 1fr; gap: 14px; }
 .ev-leaf-h { font-family: var(--mono); font-size: 14px; color: var(--kin); letter-spacing: .08em; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
 .ev-verdict { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
+
+/* —— 择吉（择）—— */
+.el-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin: 14px 0 10px; }
+.el-date { display: flex; align-items: center; gap: 4px; }
+.el-date-l { font-size: 14px; color: var(--washi-faint); font-family: var(--mono); letter-spacing: .08em; margin-right: 6px; }
+.el-date input { background: var(--sumi); color: var(--washi); border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 9px; font-size: 15px; font-family: var(--mono); }
+.el-date i { color: var(--washi-faint); font-style: normal; }
+.el-quick { display: flex; gap: 6px; }
+.el-quick button { padding: 8px 12px; border-radius: 7px; border: 1px solid var(--line-strong); background: var(--sumi2); color: var(--washi-dim); cursor: pointer; font-size: 14px; }
+.el-quick button:hover { border-color: var(--teal); color: var(--teal); }
+.el-cat { flex: 1 1 240px; }
+.el-cat input { width: 100%; }
+.el-meta { font-size: 14px; color: var(--washi-dim); padding: 12px 0 8px; border-top: 1px dotted var(--line); margin-top: 12px; }
+.el-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 16px; align-items: start; }
+.el-group { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: rgba(0, 0, 0, .18); min-width: 0; }
+.el-group.g-huang { border-color: rgba(140, 180, 90, .55); }
+.el-group.g-usable { border-color: rgba(95, 179, 191, .45); }
+.el-group.g-avoid { opacity: .72; }
+.el-group-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.el-group-h b { font-size: 16px; letter-spacing: .1em; }
+.g-huang .el-group-h b { color: var(--mu); }
+.g-usable .el-group-h b { color: var(--teal); }
+.g-hei .el-group-h b { color: var(--washi-dim); }
+.g-avoid .el-group-h b { color: var(--shu); }
+.el-group-note { font-size: 13px; color: var(--washi-faint); font-family: var(--mono); }
+.el-group-n { margin-left: auto; font-size: 13px; color: var(--washi-faint); font-family: var(--mono); }
+.el-empty { font-size: 14px; color: var(--washi-faint); padding: 6px 0; }
+.el-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.el-table th { text-align: left; font-weight: 400; font-size: 12px; color: var(--washi-faint); font-family: var(--mono); letter-spacing: .06em; padding: 3px 6px 5px; border-bottom: 1px dotted var(--line); }
+.el-table td { padding: 5px 6px; border-bottom: 1px dotted rgba(201, 162, 74, .10); vertical-align: top; }
+.el-table tr:last-child td { border-bottom: none; }
+.el-d { font-family: var(--mono); color: var(--washi); white-space: nowrap; }
+.el-gz { color: var(--kin-bright); font-weight: 600; white-space: nowrap; }
+.el-jc { color: var(--washi); }
+.el-ty { color: var(--washi-dim); white-space: nowrap; }
+.el-pz { color: var(--washi-faint); font-size: 13px; }

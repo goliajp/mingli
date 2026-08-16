@@ -429,6 +429,30 @@ async fn election_handler(Json(req): Json<ElectionRequest>) -> impl IntoResponse
     }
 }
 
+/// 择吉释义：同 `/api/election` 的 body → 扫描排序 → 交释义后端出「期 / 序」。
+async fn election_interpret_handler(Json(req): Json<ElectionRequest>) -> impl IntoResponse {
+    let el = match mingli_app::election::scan(&ask_time(&req.window_start), &ask_time(&req.window_end), req.category) {
+        Ok(e) => e,
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response()
+        }
+    };
+    let json = serde_json::to_string(&el).unwrap_or_default();
+    let result = tokio::task::spawn_blocking(move || {
+        mingli_interpret::interpret_election(&ClaudeCli, &json)
+            .or_else(|_| mingli_interpret::interpret_election(&mingli_interpret::Template, &json))
+    })
+    .await;
+    match result {
+        Ok(Ok(interp)) => Json(interp).into_response(),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "释义后端不可用" })),
+        )
+            .into_response(),
+    }
+}
+
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
     let intents: Vec<_> = mingli_contract::intents()
@@ -514,6 +538,7 @@ async fn main() {
         .route("/api/fortune", post(fortune_handler))
         .route("/api/event", post(event_handler))
         .route("/api/election", post(election_handler))
+        .route("/api/election/interpret", post(election_interpret_handler))
         .route("/api/event/interpret", post(event_interpret_handler))
         .layer(CorsLayer::permissive());
 

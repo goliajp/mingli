@@ -208,6 +208,47 @@ pub fn interpret_event(it: &dyn Interpreter, event_json: &str) -> std::io::Resul
     })
 }
 
+/// 择吉释义的护栏——输出形态是**期 / 序**：在候选里挑日子并说明理由，而不是解盘。
+pub const ELECTION_GUARDRAIL: &str = "你是术数释义助手。下面是【已由确定性引擎算好】的一次择吉：\
+一段时窗内逐日的择日要素，已按建除十二神的通行分档（黄道 / 可用 / 黑道 / 不可当）排好序。规则：\
+1) 只读盘面，绝不改动或重算任何数字与名称；\
+2) 这是**择吉**——围绕所办之事在候选里**挑出 2-4 个日子并排序**，每个给一句理由（建除神、宿、百忌里与该事相关的点）；\
+3) 分档只是通行粗筛，**具体事类宜忌各家出入大**——引擎刻意没有合成总分，你可以按传统说法补充事类的宜忌，但要说明那是传统说法而非引擎结论；\
+4) 彭祖百忌是逐日的「忌」，与所办之事直接冲突时要点出来（如嫁娶遇「亥不嫁娶」）；\
+5) 若未给事类，就按通用吉日推荐，不要虚构所办何事；\
+6) 破 / 闭日一律不推荐，除非候选里没有别的；\
+7) 用语克制；结尾加一句「仅供研究与娱乐」。\
+篇幅 250 字以内。\n\n";
+
+/// 择吉各字段的读法提示。
+fn election_hints() -> &'static str {
+    "\n【字段】`candidates[]` 已按 `grade`（Huang 黄道 → Usable 可用 → Hei 黑道 → Avoid 不可当）升序，\
+同档保持时间先后；每条含 `day_ganzhi` 日干支、`jianchu` 建除神、`mansion` 二十八宿、\
+`pengzu_gan` / `pengzu_zhi` 彭祖百忌干句支句、`tianyi` 天乙贵人所临二支。`category` 是所办之事（可缺）。\
+【建除通行义】除宜除旧、危宜安床祭祀、定宜定盟签约、执宜捕捉纳采、成宜开业成事、开宜开张动土；\
+建满平收多不取；破闭不用。\n"
+}
+
+/// 组装择吉释义提示词（护栏 + 读法 + 择吉 JSON）。
+#[must_use]
+pub fn build_election_prompt(election_json: &str) -> String {
+    format!("{ELECTION_GUARDRAIL}{}\n择吉结果 JSON：\n{election_json}\n", election_hints())
+}
+
+/// 释义一次择吉，返回 `Interpretation { leaf: "election" }`。
+///
+/// # Errors
+///
+/// 释义后端不可用时返回其 I/O 错误。
+pub fn interpret_election(it: &dyn Interpreter, election_json: &str) -> std::io::Result<Interpretation> {
+    Ok(Interpretation {
+        leaf: "election".to_string(),
+        text: it.interpret(&build_election_prompt(election_json))?,
+        backend: it.backend(),
+        kind: "INT",
+    })
+}
+
 /// 团队合盘释义的护栏。
 pub const TEAM_GUARDRAIL: &str = "你是术数释义助手。下面是已由确定性引擎算好的【团队合盘】结果。规则：\
 1) 只解释，绝不修改或新增任何数字与名称；\
@@ -446,6 +487,29 @@ mod tests {
         let r = interpret_event(&Template, r#"{"seed":1,"leaves":[]}"#).expect("模板后端应可用");
         assert_eq!((r.leaf.as_str(), r.kind), ("event", "INT"));
         assert_eq!(r.backend, "template");
+    }
+
+    #[test]
+    fn election_prompt_asks_to_pick_days_and_flags_the_uncombined_score() {
+        let json = r#"{"category":"婚","scanned_days":21,"candidates":[{"day_ganzhi":"己卯","jianchu":"危","grade":"Huang"}]}"#;
+        let p = build_election_prompt(json);
+        assert!(p.contains("择吉") && p.contains("挑出"));
+        // 分档是粗筛、引擎没合成总分——这一点必须告诉 LLM
+        assert!(p.contains("粗筛") && p.contains("没有合成总分"));
+        // 百忌与事类的直接冲突要点出；破闭不推荐；无事类不虚构
+        assert!(p.contains("亥不嫁娶") && p.contains("破 / 闭日") && p.contains("不要虚构"));
+        // 字段与建除通行义都在
+        for k in ["candidates[]", "grade", "pengzu_gan", "tianyi", "定宜定盟"] {
+            assert!(p.contains(k), "缺 {k}");
+        }
+        assert!(p.contains("仅供研究与娱乐"));
+        assert!(p.contains(json));
+    }
+
+    #[test]
+    fn election_interpretation_round_trips_through_the_offline_backend() {
+        let r = interpret_election(&Template, r#"{"candidates":[]}"#).expect("模板后端应可用");
+        assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("election", "INT", "template"));
     }
 
     #[test]
