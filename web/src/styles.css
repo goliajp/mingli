@@ -808,3 +808,4 @@ body::before {
 .qm-lodged { margin-left: 6px; font-size: 13px; color: var(--mu); font-weight: 600; }
 .g9-gate { display: block; font-size: 13px; color: var(--shu); letter-spacing: .04em; }
 .g9-shen { display: block; font-size: 13px; color: var(--mu); letter-spacing: .04em; }
+.g9-vigor { margin-left: 4px; font-size: 12px; color: var(--washi-faint); font-weight: 600; }
