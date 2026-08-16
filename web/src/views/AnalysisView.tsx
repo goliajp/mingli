@@ -16,7 +16,7 @@ export function AnalysisView({ analysis }: { analysis: Analysis | null }) {
         基于天文历法的术数必然一致（<b>八字日支 ≡ 大六壬日支 ＝ 1.00</b>）；
         随机起卦类与生辰无关、彼此独立（≈0）。🟡 有限样本下相关度估计偏高，故「低相关」是保守结论。
       </div>
-      <div className="heat" style={{ gridTemplateColumns: `132px repeat(${leaves.length}, 1fr)` }}>
+      <div className="heat" style={{ gridTemplateColumns: `168px repeat(${leaves.length}, 1fr)` }}>
         <div className="hc corner" />
         {leaves.map((l) => <div className="hc col" key={l.id} style={{ color: colorOf(l.id) }}>{l.name}</div>)}
         {leaves.map((row, i) => (

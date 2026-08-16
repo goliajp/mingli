@@ -243,9 +243,11 @@ export default function App() {
             </section>
           )}
 
-          {tab !== 'analysis' && tab !== 'word' && tab !== 'bazi' && leaves && (() => {
-            const l = leaves.find((x) => x.id === tab) ?? leaves[0]
-            if (!l) return null
+          {leaves && (() => {
+            // 只在 tab 确实指向某片叶时渲染。此前对未知 tab 兜底到 leaves[0]，
+            // 于是「合盘 / 团队」页脚下会多冒出一整块八字。
+            const l = leaves.find((x) => x.id === tab)
+            if (!l || l.id === 'bazi') return null
             const color = colorOf(l.id)
             const lT = (leavesT ?? leaves).find((x) => x.id === l.id) ?? l // 该叶在 t 时刻的盘
             return (

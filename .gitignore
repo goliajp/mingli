@@ -5,6 +5,7 @@ target/
 # JS / web
 node_modules/
 dist/
+web/e2e/shots/
 *.tsbuildinfo
 
 # OS / editors

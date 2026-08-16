@@ -56,7 +56,9 @@ body::before {
   transition: all .15s ease;
 }
 .intent-chip:hover { background: var(--sumi3); border-color: var(--line-strong); }
-.intent-chip.on { background: var(--shu-soft); border-color: var(--shu); color: var(--washi); }
+.intent-chip.on { background: var(--shu-soft); border-color: var(--shu); color: #fff; }
+/* 红底上 --washi-faint 的对比度过低，选中态单独提亮副文字 */
+.intent-chip.on .intent-chip-shape { color: rgba(255, 255, 255, .82); }
 .intent-chip.pending { opacity: .76; }
 .intent-chip.pending.on { opacity: 1; background: linear-gradient(160deg, var(--shu-soft) 0%, var(--sumi3) 100%); border-color: var(--kin); }
 .intent-chip-name { font-weight: 700; letter-spacing: .04em; }
@@ -237,6 +239,10 @@ body::before {
 .field select { width: 64px; }
 .field.coords { justify-content: flex-end; }
 .coords-v { font-family: var(--mono); font-size: 14px; color: var(--washi-dim); padding: 9px 0; white-space: nowrap; }
+/* 紧凑数字格：Chrome 的 stepper 会占掉近半宽度，把两位数裁成一位 */
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .field input:focus, .field select:focus { outline: none; border-color: var(--shu); box-shadow: 0 0 0 2px rgba(216, 57, 46, .2); }
 .go {
   margin-left: auto; background: var(--shu); color: #fff; border: none; border-radius: 8px;
@@ -297,7 +303,9 @@ body::before {
 .heat { display: grid; gap: 2px; margin-top: 14px; overflow-x: auto; }
 .hc { font-size: 14px; display: flex; align-items: center; justify-content: center; }
 .hc.col { writing-mode: vertical-rl; text-orientation: upright; padding: 4px 0; letter-spacing: -1px; line-height: 1; }
-.hc.rowh { justify-content: flex-end; gap: 6px; padding-right: 8px; white-space: nowrap; }
+/* 行标签：名字与特征各占一行右对齐。此前单行 nowrap，长名（巴厘Pawukon / 缅甸Mahabote）
+   会向左溢出被容器裁掉，滚动也回不来 */
+.hc.rowh { flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; padding-right: 8px; line-height: 1.25; text-align: right; }
 .hc.rowh i { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); font-style: normal; }
 .hcell { aspect-ratio: 1; min-width: 22px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 14px; color: var(--sumi); border-radius: 2px; }
 
@@ -614,6 +622,8 @@ body::before {
 .lp { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 22px; align-items: start; }
 @media (max-width: 1200px) { .lp { grid-template-columns: 1fr; gap: 20px; } }
 .lp-sec { }
+/* 内容天然很高的区（如九宫大盘）跨满两列，否则同一 grid 行的邻区会被撑出大片空白 */
+.lp-sec.wide { grid-column: 1 / -1; }
 .lp-sec-t { font-family: var(--mono); font-size: 14px; color: var(--kin); letter-spacing: .08em; margin-bottom: 11px; padding-bottom: 5px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
 /* 命（出生即定·不变）/ 运（随时刻而动） 二分视觉 */
 .lp-sec.ming { border-left: 2px solid var(--kin); padding-left: 14px; }
@@ -791,6 +801,8 @@ body::before {
 /* 奇门 / 太乙 九宫 */
 .qm-head { font-size: 14px; color: var(--kin); font-weight: 700; margin-bottom: 10px; text-align: center; }
 .grid9 { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; max-width: 320px; aspect-ratio: 1; margin: 0 auto; }
+/* 满宽区里的九宫（如奇门四层宫格）：放大到能读，高度交给内容而非 1:1 */
+.lp-sec.wide .grid9 { max-width: 900px; aspect-ratio: auto; grid-template-rows: none; gap: 10px; }
 .g9-pos { display: flex; }
 .g9 { flex: 1; border: 1px solid var(--line); border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,.2); padding: 6px; }
 .g9-stem { font-size: 22px; font-weight: 800; color: var(--kin-bright); }
@@ -820,8 +832,9 @@ body::before {
 
 /* —— 奇门时家盘：一宫四层（神 / 星 · 旺衰 / 门 / 天盘干／地盘干） —— */
 .qm-cell {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 8px 9px; min-height: 92px;
+  flex: 1;                    /* 撑满 .g9-pos 这个网格单元，否则宫格会缩成内容宽 */
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 14px; min-height: 138px;
   border: 1px solid var(--line); border-radius: 8px;
   background: rgba(255, 255, 255, .02);
 }

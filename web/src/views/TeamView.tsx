@@ -41,11 +41,11 @@ export function TeamView() {
         {members.map((m, i) => (
           <div className="team-member-row" key={i}>
             <input className="team-name" type="text" value={m.name} onChange={(e) => upd(i, 'name', e.target.value)} placeholder="名称" />
-            <input type="number" value={m.year} onChange={(e) => upd(i, 'year', e.target.value)} style={{ width: 64 }} />
-            <input type="number" value={m.month} onChange={(e) => upd(i, 'month', e.target.value)} style={{ width: 44 }} />
-            <input type="number" value={m.day} onChange={(e) => upd(i, 'day', e.target.value)} style={{ width: 44 }} />
-            <input type="number" value={m.hour} onChange={(e) => upd(i, 'hour', e.target.value)} style={{ width: 44 }} />
-            <input type="number" value={m.minute} onChange={(e) => upd(i, 'minute', e.target.value)} style={{ width: 44 }} />
+            <input type="number" value={m.year} onChange={(e) => upd(i, 'year', e.target.value)} style={{ width: 68 }} />
+            <input type="number" value={m.month} onChange={(e) => upd(i, 'month', e.target.value)} style={{ width: 52 }} />
+            <input type="number" value={m.day} onChange={(e) => upd(i, 'day', e.target.value)} style={{ width: 52 }} />
+            <input type="number" value={m.hour} onChange={(e) => upd(i, 'hour', e.target.value)} style={{ width: 52 }} />
+            <input type="number" value={m.minute} onChange={(e) => upd(i, 'minute', e.target.value)} style={{ width: 52 }} />
             <select value={m.gender} onChange={(e) => upd(i, 'gender', e.target.value)} style={{ width: 56 }}>
               <option value="male">男</option><option value="female">女</option>
             </select>
