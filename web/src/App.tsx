@@ -4,6 +4,7 @@ import type { Analysis, BaziChart, CastLeaf, ChartRequest, FortuneResponse, Inte
 import { LeafChart } from './leaves'
 import { fetchAnalysis, fetchBazi, fetchCast, fetchFortune, fetchInterpretation, fetchZiwei } from './api/client'
 import { IntentBar, IntentPendingCard } from './components/IntentBar'
+import { ElectionView } from './views/ElectionView'
 import { EventView } from './views/EventView'
 import { NumField } from './components/NumField'
 import { SummaryBar } from './components/SummaryBar'
@@ -200,8 +201,9 @@ export default function App() {
       )}
 
       {intent === 'event' && <EventView />}
+      {intent === 'election' && <ElectionView />}
 
-      {intent !== 'natal' && intent !== 'fortune' && intent !== 'event' && intentsList && (
+      {intent !== 'natal' && intent !== 'fortune' && intent !== 'event' && intent !== 'election' && intentsList && (
         <IntentPendingCard spec={intentsList.find((s) => s.id === intent)} onBackToNatal={() => setIntent('natal')} />
       )}
 

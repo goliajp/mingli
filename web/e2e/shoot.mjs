@@ -27,6 +27,7 @@ const SCREENS = [
   { name: '09-相关性', tab: '⊞ 相关性', wait: '.card' },
   // 意图页：先点顶部意图 chip，再等该意图自己的界面
   { name: '10-占事', intent: '事（占事）', wait: '.ev-draw' },
+  { name: '11-择吉', intent: '择（择吉）', wait: '.el-form', action: '择 日', result: '.el-groups' },
 ]
 
 const problems = []
@@ -61,11 +62,13 @@ for (const s of SCREENS) {
     await btn.click()
   }
   if (s.intent) {
-    // 占事要先起盘才有内容可看
-    const cast = page.getByRole('button', { name: '起 盘', exact: false }).first()
-    if (await cast.count()) {
-      await cast.click()
-      await page.waitForSelector('.ev-leaves', { timeout: 20_000 }).catch(() => problems.push('占事：起盘后等不到 .ev-leaves'))
+    // 意图页要先按下动作按钮才有内容可看（占事「起盘」、择吉「择日」）
+    const action = s.action ?? '起 盘'
+    const result = s.result ?? '.ev-leaves'
+    const btn = page.getByRole('button', { name: action, exact: false }).first()
+    if (await btn.count()) {
+      await btn.click()
+      await page.waitForSelector(result, { timeout: 20_000 }).catch(() => problems.push(`${s.name}：按下「${action}」后等不到 ${result}`))
     }
   }
   try {

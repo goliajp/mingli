@@ -1,6 +1,6 @@
 // 后端 HTTP 客户端。所有网络访问集中在这里，组件只调具名端点，不碰 fetch 与路径字面。
 import type {
-  Analysis, BaziChart, CastResponse, ChartRequest, EventCast, FortuneResponse, IntentsResponse,
+  Analysis, BaziChart, CastResponse, ChartRequest, Election, EventCast, FortuneResponse, IntentsResponse,
   Interpretation, OverlayStrength, TeamResult, ZiweiChart,
 } from '../types'
 
@@ -68,3 +68,9 @@ export const fetchEvent = (body: unknown) => post<EventCast>('/api/event', body)
 
 /** 占事的「断」。 */
 export const fetchEventVerdict = (body: unknown) => post<Interpretation>('/api/event/interpret', body)
+
+/** 择吉：扫时窗，按建除分档排序。 */
+export const fetchElection = (body: unknown) => post<Election>('/api/election', body)
+
+/** 择吉的「期 / 序」释义。 */
+export const fetchElectionAdvice = (body: unknown) => post<Interpretation>('/api/election/interpret', body)
