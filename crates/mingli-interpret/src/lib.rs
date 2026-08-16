@@ -76,6 +76,16 @@ pub fn semantic_hints(leaf_id: &str) -> Option<&'static str> {
         "ziwei" => Some("\n【字段语义提示】`palaces[12]` 十二宫（命/兄弟/夫妻/子女/财帛/疾厄/迁移/交友/官禄/田宅/福德/父母）；\
             每宫地支干支+主星；`is_ming/is_shen` 标命/身宫；`ju` 五行局（由命宫纳音得）；\
             `aux 4`（昌曲辅弼）+ `sihua`（四化：禄权科忌）。**结合星曜组合的传统吉凶含义给出整体格局评估**（如紫微在命=尊贵但需辅、贪狼=多才善变需修身、太阴在命=情感细腻喜独处、化禄主进财、化忌主阻滞等），并对各宫给出有利/不利倾向。"),
+        "qimen" => Some("\n【字段语义提示（时家奇门四盘，读懂后给出有据的吉凶/宜忌评估）】\n\
+            - `setup`：阴阳遁 + 局数 + 节气 + 三元。阳遁主升发外向、阴遁主收敛内守，是全盘基调。\n\
+            - `time_ganzhi` / `xun`：占事时柱与所在旬；`xun.xunkong` 是旬空二支——**落空亡的宫位其力减半、事多虚耗**，是传统判读的重要一笔。\n\
+            - `earth[9]` / `sky.stems[9]`：地盘与天盘三奇六仪，按宫号 1..9 排（1 坎 2 坤 3 震 4 巽 5 中 6 乾 7 兑 8 艮 9 离）。乙丙丁为三奇（乙日奇/丙月奇/丁星奇，主吉利、逢之多顺），戊己庚辛壬癸为六仪；**庚为格神主阻滞、辛主过错、壬主陷、癸主晦**，读到这些干时可点出其传统象义。\n\
+            - `sky.stars[9]` + `star_vigor[9]`：天盘九星与其在月令下的旺相休囚死。九星传统吉凶——天心/天任/天禽/天辅为吉，天冲中平，天蓬/天芮/天柱为凶，天英中性；**旺相则其性显、休囚死则其力弱**，凶星休囚反而害轻，这层要合起来说。\n\
+            - `gates.gates[9]`：人盘八门。开/休/生为三吉门（宜谋事、出行、求财），死/惊/伤为三凶门（主损耗、惊扰、伤病），杜门主闭塞宜隐藏，景门主文书信息中平。`gates.zhi_shi_gate` 是值使门——**代表求测者所处的动态**。\n\
+            - `spirits.spirits[9]`：神盘八神。值符主贵人尊长、腾蛇主虚惊怪异、太阴主暗中庇护、六合主和合中介、白虎（一系作勾陈）主刚猛争斗、玄武（一系作朱雀）主暗昧盗失、九地主藏守、九天主扬动。第 5/6 位两系称谓不同但位序一致，随文用其一即可。\n\
+            - `zhi_fu_palace` / `gates.zhi_shi_palace`：值符宫与值使宫——一盘之枢，落宫的星门神与旺衰最值得先看。\n\
+            - `patterns`：已算定的盘面结构。`star_fu_yin/gate_fu_yin/full_fu_yin` 伏吟主停滞守成、**利主不利客，不宜主动**；`star_fan_yin/gate_fan_yin` 反吟主反复颠倒、事有变；`qi_gates` 是三奇临吉门，传统视为得力之处，可点为有利方位或时机。\n\
+            - **读法**：先看值符宫与值使宫（含其星门神与旺衰），再看用神宫（依所问之事取），最后结合 `patterns` 与旬空收束；挑最值得一说的 2-3 处给出宜忌与方位/时机建议，不必逐宫铺陈。"),
         _ => None,
     }
 }
@@ -339,6 +349,37 @@ mod tests {
         assert!(p.contains("\"yongshen\""));
         assert!(p.contains("\"pattern\""));
         assert!(p.contains("\"three_houses\""));
+    }
+
+    #[test]
+    fn qimen_prompt_explains_all_four_plates() {
+        let leaf = sample_leaf("qimen");
+        let p = build_prompt(&leaf);
+        // 四盘的字段都要有语义提示，缺一层 LLM 就读不懂盘
+        for field in ["earth[9]", "sky.stems[9]", "sky.stars[9]", "star_vigor[9]", "gates.gates[9]", "spirits.spirits[9]", "patterns"] {
+            assert!(p.contains(field), "缺字段提示：{field}");
+        }
+        // 传统判读语在场：三奇、三吉门、九星吉凶、伏吟利主不利客、旬空
+        assert!(p.contains("三奇") && p.contains("六仪"));
+        assert!(p.contains("开/休/生") && p.contains("死/惊/伤"));
+        assert!(p.contains("天蓬") && p.contains("旺相"));
+        assert!(p.contains("利主不利客"));
+        assert!(p.contains("旬空"));
+        // 值符值使是读盘入口，必须点明
+        assert!(p.contains("值符宫") && p.contains("值使"));
+        // 护栏仍在
+        assert!(p.contains("仅供研究与娱乐"));
+    }
+
+    #[test]
+    fn only_the_semantically_rich_leaves_carry_hints() {
+        // 结构复杂、需要读法引导的叶才给提示；纯循环叶不给，免得徒增噪音。
+        for id in ["bazi", "ziwei", "qimen"] {
+            assert!(semantic_hints(id).is_some(), "{id} 应有语义提示");
+        }
+        for id in ["maya", "pawukon", "nope"] {
+            assert!(semantic_hints(id).is_none());
+        }
     }
 
     #[test]
