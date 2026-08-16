@@ -914,3 +914,26 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .el-jc { color: var(--washi); }
 .el-ty { color: var(--washi-dim); white-space: nowrap; }
 .el-pz { color: var(--washi-faint); font-size: 13px; }
+
+/* —— 寻方位（寻）—— */
+.lc-top { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; margin: 8px 0 4px; }
+@media (max-width: 900px) { .lc-top { grid-template-columns: 1fr; } }
+.lc-compass { width: 100%; max-width: 340px; display: block; }
+.lc-ring { fill: none; stroke: var(--line-strong); stroke-width: 1; }
+.lc-ring.inner { stroke: var(--line); stroke-dasharray: 3 4; }
+.lc-tick { stroke: var(--line-strong); stroke-width: 1; }
+.lc-dir { fill: var(--washi-dim); font-size: 13px; font-family: var(--serif); }
+.lc-dir.major { fill: var(--kin-bright); font-size: 16px; font-weight: 700; }
+.lc-center { fill: var(--washi-faint); font-size: 22px; font-family: var(--serif); letter-spacing: .1em; }
+.lc-pin circle { fill: var(--kin); }
+.lc-pin.lr circle { fill: var(--teal); }
+.lc-pin-t { fill: var(--washi); font-size: 11px; font-family: var(--serif); }
+.lc-pin.lr .lc-pin-t { fill: var(--teal); }
+.lc-list { min-width: 0; }
+.lc-el { white-space: nowrap; }
+.lc-leaf { display: inline-block; font-style: normal; font-size: 11px; font-family: var(--mono); color: var(--washi-faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-right: 6px; }
+.lc-row.qimen .lc-el { color: var(--kin-bright); }
+.lc-row.liuren .lc-el { color: var(--teal); }
+.lc-dir-cell { font-weight: 700; color: var(--washi); white-space: nowrap; }
+.lc-raw { margin-top: 14px; }
+.lc-raw summary { cursor: pointer; font-size: 14px; color: var(--washi-dim); padding: 6px 0; }

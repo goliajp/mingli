@@ -388,3 +388,21 @@ export interface Election {
   scanned_days: number
   candidates: ElectionCandidate[]
 }
+
+/** 方位候选（对应 app::locative::Bearing）。 */
+export interface Bearing {
+  leaf: string
+  element: string
+  at: string
+  direction: string
+  note: string
+}
+
+/** 寻方位结果（对应 app::locative::Locative）。 */
+export interface Locative {
+  asked_at: { year: number; month: number; day: number; hour: number; minute: number; tz: number }
+  seed: number | null
+  category: string | null
+  bearings: Bearing[]
+  leaves: CastLeaf[]
+}

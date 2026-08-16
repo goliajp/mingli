@@ -115,6 +115,26 @@ pub enum Pattern {
     FanYin,
 }
 
+impl Pattern {
+    /// 课式中文名。
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Pattern::ZhongShen => "重审",
+            Pattern::YuanShou => "元首",
+            Pattern::BiYong => "比用",
+            Pattern::SheHai => "涉害",
+            Pattern::HaoShi => "蒿矢",
+            Pattern::TanShe => "弹射",
+            Pattern::MaoXing => "昴星",
+            Pattern::BieZe => "别责",
+            Pattern::BaZhuan => "八专",
+            Pattern::FuYin => "伏吟",
+            Pattern::FanYin => "返吟",
+        }
+    }
+}
+
 /// 一次大六壬起课的结果。
 #[derive(Debug, Clone, Serialize)]
 pub struct Cast {
@@ -136,6 +156,8 @@ pub struct Cast {
     pub courses: [Course; 4],
     /// 三传课式。
     pub pattern: Pattern,
+    /// 课式中文名。
+    pub pattern_label: &'static str,
     /// 三传（初/中/末，地支序），仅在取传规则明确时给出；🟡 流派分歧的课式为 `None`。
     pub transmission: Option<[u8; 3]>,
 }
@@ -300,6 +322,7 @@ pub fn compute_at(m: &Moment) -> Cast {
         heaven,
         courses,
         pattern,
+        pattern_label: pattern.label(),
         transmission,
     }
 }
@@ -433,6 +456,7 @@ mod tests {
             heaven,
             courses,
             pattern,
+            pattern_label: pattern.label(),
             transmission,
         }
     }
