@@ -325,6 +325,82 @@ pub fn star_element(name: &str) -> Option<Element> {
     (1..=9).find(|&p| JIU_XING_PALACE[p] == name).map(|p| JIU_XING_ELEMENT[p])
 }
 
+/// 三吉门：开 · 休 · 生。
+pub const JI_MEN: [&str; 3] = ["开门", "休门", "生门"];
+
+/// 三奇：乙（日奇）· 丙（月奇）· 丁（星奇）。
+pub const SAN_QI: [&str; 3] = ["乙", "丙", "丁"];
+
+/// 一处「三奇临吉门」：某宫的天盘三奇与三吉门同宫。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct QiGate {
+    /// 宫号 1..=9。
+    pub palace: u8,
+    /// 天盘三奇之一。
+    pub qi: &'static str,
+    /// 同宫的吉门。
+    pub gate: &'static str,
+}
+
+/// 盘面结构格局。
+///
+/// 这里只出**结构事实**（哪几处成立），不出吉凶断语——判读属释义层。
+/// 本 crate 目前只收无流派争议的几条：伏吟 / 反吟（由旋转格数直接判定）与三奇临吉门。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "星/门 × 伏吟/反吟 是四条彼此独立、可同时成立的判定，摊平比塞进枚举更贴合盘面"
+)]
+pub struct Patterns {
+    /// 星伏吟：天盘九星各归原宫（旋转 0 格）。
+    pub star_fu_yin: bool,
+    /// 星反吟：天盘九星各落原宫的对冲宫（旋转 4 格）。
+    pub star_fan_yin: bool,
+    /// 门伏吟：八门各归本位（旋转 0 格）。
+    pub gate_fu_yin: bool,
+    /// 门反吟：八门各落本位的对冲宫（旋转 4 格）。
+    pub gate_fan_yin: bool,
+    /// 干伏吟的宫号：该宫天盘干与地盘干相同。
+    pub stem_fu_yin_palaces: Vec<u8>,
+    /// 全盘伏吟：星 · 门 · 干三者俱伏。
+    pub full_fu_yin: bool,
+    /// 三奇临吉门的各处。
+    pub qi_gates: Vec<QiGate>,
+}
+
+/// 圆周上相隔 4 格即对冲宫（坎 1 ↔ 离 9 · 坤 2 ↔ 艮 8 · 震 3 ↔ 兑 7 · 巽 4 ↔ 乾 6）。
+const FAN_YIN_SHIFT: u8 = 4;
+
+/// 判盘面格局（只出结构，不下断语）。
+#[must_use]
+pub fn patterns(earth: &[&'static str; 9], sky: &SkyPlate, gates: &GatePlate) -> Patterns {
+    let stem_fu_yin_palaces: Vec<u8> = (1..=9u8)
+        .filter(|&p| {
+            let k = p as usize - 1;
+            !sky.stems[k].is_empty() && sky.stems[k] == earth[k]
+        })
+        .collect();
+    let star_fu_yin = sky.shift == 0;
+    let gate_fu_yin = gates.shift == 0;
+    let qi_gates = (1..=9u8)
+        .filter_map(|p| {
+            let k = p as usize - 1;
+            let qi = SAN_QI.iter().find(|&&q| q == sky.stems[k])?;
+            let gate = JI_MEN.iter().find(|&&g| g == gates.gates[k])?;
+            Some(QiGate { palace: p, qi, gate })
+        })
+        .collect();
+    Patterns {
+        star_fu_yin,
+        star_fan_yin: sky.shift == FAN_YIN_SHIFT,
+        gate_fu_yin,
+        gate_fan_yin: gates.shift == FAN_YIN_SHIFT,
+        full_fu_yin: star_fu_yin && gate_fu_yin && !stem_fu_yin_palaces.is_empty(),
+        stem_fu_yin_palaces,
+        qi_gates,
+    }
+}
+
 /// 地盘实排序列：六仪顺 + 三奇逆 → 戊己庚辛壬癸丁丙乙（值为天干序 0..9）。
 /// 阳遁沿宫序 +1 铺这条序列、阴遁沿宫序 −1 铺（互为镜像）：
 /// 镜像后六仪自然逆行、三奇自然顺行（乙丙丁落于宫序递增的三宫），故两遁共用此序。
@@ -494,6 +570,8 @@ pub struct Cast {
     pub month_element: &'static str,
     /// 各宫**天盘星**在月令下的旺相休囚死，`star_vigor[k]` = 第 `k+1` 宫；中 5 宫为空串。
     pub star_vigor: [&'static str; 9],
+    /// 盘面格局（结构事实，不含吉凶断语）。
+    pub patterns: Patterns,
 }
 
 /// 时柱地支（子时寄前夜 23：00）：奇门用「夜子归次日」（主流）。
@@ -606,6 +684,7 @@ pub fn compute_at(m: &Moment) -> Cast {
     // 神盘 — 直符与值符同宫，八神阳顺阴逆布外八宫。
     let spirits = spirit_plate(zhi_fu_palace, setup.yang_dun);
     // 旺相休囚 — 以节气月令衡量各宫天盘星的五行。
+    let patterns = patterns(&earth, &sky, &gates);
     let month_branch = month_branch_of_term(term_index);
     let month_el = branch_element_of(month_branch);
     let mut star_vigor = [""; 9];
@@ -636,6 +715,7 @@ pub fn compute_at(m: &Moment) -> Cast {
         month_branch,
         month_element: month_el.name(),
         star_vigor,
+        patterns,
     }
 }
 
@@ -647,6 +727,78 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 
 #[cfg(test)]
 mod tests {
+
+    fn plate_of(ju: u8, yang: bool, yi_palace: u8, zhi_fu_palace: u8) -> ([&'static str; 9], SkyPlate) {
+        let ep = earth_plate(ju, yang);
+        let mut earth = [""; 9];
+        for k in 0..9 {
+            earth[k] = STEM_NAMES[ep[k] as usize];
+        }
+        let sky = sky_rotation(&earth, yi_palace, zhi_fu_palace);
+        (earth, sky)
+    }
+
+    /// 伏吟 = 旋转 0 格（各归原位），反吟 = 旋转 4 格（各落对冲宫）。
+    #[test]
+    fn qm5_fu_yin_and_fan_yin_come_from_the_shift() {
+        let (earth, sky) = plate_of(1, true, 1, 1);
+        let gates = gate_plate(1, 0, 0, true);
+        let p = patterns(&earth, &sky, &gates);
+        assert!(p.star_fu_yin && p.gate_fu_yin && p.full_fu_yin, "零位移 = 全盘伏吟");
+        assert_eq!(p.stem_fu_yin_palaces, vec![1, 2, 3, 4, 6, 7, 8, 9], "外八宫天地盘干重叠");
+        assert!(!p.star_fan_yin && !p.gate_fan_yin);
+
+        // 对冲：坎 1 → 离 9 恰是圆周 4 格
+        let (earth, sky) = plate_of(1, true, 1, 9);
+        // 门按宫序号线性数：自坎 1 顺数 8 步才到宫 9（对冲宫），与星走圆周 4 格是同一落点
+        let gates = gate_plate(1, 0, 8, true);
+        let p = patterns(&earth, &sky, &gates);
+        assert_eq!((sky.shift, gates.shift), (4, 4));
+        assert!(p.star_fan_yin && p.gate_fan_yin);
+        assert!(!p.star_fu_yin && !p.full_fu_yin);
+        assert!(p.stem_fu_yin_palaces.is_empty(), "反吟时天地盘干处处不同");
+    }
+
+    /// 星伏吟 ⟺ 每宫天盘星都等于该宫原配星（与 shift 判定等价）。
+    #[test]
+    fn qm5_star_fu_yin_matches_a_cell_by_cell_check() {
+        for from in ORBIT {
+            for to in ORBIT {
+                let (earth, sky) = plate_of(4, false, from, to);
+                let gates = gate_plate(from, 0, 0, false);
+                let p = patterns(&earth, &sky, &gates);
+                let cell_wise = ORBIT
+                    .iter()
+                    .all(|&g| sky.stars[g as usize - 1] == JIU_XING_PALACE[g as usize]);
+                assert_eq!(p.star_fu_yin, cell_wise);
+            }
+        }
+    }
+
+    /// 三奇临吉门只收「天盘乙丙丁 + 同宫开休生」这一结构事实。
+    #[test]
+    fn qm5_qi_gates_pair_the_three_odds_with_the_three_good_gates() {
+        let c = compute(1987, 9, 17, 15, 0, 8.0);
+        for qg in &c.patterns.qi_gates {
+            let k = qg.palace as usize - 1;
+            assert!(SAN_QI.contains(&c.sky.stems[k]));
+            assert!(JI_MEN.contains(&c.gates.gates[k]));
+            assert_eq!((qg.qi, qg.gate), (c.sky.stems[k], c.gates.gates[k]));
+        }
+        // 该盘天盘乙在震 3，震 3 正是生门
+        assert_eq!(c.sky.stems[2], "乙");
+        assert_eq!(c.gates.gates[2], "生门");
+        assert!(c.patterns.qi_gates.iter().any(|q| q.palace == 3 && q.qi == "乙" && q.gate == "生门"));
+    }
+
+    /// 参考时刻不伏不反（星转 7 格、门转 1 格）。
+    #[test]
+    fn qm5_patterns_on_the_reference_moment() {
+        let c = compute(1987, 9, 17, 15, 0, 8.0);
+        let p = &c.patterns;
+        assert!(!p.star_fu_yin && !p.star_fan_yin && !p.gate_fu_yin && !p.gate_fan_yin && !p.full_fu_yin);
+    }
+
 
     /// 每个「节」开一个月，两气一支：24 节气恰好铺满 12 支，各支两次，且立春开寅月。
     #[test]

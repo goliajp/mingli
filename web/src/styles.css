@@ -809,3 +809,10 @@ body::before {
 .g9-gate { display: block; font-size: 13px; color: var(--shu); letter-spacing: .04em; }
 .g9-shen { display: block; font-size: 13px; color: var(--mu); letter-spacing: .04em; }
 .g9-vigor { margin-left: 4px; font-size: 12px; color: var(--washi-faint); font-weight: 600; }
+
+/* —— 奇门格局 chip —— */
+.qm-pat { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+.qm-chip { font-size: 14px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 12px; color: var(--washi-dim); }
+.qm-chip.on { border-color: var(--shu); color: var(--shu); }
+.qm-chip.qi { border-color: var(--mu); color: var(--mu); }
+.qm-chip.none { color: var(--washi-faint); border-style: dashed; }
