@@ -803,3 +803,6 @@ body::before {
 .jv-fallback { font-family: var(--mono); font-size: 14px; color: var(--washi-dim); white-space: pre-wrap; word-break: break-word; }
 
 .foot { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); margin-top: 22px; text-align: center; }
+
+/* —— 奇门天盘：中宫寄干挂在寄宫格上 —— */
+.qm-lodged { margin-left: 6px; font-size: 13px; color: var(--mu); font-weight: 600; }

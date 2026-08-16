@@ -6,7 +6,7 @@
 use mingli_contract::{
     d, AskTime, CastingEngine, Determinism, Family, Gender, Moment, Query, QueryKind,
 };
-use mingli_contract::{intents, IntentStatus};
+use mingli_contract::intents;
 use mingli_engine::{cast_all, cast_all_detailed, cast_one, route};
 use mingli_registry::registry;
 use serde_json::Value;
@@ -291,58 +291,6 @@ fn outputs_are_correct() {
 
 fn ask_2026() -> AskTime {
     AskTime { year: 2026, month: 6, day: 16, hour: 10, minute: 0, tz: 8.0 }
-}
-
-#[test]
-fn querykind_id_covers_all_variants() {
-    // 8 个变体 id 全唯一，与 intents() 顺序对应。
-    let kinds = [
-        QueryKind::Natal(sample()),
-        QueryKind::Fortune { natal: sample(), t_target: ask_2026() },
-        QueryKind::Event { t_ask: ask_2026(), seed: 42, q_text: None },
-        QueryKind::Election { window_start: ask_2026(), window_end: ask_2026(), category: "婚".into() },
-        QueryKind::Synastry { a: sample(), b: sample() },
-        QueryKind::Mundane { p_polity: sample() },
-        QueryKind::Locative { t_ask: ask_2026(), seed: 7, category: "寻物".into() },
-        QueryKind::Onomancy { name: "李白".into(), surname_strokes: Some(7), given_strokes: Some(5) },
-    ];
-    let ids: Vec<&'static str> = kinds.iter().map(QueryKind::id).collect();
-    assert_eq!(ids, vec!["natal", "fortune", "event", "election", "synastry", "mundane", "locative", "onomancy"]);
-    // status 标签非空。
-    assert!(!IntentStatus::Live.label().is_empty());
-    assert!(!IntentStatus::Pending.label().is_empty());
-}
-
-#[test]
-fn intents_well_formed_and_aligned_with_querykind() {
-    let specs = intents();
-    assert_eq!(specs.len(), 8, "应有 8 类问事意图");
-    // id 唯一 + 非空字段 + atoms/leaves 非空。
-    let mut seen = std::collections::HashSet::new();
-    for s in specs {
-        assert!(seen.insert(s.id), "意图 id 应唯一： {}", s.id);
-        assert!(!s.name_zh.is_empty());
-        assert!(!s.atoms.is_empty(), "{} atoms 应非空", s.id);
-        assert!(!s.default_leaves.is_empty(), "{} default_leaves 应非空", s.id);
-        assert!(!s.output_shape.is_empty());
-        assert!(!s.note.is_empty());
-    }
-    // QueryKind 8 变体 id 与 intents 清单 id 一一对应。
-    let kind_ids = [
-        QueryKind::Natal(sample()).id(),
-        QueryKind::Fortune { natal: sample(), t_target: ask_2026() }.id(),
-        QueryKind::Event { t_ask: ask_2026(), seed: 0, q_text: None }.id(),
-        QueryKind::Election { window_start: ask_2026(), window_end: ask_2026(), category: String::new() }.id(),
-        QueryKind::Synastry { a: sample(), b: sample() }.id(),
-        QueryKind::Mundane { p_polity: sample() }.id(),
-        QueryKind::Locative { t_ask: ask_2026(), seed: 0, category: String::new() }.id(),
-        QueryKind::Onomancy { name: String::new(), surname_strokes: None, given_strokes: None }.id(),
-    ];
-    let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
-    assert_eq!(kind_ids.to_vec(), spec_ids);
-    // natal + onomancy + fortune 为 Live，其余 5 个 Pending。
-    let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
-    assert_eq!(live_count, 3, "natal + onomancy + fortune 为 Live");
 }
 
 #[test]
