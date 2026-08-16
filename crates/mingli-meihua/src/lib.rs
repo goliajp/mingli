@@ -16,10 +16,14 @@
 //! 语域注：六十四卦名属🟡查表，与 [`mingli_gua`] 一致不在此硬编；卦以上/下卦名复合标识。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "梅花起卦全是模运算：年支/月/日/时辰均落在 1..=31 的小范围，窄化到 u8 受控安全"
 )]
+
+mod engine;
+pub use engine::MeihuaEngine;
 
 use mingli_astro::Moment;
 use mingli_gua::{Hexagram, Trigram, TRIGRAM_XIANTIAN};

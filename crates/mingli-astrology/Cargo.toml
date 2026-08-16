@@ -6,6 +6,8 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
+serde_json = { workspace = true }
+mingli-contract = { workspace = true }
 mingli-core = { workspace = true }
 mingli-astro = { workspace = true }
 mingli-ephemeris = { workspace = true }

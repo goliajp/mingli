@@ -1,6 +1,6 @@
 //! L3.5 释义层（INT）：把**已算好的**盘面翻成人话，与「算」严格分离。
 //!
-//! 铁律：释义只读引擎输出（[`mingli_engine::LeafOutput`]），**绝不修改/重算**任何数字或名称。
+//! 铁律：释义只读引擎输出（[`mingli_contract::LeafOutput`]），**绝不修改/重算**任何数字或名称。
 //! - DET 项忠实转述其含义；🟡UND 项须明说「流派分歧/引擎诚实留空」，不替它编。
 //! - 用语中性克制，不下绝对断言、不作预言；结尾标「仅供研究与娱乐」。
 //! - 释义结果一律标 **🔮INT（LLM 生成，非计算）**，与确定盘面区分。
@@ -9,7 +9,7 @@
 //! 离线确定性后端 [`Template`]（无 LLM 时的忠实转述）。真正的 LLM 后端（如 claude CLI）是外部
 //! 非确定 I/O，放在承接层（services）实现 [`Interpreter`]，可随时替换。
 
-use mingli_engine::{Determinism, LeafOutput};
+use mingli_contract::{Determinism, LeafOutput};
 
 /// 主体类型：同一套四柱计算给不同主体读出不同象义。
 ///
@@ -273,7 +273,9 @@ pub fn interpret_leaf_with_subject(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mingli_engine::{cast_all_detailed, Gender, Query};
+    use mingli_contract::{Gender, Query};
+    use mingli_engine::cast_all_detailed;
+    use mingli_registry::registry;
 
     fn sample_leaf(id: &str) -> LeafOutput {
         let q = Query {
@@ -282,7 +284,7 @@ mod tests {
             seed: None, name: Some("Ada".to_string()),
             schools: std::collections::BTreeMap::new(),
         };
-        cast_all_detailed(&q).into_iter().find(|l| l.id == id).unwrap()
+        cast_all_detailed(&registry(), &q).into_iter().find(|l| l.id == id).unwrap()
     }
 
     #[test]

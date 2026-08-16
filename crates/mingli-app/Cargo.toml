@@ -1,0 +1,23 @@
+[package]
+name = "mingli-app"
+description = "用例层：本命 / 岁运叠加 / 运势时序 / 团队合盘 / 字词 / 跨叶分析 / 释义这些「一次完整请求要做的事」。承接层只做协议转换，业务编排都在这里。"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+mingli-contract = { workspace = true }
+mingli-engine = { workspace = true }
+mingli-analysis = { workspace = true }
+mingli-interpret = { workspace = true }
+# 用例依赖具体领域实体是允许方向；编排层（engine）则不允许。
+mingli-bazi = { workspace = true }
+mingli-ziwei = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+mingli-registry = { workspace = true }
+
+[lints]
+workspace = true

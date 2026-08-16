@@ -16,10 +16,14 @@
 //! 定局的「拆补法 / 置闰法」差异只在交节临界数日的元/局对齐，本 crate 用**主流拆补法**（符头定元）。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "节气/局数/宫位均落 0..24 / 1..9 小范围，与 i64/usize 间换算受控安全"
 )]
+
+mod engine;
+pub use engine::QimenEngine;
 
 use mingli_astro::Moment;
 use serde::Serialize;

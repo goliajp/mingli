@@ -15,11 +15,15 @@
 //! 故只**判定课式**、不强编其三传（[`Cast::transmission`] 返回 `None`），把不确定显式暴露。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::trivially_copy_pass_by_ref,
     reason = "盘位全在 Z₁₂（0..12）小范围内换算；Course/数组按引用传是为可读性，受控安全"
 )]
+
+mod engine;
+pub use engine::LiurenEngine;
 
 use mingli_astro::Moment;
 use mingli_ganzhi::branch_element;

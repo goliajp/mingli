@@ -9,12 +9,11 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
-mingli-analysis = { workspace = true }
+mingli-registry = { workspace = true }
+mingli-app = { workspace = true }
 mingli-interpret = { workspace = true }
-mingli-gematria = { workspace = true }
-mingli-abjad = { workspace = true }
-mingli-wuge = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wasm-bindgen = "0.2"
@@ -22,7 +21,7 @@ wasm-bindgen = "0.2"
 [features]
 default = ["astrology"]
 # 关掉得轻量 wasm（去掉占星 + VSOP87 星历）。
-astrology = ["mingli-engine/astrology"]
+astrology = ["mingli-registry/astrology"]
 
 [lints]
 workspace = true

@@ -25,6 +25,9 @@
     reason = "0..22 的字母索引转 u64 在所有目标平台都不截断"
 )]
 
+mod engine;
+pub use engine::GematriaEngine;
+
 use serde::Serialize;
 
 /// 希伯来 22 本形字母（字母表序）。

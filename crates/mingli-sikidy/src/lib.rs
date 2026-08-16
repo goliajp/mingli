@@ -8,6 +8,10 @@
 //! 语域注：本叶只做 16 列的**GF(2) 矩阵结构**。各列/图的马达加斯加名与吉凶象征属需逐项核对文献的
 //! 数据表（🟡），不在此凭记忆硬编；列以 4 位整数值（0..16）标识。
 
+
+mod engine;
+pub use engine::SikidyEngine;
+
 use mingli_core::gf2;
 use mingli_core::sampler::SplitMix64;
 use serde::Serialize;

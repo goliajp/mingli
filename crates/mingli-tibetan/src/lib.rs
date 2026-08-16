@@ -16,11 +16,15 @@
 //! 元素用藏文本义 **Iron（铁）** 而非汉译 Metal。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
     reason = "全部相位经 rem_euclid 落 0..60 / 0..9 等小范围，与 i64/usize 间换算受控安全"
 )]
+
+mod engine;
+pub use engine::TibetanEngine;
 
 use mingli_astro::Moment;
 use serde::Serialize;

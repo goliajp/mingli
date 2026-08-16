@@ -15,11 +15,15 @@
 //! 没有自洽单一出处，故本 crate **只给宫名与核心数**，不下含义/关系断言。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
     reason = "核心数/星期经 rem_euclid 落 0..7，缅历年由 JDN(~2.5e6) floor 得；与 i64/usize 间换算受控"
 )]
+
+mod engine;
+pub use engine::MahaboteEngine;
 
 use mingli_astro::Moment;
 use serde::Serialize;

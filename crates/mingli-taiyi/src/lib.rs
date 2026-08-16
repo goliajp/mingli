@@ -20,10 +20,14 @@
 //!   indisputable 的十六**方位**（十二支+四维）见 [`SIXTEEN_DIRECTIONS`]。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "积年 mod 24 ∈ 0..24、step∈0..8、三才∈0..3，窄化到 u8/usize 受控安全"
 )]
+
+mod engine;
+pub use engine::TaiyiEngine;
 
 use mingli_astro::Moment;
 use serde::Serialize;

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/mingli-core",
+    "crates/mingli-contract",
     "crates/mingli-astro",
     "crates/mingli-ephemeris",
     "crates/mingli-ganzhi",
@@ -34,6 +35,8 @@ members = [
     "crates/mingli-analysis",
     "crates/mingli-interpret",
     "crates/mingli-wasm",
+    "crates/mingli-registry",
+    "crates/mingli-app",
     "crates/mingli-engine",
     "services/mingli-api",
 ]
@@ -46,6 +49,7 @@ rust-version = "1.97"
 
 [workspace.dependencies]
 mingli-core = { path = "crates/mingli-core" }
+mingli-contract = { path = "crates/mingli-contract" }
 mingli-astro = { path = "crates/mingli-astro" }
 mingli-ephemeris = { path = "crates/mingli-ephemeris" }
 mingli-ganzhi = { path = "crates/mingli-ganzhi" }
@@ -55,6 +59,8 @@ mingli-astrology = { path = "crates/mingli-astrology" }
 mingli-jyotish = { path = "crates/mingli-jyotish" }
 mingli-qizhengsiyu = { path = "crates/mingli-qizhengsiyu" }
 mingli-engine = { path = "crates/mingli-engine" }
+mingli-registry = { path = "crates/mingli-registry" }
+mingli-app = { path = "crates/mingli-app" }
 mingli-analysis = { path = "crates/mingli-analysis" }
 mingli-interpret = { path = "crates/mingli-interpret" }
 mingli-wasm = { path = "crates/mingli-wasm" }

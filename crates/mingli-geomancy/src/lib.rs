@@ -8,6 +8,10 @@
 //! 语域注：本叶只做盾牌图的**GF(2) 结构**。16 个地占图的拉丁名/中文名（Via， Populus…）是一张
 //! 需逐项核对权威文献的数据表（🟡），不在此凭记忆硬编；图以 4 位整数值（0..16）标识。
 
+
+mod engine;
+pub use engine::GeomancyEngine;
+
 use mingli_core::gf2;
 use mingli_core::sampler::SplitMix64;
 use serde::Serialize;

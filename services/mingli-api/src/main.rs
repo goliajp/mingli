@@ -18,8 +18,23 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use mingli_app::Birth;
+use mingli_contract::{CastingEngine, Gender, Query, WordEngine, WordQuery};
 use serde::Deserialize;
+use std::sync::OnceLock;
 use tower_http::cors::CorsLayer;
+
+/// 装配根只装配一次，全进程复用（原先每个请求都重建一遍注册表）。
+fn leaves() -> &'static [Box<dyn CastingEngine>] {
+    static REG: OnceLock<Vec<Box<dyn CastingEngine>>> = OnceLock::new();
+    REG.get_or_init(mingli_registry::registry)
+}
+
+/// 字词叶注册表，同样只装配一次。
+fn word_leaves() -> &'static [Box<dyn WordEngine>] {
+    static REG: OnceLock<Vec<Box<dyn WordEngine>>> = OnceLock::new();
+    REG.get_or_init(mingli_registry::word_registry)
+}
 
 #[derive(Debug, Deserialize)]
 struct ChartRequest {
@@ -83,40 +98,40 @@ impl mingli_interpret::Interpreter for ClaudeCli {
     }
 }
 
-fn parse_gender_bazi(g: &Option<String>) -> Option<mingli_bazi::Gender> {
+/// HTTP 的性别字面 → 契约层性别。
+fn parse_gender(g: &Option<String>) -> Option<Gender> {
     match g.as_deref() {
-        Some("male") | Some("男") => Some(mingli_bazi::Gender::Male),
-        Some("female") | Some("女") => Some(mingli_bazi::Gender::Female),
+        Some("male" | "男") => Some(Gender::Male),
+        Some("female" | "女") => Some(Gender::Female),
         _ => None,
     }
 }
 
-fn parse_gender_ziwei(g: &Option<String>) -> Option<mingli_ziwei::Gender> {
-    match g.as_deref() {
-        Some("male") | Some("男") => Some(mingli_ziwei::Gender::Male),
-        Some("female") | Some("女") => Some(mingli_ziwei::Gender::Female),
-        _ => None,
-    }
-}
-
-fn parse_gender_engine(g: &Option<String>) -> Option<mingli_engine::Gender> {
-    match g.as_deref() {
-        Some("male") | Some("男") => Some(mingli_engine::Gender::Male),
-        Some("female") | Some("女") => Some(mingli_engine::Gender::Female),
-        _ => None,
-    }
-}
-
-/// 由请求构造 engine 查询（共享输入）。
-fn engine_query(req: &ChartRequest) -> mingli_engine::Query {
-    mingli_engine::Query {
+/// DTO → 用例层入参。
+fn birth(req: &ChartRequest) -> Birth {
+    Birth {
         year: req.year,
         month: req.month,
         day: req.day,
         hour: req.hour,
         minute: req.minute,
         tz: req.tz.unwrap_or(8.0),
-        gender: parse_gender_engine(&req.gender),
+        gender: parse_gender(&req.gender),
+        true_solar_time: req.true_solar_time,
+        longitude: req.longitude,
+    }
+}
+
+/// DTO → 全叶排盘的共享查询。
+fn engine_query(req: &ChartRequest) -> Query {
+    Query {
+        year: req.year,
+        month: req.month,
+        day: req.day,
+        hour: req.hour,
+        minute: req.minute,
+        tz: req.tz.unwrap_or(8.0),
+        gender: parse_gender(&req.gender),
         latitude: req.latitude,
         longitude: req.longitude,
         seed: req.seed,
@@ -126,39 +141,14 @@ fn engine_query(req: &ChartRequest) -> mingli_engine::Query {
 }
 
 fn validate(req: &ChartRequest) -> Result<(), String> {
-    if !(1900..=2100).contains(&req.year) {
-        return Err("year 仅支持 1900–2100".into());
-    }
-    if !(1..=12).contains(&req.month) {
-        return Err("month 须 1–12".into());
-    }
-    if !(1..=31).contains(&req.day) {
-        return Err("day 须 1–31".into());
-    }
-    if req.hour > 23 || req.minute > 59 {
-        return Err("hour/minute 越界".into());
-    }
-    Ok(())
+    birth(req).validate()
 }
 
 async fn bazi_handler(Json(req): Json<ChartRequest>) -> impl IntoResponse {
     if let Err(e) = validate(&req) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response();
     }
-    let input = mingli_bazi::BirthInput {
-        year: req.year,
-        month: req.month,
-        day: req.day,
-        hour: req.hour,
-        minute: req.minute,
-        tz: req.tz.unwrap_or(8.0),
-        gender: parse_gender_bazi(&req.gender),
-    };
-    let chart = match (req.true_solar_time, req.longitude) {
-        (true, Some(lon)) => mingli_bazi::compute_with_true_solar(input, lon),
-        _ => mingli_bazi::compute(input),
-    };
-    Json(chart).into_response()
+    Json(mingli_app::bazi::natal(&birth(&req))).into_response()
 }
 
 /// 岁运叠加旺衰：本命 + extras（大运柱、流年柱等）。
@@ -175,44 +165,10 @@ async fn overlay_strength_handler(Json(req): Json<OverlayRequest>) -> impl IntoR
     if let Err(e) = validate(&req.natal) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response();
     }
-    let input = mingli_bazi::BirthInput {
-        year: req.natal.year,
-        month: req.natal.month,
-        day: req.natal.day,
-        hour: req.natal.hour,
-        minute: req.natal.minute,
-        tz: req.natal.tz.unwrap_or(8.0),
-        gender: parse_gender_bazi(&req.natal.gender),
-    };
-    let chart = match (req.natal.true_solar_time, req.natal.longitude) {
-        (true, Some(lon)) => mingli_bazi::compute_with_true_solar(input, lon),
-        _ => mingli_bazi::compute(input),
-    };
-    let parsed: Vec<_> = req
-        .extras
-        .iter()
-        .filter_map(|s| mingli_bazi::parse_ganzhi(s))
-        .collect();
-    if parsed.len() != req.extras.len() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "extras 含无法解析的干支字符串" })),
-        )
-            .into_response();
+    match mingli_app::bazi::overlay_strength(&birth(&req.natal), &req.extras) {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
-    let year_gz = mingli_bazi::parse_ganzhi(&chart.year.ganzhi).unwrap();
-    let month_gz = mingli_bazi::parse_ganzhi(&chart.month.ganzhi).unwrap();
-    let day_gz = mingli_bazi::parse_ganzhi(&chart.day.ganzhi).unwrap();
-    let hour_gz = mingli_bazi::parse_ganzhi(&chart.hour.ganzhi).unwrap();
-    let yun = mingli_bazi::compute_strength_with_extras(year_gz, month_gz, day_gz, hour_gz, &parsed);
-    let delta = i32::try_from(yun.score).unwrap_or(0) - i32::try_from(chart.strength.score).unwrap_or(0);
-    Json(serde_json::json!({
-        "ming": chart.strength,
-        "yun": yun,
-        "delta_score": delta,
-        "extras": req.extras,
-    }))
-    .into_response()
 }
 
 /// 团队合盘：N 人生辰 → N 张本命盘 + 团队五行画像 + 互补矩阵。
@@ -235,124 +191,45 @@ struct TeamMember {
     name: Option<String>,
 }
 
-async fn team_handler(Json(req): Json<TeamRequest>) -> impl IntoResponse {
-    if req.members.is_empty() || req.members.len() > 12 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "members 须 1-12 人" })),
-        )
-            .into_response();
-    }
-    // 排每张盘
-    let charts: Vec<_> = req
-        .members
+/// DTO 成员 → 用例层成员。
+fn team_members(req: &TeamRequest) -> Vec<mingli_app::team::Member<'_>> {
+    req.members
         .iter()
-        .map(|m| {
-            mingli_bazi::compute(mingli_bazi::BirthInput {
-                year: m.year, month: m.month, day: m.day, hour: m.hour, minute: m.minute,
+        .map(|m| mingli_app::team::Member {
+            birth: Birth {
+                year: m.year,
+                month: m.month,
+                day: m.day,
+                hour: m.hour,
+                minute: m.minute,
                 tz: m.tz.unwrap_or(8.0),
-                gender: parse_gender_bazi(&m.gender),
-            })
+                gender: parse_gender(&m.gender),
+                true_solar_time: false,
+                longitude: None,
+            },
+            name: m.name.as_deref(),
         })
-        .collect();
-    let team_wx = mingli_bazi::team_wuxing_average(&charts);
-    let weakest = mingli_bazi::team_weakest(&team_wx);
-    let strongest = mingli_bazi::team_strongest(&team_wx);
-    // 互补矩阵 N×N：M[i][j] = j 对 i 用神（主）的供给度 = j.wuxing[i.yongshen.primary_wuxing]
-    let n = charts.len();
-    let mut matrix: Vec<Vec<u32>> = vec![vec![0; n]; n];
-    for i in 0..n {
-        for j in 0..n {
-            matrix[i][j] = mingli_bazi::complement_score(
-                &charts[i].yongshen.primary_wuxing,
-                &charts[j].strength.wuxing,
-            );
-        }
+        .collect()
+}
+
+async fn team_handler(Json(req): Json<TeamRequest>) -> impl IntoResponse {
+    match mingli_app::team::compute(&team_members(&req)) {
+        Ok(r) => Json(r.to_json()).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
-    let members_out: Vec<serde_json::Value> = req
-        .members
-        .iter()
-        .zip(charts.iter())
-        .map(|(m, c)| serde_json::json!({
-            "name": m.name.clone().unwrap_or_else(|| format!("成员 {}", m.year)),
-            "day_master": c.day_master,
-            "day_master_wuxing": c.day_master_wuxing,
-            "year_gz": c.year.ganzhi,
-            "month_gz": c.month.ganzhi,
-            "day_gz": c.day.ganzhi,
-            "hour_gz": c.hour.ganzhi,
-            "strength": c.strength,
-            "yongshen": c.yongshen,
-        }))
-        .collect();
-    Json(serde_json::json!({
-        "members": members_out,
-        "team_wuxing": team_wx,
-        "team_weakest": { "wuxing": weakest.0, "pct": weakest.1 },
-        "team_strongest": { "wuxing": strongest.0, "pct": strongest.1 },
-        "complement_matrix": matrix,
-    }))
-    .into_response()
 }
 
 /// 团队 LLM 释义：接受 `/api/team` 同形 body → 算团队结果 → 让 LLM 解读结构。
 /// 与 `/api/team` 分开，因 LLM 是阻塞慢 I/O，不应污染纯计算端点。
 async fn team_interpret_handler(Json(req): Json<TeamRequest>) -> impl IntoResponse {
-    if req.members.is_empty() || req.members.len() > 12 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "members 须 1-12 人" })),
-        )
-            .into_response();
-    }
-    let charts: Vec<_> = req
-        .members
-        .iter()
-        .map(|m| {
-            mingli_bazi::compute(mingli_bazi::BirthInput {
-                year: m.year, month: m.month, day: m.day, hour: m.hour, minute: m.minute,
-                tz: m.tz.unwrap_or(8.0),
-                gender: parse_gender_bazi(&m.gender),
-            })
-        })
-        .collect();
-    let team_wx = mingli_bazi::team_wuxing_average(&charts);
-    let weakest = mingli_bazi::team_weakest(&team_wx);
-    let strongest = mingli_bazi::team_strongest(&team_wx);
-    let n = charts.len();
-    let mut matrix: Vec<Vec<u32>> = vec![vec![0; n]; n];
-    for i in 0..n {
-        for j in 0..n {
-            matrix[i][j] = mingli_bazi::complement_score(
-                &charts[i].yongshen.primary_wuxing,
-                &charts[j].strength.wuxing,
-            );
+    let team_json = match mingli_app::team::compute(&team_members(&req)) {
+        Ok(r) => serde_json::to_string(&r.to_summary_json()).unwrap_or_default(),
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response()
         }
-    }
-    let members_out: Vec<serde_json::Value> = req
-        .members
-        .iter()
-        .zip(charts.iter())
-        .map(|(m, c)| serde_json::json!({
-            "name": m.name.clone().unwrap_or_else(|| format!("成员 {}", m.year)),
-            "day_master": c.day_master,
-            "day_master_wuxing": c.day_master_wuxing,
-            "strength": c.strength,
-            "yongshen": c.yongshen,
-        }))
-        .collect();
-    let team_json = serde_json::to_string(&serde_json::json!({
-        "members": members_out,
-        "team_wuxing": team_wx,
-        "team_weakest": { "wuxing": weakest.0, "pct": weakest.1 },
-        "team_strongest": { "wuxing": strongest.0, "pct": strongest.1 },
-        "complement_matrix": matrix,
-    })).unwrap_or_default();
-    let result = tokio::task::spawn_blocking(move || {
-        mingli_interpret::interpret_team(&ClaudeCli, &team_json)
-            .or_else(|_| mingli_interpret::interpret_team(&mingli_interpret::Template, &team_json))
-    })
-    .await;
+    };
+    // 释义后端是阻塞慢 I/O → 移出异步执行器。
+    let result = tokio::task::spawn_blocking(move || mingli_app::interpret::team(&ClaudeCli, &team_json)).await;
     match result {
         Ok(Ok(interp)) => Json(interp).into_response(),
         _ => (
@@ -367,16 +244,7 @@ async fn ziwei_handler(Json(req): Json<ChartRequest>) -> impl IntoResponse {
     if let Err(e) = validate(&req) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response();
     }
-    let chart = mingli_ziwei::compute(mingli_ziwei::BirthInput {
-        year: req.year,
-        month: req.month,
-        day: req.day,
-        hour: req.hour,
-        minute: req.minute,
-        tz: req.tz.unwrap_or(8.0),
-        gender: parse_gender_ziwei(&req.gender),
-    });
-    Json(chart).into_response()
+    Json(mingli_app::ziwei::natal(&birth(&req))).into_response()
 }
 
 /// 全叶并行排盘：一次输入 → engine 共享层算一次 → 并行 fan-out 所有叶 → 带元数据 JSON 数组。
@@ -384,7 +252,7 @@ async fn cast_handler(Json(req): Json<ChartRequest>) -> impl IntoResponse {
     if let Err(e) = validate(&req) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response();
     }
-    let leaves = mingli_engine::cast_all_detailed(&engine_query(&req));
+    let leaves = mingli_engine::cast_all_detailed(leaves(), &engine_query(&req));
     Json(serde_json::json!({ "leaves": leaves })).into_response()
 }
 
@@ -403,25 +271,10 @@ struct WordRequest {
 
 /// D 族字/词模态入口（与 moment-based 排盘并列；这些术数不吃出生时刻）。
 async fn word_handler(Json(req): Json<WordRequest>) -> impl IntoResponse {
-    let bad = |m: &str| (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": m }))).into_response();
-    match req.system.as_str() {
-        "gematria" => {
-            let w = req.text.unwrap_or_default();
-            Json(serde_json::json!({ "system": "gematria", "input": w, "result": mingli_gematria::compute(&w) })).into_response()
-        }
-        "abjad" => {
-            let w = req.text.unwrap_or_default();
-            Json(serde_json::json!({ "system": "abjad", "input": w, "result": mingli_abjad::compute(&w) })).into_response()
-        }
-        "wuge" => {
-            let s = req.surname.unwrap_or_default();
-            let g = req.given.unwrap_or_default();
-            if s.is_empty() || g.is_empty() {
-                return bad("姓与名笔画至少各一字");
-            }
-            Json(serde_json::json!({ "system": "wuge", "surname": s, "given": g, "result": mingli_wuge::five_grids(&s, &g) })).into_response()
-        }
-        other => bad(&format!("未知字词系统 {other}")),
+    let q = WordQuery { text: req.text, surname: req.surname, given: req.given };
+    match mingli_app::word::compute(word_leaves(), &req.system, &q) {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
@@ -431,22 +284,20 @@ async fn interpret_handler(Json(req): Json<ChartRequest>) -> impl IntoResponse {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response();
     }
     let leaf_id = req.leaf.clone().unwrap_or_else(|| "bazi".to_string());
-    // 只算该叶（省去其余 18 叶，非占星叶还省掉 VSOP87）。
-    let Some(leaf) = mingli_engine::cast_one(&leaf_id, &engine_query(&req)) else {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": format!("未知叶 {leaf_id}") }))).into_response();
-    };
-    let subject = req.subject.as_deref()
+    let subject = req
+        .subject
+        .as_deref()
         .and_then(mingli_interpret::Subject::from_str_opt)
         .unwrap_or(mingli_interpret::Subject::Person);
-    // claude 调用阻塞且慢 → 移出异步执行器；失败回退离线模板（诚实标 backend）。
-    let result = tokio::task::spawn_blocking(move || {
-        mingli_interpret::interpret_leaf_with_subject(&ClaudeCli, &leaf, subject)
-            .or_else(|_| mingli_interpret::interpret_leaf_with_subject(&mingli_interpret::Template, &leaf, subject))
-    })
-    .await;
+    let q = engine_query(&req);
+    // 释义后端是阻塞慢 I/O → 移出异步执行器；后端失败会回退离线模板（诚实标 backend）。
+    let result =
+        tokio::task::spawn_blocking(move || mingli_app::interpret::leaf(leaves(), &ClaudeCli, &leaf_id, &q, subject))
+            .await;
     match result {
         Ok(Ok(interp)) => Json(interp).into_response(),
-        _ => (
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": "释义后端不可用" })),
         )
@@ -456,13 +307,7 @@ async fn interpret_handler(Json(req): Json<ChartRequest>) -> impl IntoResponse {
 
 /// 跨叶相关性分析（信息论 NMI 矩阵）。网格固定→结果确定，首次算后缓存。
 async fn analysis_handler() -> impl IntoResponse {
-    use std::sync::OnceLock;
-    static CACHE: OnceLock<serde_json::Value> = OnceLock::new();
-    let v = CACHE.get_or_init(|| {
-        let a = mingli_analysis::cross_leaf(&mingli_analysis::sample_grid(1980, 2009));
-        serde_json::to_value(a).unwrap_or(serde_json::Value::Null)
-    });
-    Json(v.clone())
+    Json(mingli_app::analysis::cross_leaf_cached(leaves()))
 }
 
 /// Fortune：t 时刻运势切片 + 100 年用神供给时间序列。
@@ -497,40 +342,23 @@ async fn fortune_handler(Json(req): Json<FortuneRequest>) -> impl IntoResponse {
     if let Err(e) = validate(&req.natal) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response();
     }
-    if req.natal.gender.is_none() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "fortune 需性别（决定大运顺逆），缺 gender" })),
-        )
-            .into_response();
-    }
-    let input = mingli_bazi::BirthInput {
-        year: req.natal.year,
-        month: req.natal.month,
-        day: req.natal.day,
-        hour: req.natal.hour,
-        minute: req.natal.minute,
-        tz: req.natal.tz.unwrap_or(8.0),
-        gender: parse_gender_bazi(&req.natal.gender),
+    let t_target = mingli_contract::AskTime {
+        year: req.t_target.year,
+        month: req.t_target.month,
+        day: req.t_target.day,
+        hour: req.t_target.hour,
+        minute: req.t_target.minute,
+        tz: req.t_target.tz,
     };
-    let max_age = req.timeline_max_age.unwrap_or(100).min(120);
-    let at = mingli_bazi::fortune_at(
-        input,
-        req.t_target.year, req.t_target.month, req.t_target.day,
-        req.t_target.hour, req.t_target.minute, req.t_target.tz,
-    );
-    let timeline = mingli_bazi::fortune_supply_timeline(input, max_age);
-    Json(serde_json::json!({
-        "at": at,
-        "timeline": timeline,
-        "max_age": max_age,
-    }))
-    .into_response()
+    match mingli_app::bazi::fortune(&birth(&req.natal), &t_target, req.timeline_max_age) {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
 }
 
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
-    let intents: Vec<_> = mingli_engine::intents()
+    let intents: Vec<_> = mingli_contract::intents()
         .iter()
         .map(|s| {
             serde_json::json!({
@@ -545,7 +373,7 @@ async fn intents_handler() -> impl IntoResponse {
             })
         })
         .collect();
-    let registered: Vec<_> = mingli_engine::registry()
+    let registered: Vec<_> = leaves()
         .iter()
         .map(|e| {
             serde_json::json!({
@@ -564,8 +392,8 @@ async fn intents_handler() -> impl IntoResponse {
 
 /// 对给定 QueryKind 返回路由叶 id 列表（过滤当前 registry 实际启用）。
 /// 请求体即 [`mingli_engine::QueryKind`] 的 JSON（内部标签 `{"kind":"natal", ...}`）。
-async fn route_handler(Json(kind): Json<mingli_engine::QueryKind>) -> impl IntoResponse {
-    let leaves = mingli_engine::route(&kind);
+async fn route_handler(Json(kind): Json<mingli_contract::QueryKind>) -> impl IntoResponse {
+    let leaves = mingli_engine::route(leaves(), &kind);
     Json(serde_json::json!({
         "intent": kind.id(),
         "leaves": leaves,
@@ -574,7 +402,7 @@ async fn route_handler(Json(kind): Json<mingli_engine::QueryKind>) -> impl IntoR
 
 async fn health() -> impl IntoResponse {
     // 列出已注册叶（id/显示名/家族），便于前端发现可用叶。
-    let leaves: Vec<_> = mingli_engine::registry()
+    let leaf_meta: Vec<_> = leaves()
         .iter()
         .map(|e| {
             serde_json::json!({
@@ -588,8 +416,8 @@ async fn health() -> impl IntoResponse {
     Json(serde_json::json!({
         "status": "ok",
         "service": "mingli-api",
-        "leaf_count": leaves.len(),
-        "leaves": leaves,
+        "leaf_count": leaf_meta.len(),
+        "leaves": leaf_meta,
     }))
 }
 

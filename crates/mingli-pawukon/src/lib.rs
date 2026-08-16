@@ -16,11 +16,15 @@
 //! 🟡 存疑标注见 [`Cast::ekawara`]/[`Cast::dwiwara`] 的奇偶方向（源间有一处冲突，采信两个独立实现）。
 
 #![allow(
+
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
     reason = "全部相位经 rem_euclid 落在 0..210 等小范围，与 i64/usize 间换算受控安全"
 )]
+
+mod engine;
+pub use engine::PawukonEngine;
 
 use mingli_astro::Moment;
 use serde::Serialize;

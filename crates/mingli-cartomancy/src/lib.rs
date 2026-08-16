@@ -23,6 +23,10 @@
 //! - **Elder Futhark 24** / **Younger Futhark 16**：英文 + Unicode 字符（BabelStone + en.wikipedia + Runic block 三源一致），
 //!   中文译名多家拼写不稳标 🟡 不入码；只入古北欧名 + Unicode。
 
+
+mod engine;
+pub use engine::TarotEngine;
+
 use mingli_core::sampler::{shuffle, SplitMix64};
 use serde::Serialize;
 
