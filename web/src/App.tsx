@@ -6,6 +6,7 @@ import { fetchAnalysis, fetchBazi, fetchCast, fetchFortune, fetchInterpretation,
 import { IntentBar, IntentPendingCard } from './components/IntentBar'
 import { ElectionView } from './views/ElectionView'
 import { EventView } from './views/EventView'
+import { LocativeView } from './views/LocativeView'
 import { NumField } from './components/NumField'
 import { SummaryBar } from './components/SummaryBar'
 import { TimeScrubber } from './components/TimeScrubber'
@@ -202,8 +203,9 @@ export default function App() {
 
       {intent === 'event' && <EventView />}
       {intent === 'election' && <ElectionView />}
+      {intent === 'locative' && <LocativeView />}
 
-      {intent !== 'natal' && intent !== 'fortune' && intent !== 'event' && intent !== 'election' && intentsList && (
+      {intent !== 'natal' && intent !== 'fortune' && intent !== 'event' && intent !== 'election' && intent !== 'locative' && intentsList && (
         <IntentPendingCard spec={intentsList.find((s) => s.id === intent)} onBackToNatal={() => setIntent('natal')} />
       )}
 

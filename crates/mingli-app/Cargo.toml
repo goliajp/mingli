@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 mingli-astro = { workspace = true }
+mingli-luoshu = { workspace = true }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
 mingli-analysis = { workspace = true }

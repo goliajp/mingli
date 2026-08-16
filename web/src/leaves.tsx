@@ -786,11 +786,7 @@ function Numerology({ c }: { c: NumChart }) {
 }
 
 // ============ ⟂ 横切 ============
-interface LiurenChart { day_stem: number; day_branch: number; hour_branch: number; month_general: number; month_general_name: string; offset: number; heaven: number[]; courses: { down: number; up: number }[]; pattern: string; transmission: number[] | null }
-const LIUREN_PATTERN: Record<string, string> = {
-  ZhongShen: '重审', YuanShou: '元首', BiYong: '比用', SheHai: '涉害', HaoShi: '蒿矢', TanShe: '弹射',
-  MaoXing: '昴星', BieZe: '别责', BaZhuan: '八专', FuYin: '伏吟', FanYin: '返吟',
-}
+interface LiurenChart { day_stem: number; day_branch: number; hour_branch: number; month_general: number; month_general_name: string; offset: number; heaven: number[]; courses: { down: number; up: number }[]; pattern: string; pattern_label: string; transmission: number[] | null }
 function Liuren({ c }: { c: LiurenChart }) {
   // 天地盘圆环：12 地支地盘均布，天盘在外圈
   const S = 300, cx = S / 2, cy = S / 2
@@ -811,13 +807,13 @@ function Liuren({ c }: { c: LiurenChart }) {
             </g>
           })}
           <text x={cx} y={cy - 8} className="plate-c1" dominantBaseline="central" textAnchor="middle">{STEMS[c.day_stem]}{BRANCHES[c.day_branch]}</text>
-          <text x={cx} y={cy + 12} className="plate-c2" dominantBaseline="central" textAnchor="middle">{LIUREN_PATTERN[c.pattern] ?? c.pattern}</text>
+          <text x={cx} y={cy + 12} className="plate-c2" dominantBaseline="central" textAnchor="middle">{c.pattern_label}</text>
         </svg>
         <div className="liuren-side">
           <div className="kv-grid">
             <Stat k="日干支" v={`${STEMS[c.day_stem]}${BRANCHES[c.day_branch]}`} />
             <Stat k="月将·占时" v={`${c.month_general_name}·${BRANCHES[c.hour_branch]}`} />
-            <Stat k="课式" v={LIUREN_PATTERN[c.pattern] ?? c.pattern} hi />
+            <Stat k="课式" v={c.pattern_label} hi />
           </div>
           <div className="lp-sec-t" style={{ marginTop: 12 }}>四课（右起一→四）</div>
           <div className="courses">
@@ -826,7 +822,7 @@ function Liuren({ c }: { c: LiurenChart }) {
             ))}
           </div>
           <div className="lp-sec-t" style={{ marginTop: 12 }}>三传</div>
-          <div className="san-chuan">{c.transmission ? c.transmission.map((t, i) => <span key={i} className="sc-cell">{['初', '中', '末'][i]} {BRANCHES[t]}</span>) : <span className="und">🟡 该课式（{LIUREN_PATTERN[c.pattern]}）取传流派分歧，未强编</span>}</div>
+          <div className="san-chuan">{c.transmission ? c.transmission.map((t, i) => <span key={i} className="sc-cell">{['初', '中', '末'][i]} {BRANCHES[t]}</span>) : <span className="und">🟡 该课式（{c.pattern_label}）取传流派分歧，未强编</span>}</div>
         </div>
       </div>
     </div>

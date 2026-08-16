@@ -452,8 +452,8 @@ pub fn intents() -> &'static [IntentSpec] {
             "locative", "寻（寻方位）",
             &["instant(ask)", "seed(draw)", "category（寻人/物/向）"],
             &["liuren", "qimen", "xiaoliuren"],
-            "位（方位/卦象）", Pending,
-            "六壬/奇门起课算力在，差「方位」输出形态；取传/方位判读 🟡",
+            "位（方位/卦象）", Live,
+            "/api/locative 于问事此刻起六壬/奇门课，抽方位候选（值符/值使/三吉门/三奇落宫 → 后天八卦方位；六壬三传或四课上神 → 十二支方位）；取用之法各家不同，交释义层",
         ),
         i(
             "onomancy", "号（字/词）",
@@ -666,8 +666,8 @@ mod tests {
         ];
         let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
         assert_eq!(kind_ids.to_vec(), spec_ids);
-        // natal + onomancy + fortune + event + election 为 Live，其余 3 个 Pending。
+        // natal + onomancy + fortune + event + election + locative 为 Live，其余 2 个 Pending。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
-        assert_eq!(live_count, 5, "natal + onomancy + fortune + event + election 为 Live");
+        assert_eq!(live_count, 6, "natal + onomancy + fortune + event + election + locative 为 Live");
     }
 }

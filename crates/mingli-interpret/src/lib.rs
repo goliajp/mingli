@@ -249,6 +249,46 @@ pub fn interpret_election(it: &dyn Interpreter, election_json: &str) -> std::io:
     })
 }
 
+/// 寻方位释义的护栏——输出形态是**位**：给出一到两个方位并说明依据。
+pub const LOCATIVE_GUARDRAIL: &str = "你是术数释义助手。下面是【已由确定性引擎算好】的一次寻方位：\
+问事此刻起的六壬 / 奇门 / 小六壬盘，以及从盘上抽出的方位候选（要素 → 落宫 → 方位）。规则：\
+1) 只读盘面，绝不改动或重算任何数字与名称；\
+2) 这是**寻方位**——针对所寻之事给出**一到两个方位**，说明取自哪个要素（值符 / 值使 / 三吉门 / 三奇 / 六壬三传）以及为何取它；\
+3) 传统取用之法各家不同（寻人多看值使与六合所临，寻物多看三奇与三吉门，问向多看值符），**说明你依的是哪一路**，不要写成唯一正解；\
+4) 同宫的门 / 星 / 神 / 旺衰是判读依据，凶门衰星所在之方要说明为何不取；\
+5) 六壬三传若因流派分歧未出（引擎标 🟡），照实说，改以四课上神所指为参考；\
+6) 若未给所寻之事，就按通用趋吉方位说，不要虚构在寻什么；\
+7) 用语克制；结尾加一句「仅供研究与娱乐」。\
+篇幅 200 字以内。\n\n";
+
+/// 寻方位各字段的读法提示。
+fn locative_hints() -> &'static str {
+    "\n【字段】`bearings[]` 是方位候选：`leaf` 来源叶、`element` 要素、`at` 落宫（奇门 坎1…离9）或地支（六壬）、\
+`direction` 方位、`note` 同宫的星旺衰 · 门 · 神 · 天盘干。`leaves[]` 是各叶原盘可对照。\
+【方位】后天八卦：坎北 · 艮东北 · 震东 · 巽东南 · 离南 · 坤西南 · 兑西 · 乾西北；十二支：子北 · 卯东 · 午南 · 酉西，\
+丑寅东北 · 辰巳东南 · 未申西南 · 戌亥西北。\n"
+}
+
+/// 组装寻方位释义提示词。
+#[must_use]
+pub fn build_locative_prompt(locative_json: &str) -> String {
+    format!("{LOCATIVE_GUARDRAIL}{}\n寻方位结果 JSON：\n{locative_json}\n", locative_hints())
+}
+
+/// 释义一次寻方位，返回 `Interpretation { leaf: "locative" }`。
+///
+/// # Errors
+///
+/// 释义后端不可用时返回其 I/O 错误。
+pub fn interpret_locative(it: &dyn Interpreter, locative_json: &str) -> std::io::Result<Interpretation> {
+    Ok(Interpretation {
+        leaf: "locative".to_string(),
+        text: it.interpret(&build_locative_prompt(locative_json))?,
+        backend: it.backend(),
+        kind: "INT",
+    })
+}
+
 /// 团队合盘释义的护栏。
 pub const TEAM_GUARDRAIL: &str = "你是术数释义助手。下面是已由确定性引擎算好的【团队合盘】结果。规则：\
 1) 只解释，绝不修改或新增任何数字与名称；\
@@ -510,6 +550,27 @@ mod tests {
     fn election_interpretation_round_trips_through_the_offline_backend() {
         let r = interpret_election(&Template, r#"{"candidates":[]}"#).expect("模板后端应可用");
         assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("election", "INT", "template"));
+    }
+
+    #[test]
+    fn locative_prompt_asks_for_a_bearing_and_names_its_school() {
+        let json = r#"{"category":"寻物","bearings":[{"leaf":"qimen","element":"值符","at":"艮8","direction":"东北"}]}"#;
+        let p = build_locative_prompt(json);
+        assert!(p.contains("寻方位") && p.contains("一到两个方位"));
+        // 取用之法各家不同——必须说明依的是哪一路，且不写成唯一正解
+        assert!(p.contains("各家不同") && p.contains("哪一路") && p.contains("唯一正解"));
+        // 六壬三传欠定要照实说；无所寻不虚构
+        assert!(p.contains("流派分歧") && p.contains("四课上神") && p.contains("不要虚构"));
+        for k in ["bearings[]", "direction", "坎北", "子北", "戌亥西北"] {
+            assert!(p.contains(k), "缺 {k}");
+        }
+        assert!(p.contains("仅供研究与娱乐") && p.contains(json));
+    }
+
+    #[test]
+    fn locative_interpretation_round_trips_through_the_offline_backend() {
+        let r = interpret_locative(&Template, r#"{"bearings":[]}"#).expect("模板后端应可用");
+        assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("locative", "INT", "template"));
     }
 
     #[test]

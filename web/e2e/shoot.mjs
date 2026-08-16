@@ -28,6 +28,7 @@ const SCREENS = [
   // 意图页：先点顶部意图 chip，再等该意图自己的界面
   { name: '10-占事', intent: '事（占事）', wait: '.ev-draw' },
   { name: '11-择吉', intent: '择（择吉）', wait: '.el-form', action: '择 日', result: '.el-groups' },
+  { name: '12-寻方位', intent: '寻（寻方位）', wait: '.ev-draw', action: '起 课', result: '.lc-top' },
 ]
 
 const problems = []

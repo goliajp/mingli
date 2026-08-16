@@ -453,6 +453,49 @@ async fn election_interpret_handler(Json(req): Json<ElectionRequest>) -> impl In
     }
 }
 
+/// 寻方位请求：问事此刻 + 取机 + 所寻。
+#[derive(Debug, Deserialize)]
+struct LocativeRequest {
+    /// 问事此刻。
+    t_ask: TTime,
+    /// 取机种子（可缺）。
+    seed: Option<u64>,
+    /// 所寻（人 / 物 / 向；只入释义）。
+    category: Option<String>,
+}
+
+/// 寻方位：问事此刻起课，抽方位候选。
+async fn locative_handler(Json(req): Json<LocativeRequest>) -> impl IntoResponse {
+    match mingli_app::locative::cast(leaves(), &ask_time(&req.t_ask), req.seed, req.category) {
+        Ok(l) => Json(l).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+/// 寻方位释义：同 body → 起课抽候选 → 交释义后端出「位」。
+async fn locative_interpret_handler(Json(req): Json<LocativeRequest>) -> impl IntoResponse {
+    let l = match mingli_app::locative::cast(leaves(), &ask_time(&req.t_ask), req.seed, req.category) {
+        Ok(l) => l,
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response()
+        }
+    };
+    let json = serde_json::to_string(&l).unwrap_or_default();
+    let result = tokio::task::spawn_blocking(move || {
+        mingli_interpret::interpret_locative(&ClaudeCli, &json)
+            .or_else(|_| mingli_interpret::interpret_locative(&mingli_interpret::Template, &json))
+    })
+    .await;
+    match result {
+        Ok(Ok(interp)) => Json(interp).into_response(),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "释义后端不可用" })),
+        )
+            .into_response(),
+    }
+}
+
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
     let intents: Vec<_> = mingli_contract::intents()
@@ -539,6 +582,8 @@ async fn main() {
         .route("/api/event", post(event_handler))
         .route("/api/election", post(election_handler))
         .route("/api/election/interpret", post(election_interpret_handler))
+        .route("/api/locative", post(locative_handler))
+        .route("/api/locative/interpret", post(locative_interpret_handler))
         .route("/api/event/interpret", post(event_interpret_handler))
         .layer(CorsLayer::permissive());
 
