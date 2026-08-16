@@ -7,6 +7,7 @@ import { IntentBar, IntentPendingCard } from './components/IntentBar'
 import { ElectionView } from './views/ElectionView'
 import { EventView } from './views/EventView'
 import { LocativeView } from './views/LocativeView'
+import { MundaneView } from './views/MundaneView'
 import { SynastryView } from './views/SynastryView'
 import { NumField } from './components/NumField'
 import { SummaryBar } from './components/SummaryBar'
@@ -206,8 +207,9 @@ export default function App() {
       {intent === 'election' && <ElectionView />}
       {intent === 'locative' && <LocativeView />}
       {intent === 'synastry' && <SynastryView />}
+      {intent === 'mundane' && <MundaneView />}
 
-      {intent !== 'natal' && intent !== 'fortune' && intent !== 'event' && intent !== 'election' && intent !== 'locative' && intent !== 'synastry' && intentsList && (
+      {intent !== 'natal' && intent !== 'fortune' && intent !== 'event' && intent !== 'election' && intent !== 'locative' && intent !== 'synastry' && intent !== 'mundane' && intentsList && (
         <IntentPendingCard spec={intentsList.find((s) => s.id === intent)} onBackToNatal={() => setIntent('natal')} />
       )}
 

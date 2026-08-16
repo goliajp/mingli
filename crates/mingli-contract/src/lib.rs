@@ -398,7 +398,7 @@ const fn i(
 /// Onomancy（D 族字/词，与时刻无关）。
 #[must_use]
 pub fn intents() -> &'static [IntentSpec] {
-    use IntentStatus::{Live, Pending};
+    use IntentStatus::Live;
     const { &[
         i(
             "natal", "命（本命盘）",
@@ -445,8 +445,8 @@ pub fn intents() -> &'static [IntentSpec] {
             "mundane", "群/国（国运）",
             &["instant(polity)", "geo"],
             &["taiyi", "qimen", "astrology"],
-            "势（国运势卜/年度盘）", Pending,
-            "太乙是国运首选术，从被当本命喂纠正为国运盘；qimen 国家奇门 + astrology mundane",
+            "势（国运势卜/年度盘）", Live,
+            "/api/mundane 以奠基时刻起立国盘（taiyi/qimen/astrology），沿年份铺太乙行宫时间线（三年一宫、廿四年一周），给目标年年度盘；「势」模板要求只描述周期结构、不点评现实政治",
         ),
         i(
             "locative", "寻（寻方位）",
@@ -666,8 +666,8 @@ mod tests {
         ];
         let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
         assert_eq!(kind_ids.to_vec(), spec_ids);
-        // 除 mundane 外 7 意图皆 Live。
+        // 8 意图全部 Live。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
-        assert_eq!(live_count, 7, "除 mundane 外 7 意图皆 Live");
+        assert_eq!(live_count, 8, "8 意图全部 Live");
     }
 }

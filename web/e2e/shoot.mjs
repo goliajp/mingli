@@ -30,6 +30,7 @@ const SCREENS = [
   { name: '11-择吉', intent: '择（择吉）', wait: '.el-form', action: '择 日', result: '.el-groups' },
   { name: '12-寻方位', intent: '寻（寻方位）', wait: '.ev-draw', action: '起 课', result: '.lc-top' },
   { name: '13-合盘', intent: '合（合盘）', wait: '.sy-forms', action: '合 盘', result: '.sy-pair' },
+  { name: '14-国运', intent: '群/国（国运）', wait: '.ev-form', action: '推 演', result: '.mu-tl' },
 ]
 
 const problems = []

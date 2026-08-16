@@ -959,3 +959,29 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .sy-mid-note { font-size: 12px; color: var(--washi-faint); font-family: var(--mono); }
 .sy-team { font-size: 14px; color: var(--washi-dim); padding: 8px 0; border-top: 1px dotted var(--line); margin-top: 8px; }
 .sy-team b { color: var(--washi); }
+
+/* —— 国运（群）—— */
+.mu-annual { display: flex; align-items: center; gap: 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,.18); margin-top: 10px; }
+.mu-annual-big { font-size: 44px; font-weight: 700; color: var(--kin-bright); line-height: 1; letter-spacing: .04em; }
+.mu-annual-big span { font-size: 18px; color: var(--washi-faint); margin-left: 4px; }
+.mu-annual-l { font-family: var(--mono); font-size: 13px; color: var(--washi-faint); letter-spacing: .08em; }
+.mu-annual-t { font-size: 16px; color: var(--washi); margin-top: 3px; }
+.mu-annual-t b { color: var(--kin-bright); }
+.mu-annual-n { font-size: 14px; color: var(--washi-dim); margin-top: 4px; }
+.mu-sc.tian { color: var(--kin) !important; } .mu-sc.di { color: var(--mu) !important; } .mu-sc.ren { color: var(--teal) !important; }
+.mu-tl { display: grid; gap: 2px; margin-top: 8px; overflow-x: auto; }
+.mu-tl-corner { }
+.mu-tl-year { font-family: var(--mono); font-size: 11px; color: var(--washi-faint); text-align: center; height: 16px; }
+.mu-tl-year.enter { color: var(--washi-dim); }
+.mu-tl-year.on { color: var(--shu); font-weight: 700; }
+.mu-tl-lab { font-size: 13px; color: var(--washi-dim); text-align: right; padding-right: 8px; line-height: 20px; white-space: nowrap; }
+.mu-cell { height: 20px; border-radius: 3px; background: rgba(255,255,255,.03); font-family: var(--mono); font-size: 11px; color: var(--sumi); display: flex; align-items: center; justify-content: center; }
+.mu-cell.on.tian { background: var(--kin); }
+.mu-cell.on.di { background: var(--mu); }
+.mu-cell.on.ren { background: var(--teal); }
+.mu-cell.target { box-shadow: 0 0 0 2px var(--shu); }
+.mu-cell.target-col { background: rgba(216, 57, 46, .08); }
+.mu-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
+.mu-key { padding: 1px 9px; border-radius: 10px; color: var(--sumi); font-weight: 600; }
+.mu-key.tian { background: var(--kin); } .mu-key.di { background: var(--mu); } .mu-key.ren { background: var(--teal); }
+.mu-key-note { color: var(--washi-faint); }

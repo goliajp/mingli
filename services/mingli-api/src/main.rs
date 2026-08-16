@@ -540,6 +540,53 @@ async fn synastry_interpret_handler(Json(req): Json<SynastryRequest>) -> impl In
     }
 }
 
+/// 国运请求：奠基时刻 + 坐标（占星立国盘用）+ 目标年 + 时间线年数。
+#[derive(Debug, Deserialize)]
+struct MundaneRequest {
+    /// 政体奠基时刻。
+    founded_at: TTime,
+    /// 奠基地纬度（可缺）。
+    latitude: Option<f64>,
+    /// 奠基地经度（可缺）。
+    longitude: Option<f64>,
+    /// 目标年（年度盘所在年，缺省取立国年）。
+    target_year: Option<i32>,
+    /// 时间线年数（缺省 24，上限 72）。
+    span: Option<u32>,
+}
+
+/// 国运：立国盘 + 太乙行宫时间线 + 年度盘。
+async fn mundane_handler(Json(req): Json<MundaneRequest>) -> impl IntoResponse {
+    match mingli_app::mundane::cast(leaves(), &ask_time(&req.founded_at), req.latitude, req.longitude, req.target_year, req.span) {
+        Ok(m) => Json(m).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+/// 国运释义：同 body → 推演 → 交释义后端出「势」。
+async fn mundane_interpret_handler(Json(req): Json<MundaneRequest>) -> impl IntoResponse {
+    let m = match mingli_app::mundane::cast(leaves(), &ask_time(&req.founded_at), req.latitude, req.longitude, req.target_year, req.span) {
+        Ok(m) => m,
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response()
+        }
+    };
+    let json = serde_json::to_string(&m).unwrap_or_default();
+    let result = tokio::task::spawn_blocking(move || {
+        mingli_interpret::interpret_mundane(&ClaudeCli, &json)
+            .or_else(|_| mingli_interpret::interpret_mundane(&mingli_interpret::Template, &json))
+    })
+    .await;
+    match result {
+        Ok(Ok(interp)) => Json(interp).into_response(),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "释义后端不可用" })),
+        )
+            .into_response(),
+    }
+}
+
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
     let intents: Vec<_> = mingli_contract::intents()
@@ -630,6 +677,8 @@ async fn main() {
         .route("/api/locative/interpret", post(locative_interpret_handler))
         .route("/api/synastry", post(synastry_handler))
         .route("/api/synastry/interpret", post(synastry_interpret_handler))
+        .route("/api/mundane", post(mundane_handler))
+        .route("/api/mundane/interpret", post(mundane_interpret_handler))
         .route("/api/event/interpret", post(event_interpret_handler))
         .layer(CorsLayer::permissive());
 
