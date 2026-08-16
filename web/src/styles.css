@@ -806,3 +806,4 @@ body::before {
 
 /* —— 奇门天盘：中宫寄干挂在寄宫格上 —— */
 .qm-lodged { margin-left: 6px; font-size: 13px; color: var(--mu); font-weight: 600; }
+.g9-gate { display: block; font-size: 13px; color: var(--shu); letter-spacing: .04em; }
