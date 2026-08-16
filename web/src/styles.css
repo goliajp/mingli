@@ -937,3 +937,25 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .lc-dir-cell { font-weight: 700; color: var(--washi); white-space: nowrap; }
 .lc-raw { margin-top: 14px; }
 .lc-raw summary { cursor: pointer; font-size: 14px; color: var(--washi-dim); padding: 6px 0; }
+
+/* —— 合盘（合）—— */
+.sy-forms { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 6px; }
+.sy-pair { display: grid; grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr); gap: 16px; align-items: stretch; margin: 14px 0 6px; }
+@media (max-width: 900px) { .sy-pair { grid-template-columns: 1fr; } }
+.sy-side { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: rgba(0, 0, 0, .18); }
+.sy-name { font-size: 18px; font-weight: 700; color: var(--kin-bright); letter-spacing: .1em; margin-bottom: 6px; }
+.sy-dm { font-size: 15px; color: var(--washi); }
+.sy-dm b { font-size: 22px; }
+.sy-dm-wx { color: var(--washi-faint); font-size: 13px; }
+.sy-ys { font-size: 14px; color: var(--washi-dim); margin-top: 6px; }
+.sy-give { margin-top: 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.sy-give-l { font-size: 13px; color: var(--washi-faint); font-family: var(--mono); white-space: nowrap; }
+.sy-bar { height: 8px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+.sy-bar i { display: block; height: 100%; background: var(--teal); border-radius: 4px; }
+.sy-give-n { font-family: var(--mono); color: var(--teal); }
+.sy-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.sy-arrow { font-size: 30px; color: var(--washi-faint); }
+.sy-verdict-n { font-size: 15px; color: var(--washi); letter-spacing: .06em; }
+.sy-mid-note { font-size: 12px; color: var(--washi-faint); font-family: var(--mono); }
+.sy-team { font-size: 14px; color: var(--washi-dim); padding: 8px 0; border-top: 1px dotted var(--line); margin-top: 8px; }
+.sy-team b { color: var(--washi); }

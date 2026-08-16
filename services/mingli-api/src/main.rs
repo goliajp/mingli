@@ -195,20 +195,7 @@ struct TeamMember {
 fn team_members(req: &TeamRequest) -> Vec<mingli_app::team::Member<'_>> {
     req.members
         .iter()
-        .map(|m| mingli_app::team::Member {
-            birth: Birth {
-                year: m.year,
-                month: m.month,
-                day: m.day,
-                hour: m.hour,
-                minute: m.minute,
-                tz: m.tz.unwrap_or(8.0),
-                gender: parse_gender(&m.gender),
-                true_solar_time: false,
-                longitude: None,
-            },
-            name: m.name.as_deref(),
-        })
+        .map(|m| mingli_app::team::Member { birth: member_birth(m), name: m.name.as_deref() })
         .collect()
 }
 
@@ -496,6 +483,63 @@ async fn locative_interpret_handler(Json(req): Json<LocativeRequest>) -> impl In
     }
 }
 
+/// 合盘请求：甲乙两人。
+#[derive(Debug, Deserialize)]
+struct SynastryRequest {
+    /// 甲方。
+    a: TeamMember,
+    /// 乙方。
+    b: TeamMember,
+}
+
+fn member_birth(m: &TeamMember) -> Birth {
+    Birth {
+        year: m.year,
+        month: m.month,
+        day: m.day,
+        hour: m.hour,
+        minute: m.minute,
+        tz: m.tz.unwrap_or(8.0),
+        gender: parse_gender(&m.gender),
+        true_solar_time: false,
+        longitude: None,
+    }
+}
+
+/// 合盘：两人本命 → 互供两数 + 团队结构。
+async fn synastry_handler(Json(req): Json<SynastryRequest>) -> impl IntoResponse {
+    let (a, b) = (member_birth(&req.a), member_birth(&req.b));
+    match mingli_app::synastry::compute((&a, req.a.name.as_deref()), (&b, req.b.name.as_deref())) {
+        Ok(s) => Json(s.to_json()).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+/// 合盘释义：同 body → 算合盘 → 交释义后端出「配」。
+async fn synastry_interpret_handler(Json(req): Json<SynastryRequest>) -> impl IntoResponse {
+    let (a, b) = (member_birth(&req.a), member_birth(&req.b));
+    let s = match mingli_app::synastry::compute((&a, req.a.name.as_deref()), (&b, req.b.name.as_deref())) {
+        Ok(s) => s,
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response()
+        }
+    };
+    let json = serde_json::to_string(&s.to_json()).unwrap_or_default();
+    let result = tokio::task::spawn_blocking(move || {
+        mingli_interpret::interpret_synastry(&ClaudeCli, &json)
+            .or_else(|_| mingli_interpret::interpret_synastry(&mingli_interpret::Template, &json))
+    })
+    .await;
+    match result {
+        Ok(Ok(interp)) => Json(interp).into_response(),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "释义后端不可用" })),
+        )
+            .into_response(),
+    }
+}
+
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
     let intents: Vec<_> = mingli_contract::intents()
@@ -584,6 +628,8 @@ async fn main() {
         .route("/api/election/interpret", post(election_interpret_handler))
         .route("/api/locative", post(locative_handler))
         .route("/api/locative/interpret", post(locative_interpret_handler))
+        .route("/api/synastry", post(synastry_handler))
+        .route("/api/synastry/interpret", post(synastry_interpret_handler))
         .route("/api/event/interpret", post(event_interpret_handler))
         .layer(CorsLayer::permissive());
 
