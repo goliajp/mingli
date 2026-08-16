@@ -112,6 +112,14 @@ cd web && bun install && bun run dev
 # 打开 http://localhost:6026
 ```
 
+## 看一眼
+
+```bash
+cd web && bun run shots     # headless Chromium 走一遍界面，逐屏截图
+```
+
+　　产物在 `web/e2e/shots/`，同时汇总 console 报错、页面异常与失败请求。类型检查证明代码编得过，这个证明画面还对。
+
 ## 测试 / 校验
 
 ```bash

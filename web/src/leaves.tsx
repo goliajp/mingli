@@ -51,8 +51,8 @@ export function wxRelation(a: string, b: string): string {
 }
 
 // ============ 通用小件 ============
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="lp-sec"><div className="lp-sec-t">{title}</div>{children}</div>
+function Section({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
+  return <div className={`lp-sec${wide ? ' wide' : ''}`}><div className="lp-sec-t">{title}</div>{children}</div>
 }
 function Stat({ k, v, hi }: { k: string; v: React.ReactNode; hi?: boolean }) {
   return <div className={`stat${hi ? ' hi' : ''}`}><span className="stat-k">{k}</span><span className="stat-v">{v}</span></div>
@@ -931,7 +931,7 @@ function Qimen({ c }: { c: QimenChart }) {
         </div>
       </Section>
 
-      <Section title="时家盘 · 九宫">
+      <Section title="时家盘 · 九宫" wide>
         <Grid9 head={`每宫自上而下：八神 · 天盘星（后缀旺衰） · 八门 · 天盘干／地盘干。值符星 ${c.zhi_fu_xing} 自旬首宫 ${headGongName} 转到 ${zhiFuGongName}（转 ${c.sky.shift} 格）；值使 ${c.gates.zhi_shi_gate} 落 ${gongName(c.gates.zhi_shi_palace)}（转 ${c.gates.shift} 格）；八神自值符宫${c.setup.yang_dun ? '顺' : '逆'}布`}
           render={(g) => {
             const k = g - 1

@@ -114,6 +114,15 @@ cd web && bun install && bun run dev
 # open http://localhost:6026
 ```
 
+## Seeing it
+
+```bash
+cd web && bun run shots     # headless Chromium walks the UI, one screenshot per screen
+```
+
+Screens land in `web/e2e/shots/` and any console error, page exception or failed request is
+reported. A type check proves the code compiles; this proves the page still looks right.
+
 ## Tests and cross-checks
 
 ```bash
