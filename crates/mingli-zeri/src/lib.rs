@@ -23,6 +23,62 @@ pub use engine::ZeriEngine;
 use mingli_astro::Moment;
 use serde::Serialize;
 
+/// 建除十二神的通行分档，出自口诀「**建满平收黑，除危定执黄，成开皆可用，破闭不可当**」。
+///
+/// 🟡 另有一说把「成 · 开」并入黄道合称**六黄道**（除危定执成开）；本 crate 依口诀原文分四档，
+/// 两说只在「成 · 开」算不算黄道上有别，其余一致。**分档只是通行的粗筛，不是断语**——
+/// 具体某事宜忌还要看事类，那部分各家出入大，交释义层。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+pub enum DayGrade {
+    /// 黄道：除 · 危 · 定 · 执。
+    Huang,
+    /// 可用：成 · 开。
+    Usable,
+    /// 黑道：建 · 满 · 平 · 收。
+    Hei,
+    /// 不可当：破 · 闭。
+    Avoid,
+}
+
+impl DayGrade {
+    /// 中文标签。
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            DayGrade::Huang => "黄道",
+            DayGrade::Usable => "可用",
+            DayGrade::Hei => "黑道",
+            DayGrade::Avoid => "不可当",
+        }
+    }
+
+    /// 排序权重：数值越小越优先（黄道 0 → 不可当 3）。
+    #[must_use]
+    pub const fn rank(self) -> u8 {
+        match self {
+            DayGrade::Huang => 0,
+            DayGrade::Usable => 1,
+            DayGrade::Hei => 2,
+            DayGrade::Avoid => 3,
+        }
+    }
+}
+
+/// 由建除环位 `0..12`（0=建）取其分档。
+#[must_use]
+pub const fn day_grade(jianchu_pos: u8) -> DayGrade {
+    match jianchu_pos % 12 {
+        // 除(1) 危(7) 定(4) 执(5)
+        1 | 4 | 5 | 7 => DayGrade::Huang,
+        // 成(8) 开(10)
+        8 | 10 => DayGrade::Usable,
+        // 破(6) 闭(11)
+        6 | 11 => DayGrade::Avoid,
+        // 建(0) 满(2) 平(3) 收(9)
+        _ => DayGrade::Hei,
+    }
+}
+
 /// 建除十二神（次序即逐日顺行方向）。`建` 落在「日支 == 月建支」之日。
 pub const JIANCHU: [&str; 12] = [
     "建", "除", "满", "平", "定", "执", "破", "危", "成", "收", "开", "闭",
@@ -181,6 +237,10 @@ pub struct Cast {
     pub jianchu_pos: u8,
     /// 建除十二神名。
     pub jianchu: &'static str,
+    /// 建除分档（黄道 / 可用 / 黑道 / 不可当）。
+    pub grade: DayGrade,
+    /// 分档中文标签。
+    pub grade_label: &'static str,
     /// 二十八宿值日下标 `0..28`（角=0）。
     pub mansion_index: u8,
     /// 二十八宿值日名。
@@ -217,6 +277,8 @@ pub fn compute_at(m: &Moment) -> Cast {
         day_ganzhi_name: format!("{}{}", gz.stem_str(), gz.branch_str()),
         jianchu_pos: pos,
         jianchu: JIANCHU[pos as usize],
+        grade: day_grade(pos),
+        grade_label: day_grade(pos).label(),
         #[allow(clippy::cast_possible_truncation, reason = "下标 0..28，窄化 u8 安全")]
         mansion_index: mi as u8,
         mansion: mansion::MANSIONS[mi],
@@ -235,6 +297,30 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 
 #[cfg(test)]
 mod tests {
+
+    /// 分档忠实于口诀「建满平收黑，除危定执黄，成开皆可用，破闭不可当」。
+    #[test]
+    fn day_grades_follow_the_mnemonic() {
+        let by_name: Vec<(&str, DayGrade)> =
+            (0..12u8).map(|i| (JIANCHU[i as usize], day_grade(i))).collect();
+        for (name, want) in [
+            ("除", DayGrade::Huang), ("危", DayGrade::Huang), ("定", DayGrade::Huang), ("执", DayGrade::Huang),
+            ("成", DayGrade::Usable), ("开", DayGrade::Usable),
+            ("建", DayGrade::Hei), ("满", DayGrade::Hei), ("平", DayGrade::Hei), ("收", DayGrade::Hei),
+            ("破", DayGrade::Avoid), ("闭", DayGrade::Avoid),
+        ] {
+            let got = by_name.iter().find(|(n, _)| *n == name).map(|(_, g)| *g);
+            assert_eq!(got, Some(want), "{name} 的分档");
+        }
+        // 12 神恰好铺满四档，且排序权重单调
+        assert_eq!((0..12u8).filter(|&i| day_grade(i) == DayGrade::Huang).count(), 4);
+        assert_eq!((0..12u8).filter(|&i| day_grade(i) == DayGrade::Avoid).count(), 2);
+        assert!(DayGrade::Huang.rank() < DayGrade::Usable.rank());
+        assert!(DayGrade::Usable.rank() < DayGrade::Hei.rank());
+        assert!(DayGrade::Hei.rank() < DayGrade::Avoid.rank());
+        assert!((0..12u8).all(|i| !day_grade(i).label().is_empty()));
+    }
+
     use super::*;
 
     #[test]

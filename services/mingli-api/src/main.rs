@@ -410,6 +410,25 @@ async fn event_interpret_handler(Json(req): Json<EventRequest>) -> impl IntoResp
     }
 }
 
+/// 择吉请求：时窗 + 事类。
+#[derive(Debug, Deserialize)]
+struct ElectionRequest {
+    /// 时窗起（含）。
+    window_start: TTime,
+    /// 时窗止（含）。
+    window_end: TTime,
+    /// 事类（婚 / 葬 / 动土 / 行 / 开业…；只入释义，不参与排序）。
+    category: Option<String>,
+}
+
+/// 择吉：扫一段时窗，逐日出择日要素并按建除分档排序。
+async fn election_handler(Json(req): Json<ElectionRequest>) -> impl IntoResponse {
+    match mingli_app::election::scan(&ask_time(&req.window_start), &ask_time(&req.window_end), req.category) {
+        Ok(e) => Json(e).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
     let intents: Vec<_> = mingli_contract::intents()
@@ -494,6 +513,7 @@ async fn main() {
         .route("/api/route", post(route_handler))
         .route("/api/fortune", post(fortune_handler))
         .route("/api/event", post(event_handler))
+        .route("/api/election", post(election_handler))
         .route("/api/event/interpret", post(event_interpret_handler))
         .layer(CorsLayer::permissive());
 

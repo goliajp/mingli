@@ -431,8 +431,8 @@ pub fn intents() -> &'static [IntentSpec] {
             "election", "择（择吉）",
             &["window(start, end, grain)", "category（婚/葬/动土/行/开业…）"],
             &["zeri", "xiaoliuren"],
-            "期/序（候选日按吉凶排名）", Pending,
-            "zeri 单点正算已绿，差时窗扫描 + 排序；事类宜忌口诀 🟡",
+            "期/序（候选日按吉凶排名）", Live,
+            "/api/election 扫时窗逐日出择日要素，按建除通行分档（黄道/可用/黑道/不可当）排序；事类宜忌各家出入大，不合成总分，交释义层",
         ),
         i(
             "synastry", "合（合盘）",
@@ -666,8 +666,8 @@ mod tests {
         ];
         let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
         assert_eq!(kind_ids.to_vec(), spec_ids);
-        // natal + onomancy + fortune + event 为 Live，其余 4 个 Pending。
+        // natal + onomancy + fortune + event + election 为 Live，其余 3 个 Pending。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
-        assert_eq!(live_count, 4, "natal + onomancy + fortune + event 为 Live");
+        assert_eq!(live_count, 5, "natal + onomancy + fortune + event + election 为 Live");
     }
 }
