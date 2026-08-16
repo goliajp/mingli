@@ -865,6 +865,15 @@ interface QimenChart {
   zhi_fu_palace: number
   zhi_fu_xing: string
   jiuxing_earth: string[]
+  sky: QimenSky
+}
+
+interface QimenSky {
+  shift: number
+  stars: string[]
+  stems: string[]
+  center_stem: string
+  center_palace: number
 }
 const YUAN_CN: Record<string, string> = { Upper: '上元', Middle: '中元', Lower: '下元' }
 function Qimen({ c }: { c: QimenChart }) {
@@ -884,6 +893,22 @@ function Qimen({ c }: { c: QimenChart }) {
           <Stat k="旬首宫" v={headGongName} />
         </div>
       </Section>
+      <Section title={`天盘九宫（值符随时干旋转 ${c.sky.shift} 格）`}>
+        <Grid9 head={`值符星 ${c.zhi_fu_xing} 自 ${headGongName} 转到 ${zhiFuGongName}；中 5 寄坤 2，中宫之干 ${c.sky.center_stem} 随之落 ${c.palace[c.sky.center_palace - 1]}${c.sky.center_palace}`}
+          render={(g) => {
+            const lodged = g === c.sky.center_palace
+            return (
+              <div className={`g9 qm${g === c.zhi_fu_palace ? ' qm-zhifu' : ''}`}>
+                <span className="g9-stem">
+                  {c.sky.stems[g - 1] || '—'}
+                  {lodged && <b className="qm-lodged">{c.sky.center_stem}</b>}
+                </span>
+                <span className="g9-star">{c.sky.stars[g - 1] || '（天禽寄坤 2）'}</span>
+                <span className="g9-gong">{c.palace[g - 1]}{g}</span>
+              </div>
+            )
+          }} />
+      </Section>
       <Section title="地盘九宫（三奇六仪） + 九星原配">
         <Grid9 head={`旬首 ${c.xun.head_yi} → ${headGongName}（值符星 ${c.zhi_fu_xing}） · 时干 ${c.zhi_fu_stem_name} → ${zhiFuGongName}（值符宫）`}
           render={(g) => {
@@ -898,7 +923,7 @@ function Qimen({ c }: { c: QimenChart }) {
             )
           }} />
       </Section>
-      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · <b>值符干 · 值符宫 · 值符星 · 九星原配</b>。🟡 未实现：天盘旋转 · 八门 · 八神（缺多源排盘 oracle，不臆造）。</div>
+      <div className="lp-note">已实现：时柱 · 旬首 · 旬空 · 值符 · 九星原配 · <b>天盘旋转（九星 + 三奇六仪）</b>。🟡 未实现：八门 · 八神（值使数法与八神第 5/6 位两处流派分歧，缺多源排盘 oracle，不臆造）；天禽寄宫取通行的坤 2。</div>
     </div>
   )
 }

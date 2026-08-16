@@ -20,3 +20,22 @@ impl WordEngine for AbjadEngine {
         Ok(serde_json::json!({ "system": "abjad", "input": w, "result": crate::compute(&w) }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 适配器把本叶接到字词契约上：元数据齐备，输入齐备时能取值。
+    #[test]
+    fn adapter_is_wired_to_the_contract() {
+        let e = AbjadEngine;
+        assert!(!e.id().is_empty() && !e.name().is_empty());
+        let q = WordQuery {
+            text: Some("שלום".to_string()),
+            surname: Some(vec![7]),
+            given: Some(vec![16, 9]),
+        };
+        let v = e.compute(&q).expect("输入齐备应能取值");
+        assert_eq!(v["system"], e.id());
+    }
+}

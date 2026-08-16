@@ -11,8 +11,11 @@
 //!
 //! 验证：阳遁一局校验古法「坎1戊·坤2己·震3庚·巽4辛·中5壬·乾6癸·兑7丁·艮8丙·离9乙」。
 //!
-//! 诚实边界（🟡 暂缺）：天盘九星 / 八门 / 八神（值符值使旋转）含三处流派开关（天禽寄宫、值使数法、
-//! 八神第 5/6 位），且本项目无权威排盘软件做数值回归，故暂不实现，留待校验工具到位。
+//! 3. **天盘**：九星与三奇六仪随值符从「旬首宫」旋到「时干宫」，沿后天八卦圆周作一次刚体旋转
+//!    （[`sky_rotation`]）。以两则古例复现校验，中宫取主流「寄坤 2」。
+//!
+//! 诚实边界（🟡 暂缺）：八门 / 八神（值使旋转、八神布列）含两处流派开关（值使数法、八神第 5/6 位），
+//! 本项目暂无权威排盘软件做数值回归，故不实现，留待校验工具到位；天禽寄宫取通行的坤 2，古本寄艮 8 一派未开关。
 //! 定局的「拆补法 / 置闰法」差异只在交节临界数日的元/局对齐，本 crate 用**主流拆补法**（符头定元）。
 
 #![allow(
@@ -72,6 +75,71 @@ pub const STEM_NAMES: [&str; 10] = ["甲", "乙", "丙", "丁", "戊", "己", "�
 pub const JIU_XING_PALACE: [&str; 10] = [
     "", "天蓬", "天芮", "天冲", "天辅", "天禽", "天心", "天柱", "天任", "天英",
 ];
+
+/// 天盘旋转所走的圆周宫序：后天八卦顺时针一周 —— 坎 1 → 艮 8 → 震 3 → 巽 4 → 离 9 →
+/// 坤 2 → 兑 7 → 乾 6。中 5 不在圆周上（寄坤 2）。
+///
+/// 注意与地盘的走宫方式相区别：地盘按**宫序号 1→9 线性**铺三奇六仪，天盘则是整盘沿这条
+/// **圆周**刚体旋转。
+pub const ORBIT: [u8; 8] = [1, 8, 3, 4, 9, 2, 7, 6];
+
+/// 中宫寄坤 2（主流寄宫法）：符首或时干落中 5 时按坤 2 论。
+///
+/// 🟡 古本另有寄艮 8 一派，本 crate 取通行版。
+#[must_use]
+pub const fn lodged_palace(palace: u8) -> u8 {
+    if palace == 5 { 2 } else { palace }
+}
+
+/// 宫号在圆周 [`ORBIT`] 上的下标（中 5 按寄宫算）。
+fn orbit_index(palace: u8) -> usize {
+    let p = lodged_palace(palace);
+    ORBIT.iter().position(|&x| x == p).unwrap_or(0)
+}
+
+/// 天盘：九星与三奇六仪随值符整体旋转后的结果。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct SkyPlate {
+    /// 旋转格数（沿 [`ORBIT`] 顺时针 0..=7）：值符从「旬首宫」走到「时干宫」的位移。
+    pub shift: u8,
+    /// 天盘九星，`stars[k]` = 第 `k+1` 宫；中 5 宫为空串（天禽寄坤 2，与天芮同宫）。
+    pub stars: [&'static str; 9],
+    /// 天盘天干，`stems[k]` = 第 `k+1` 宫；中 5 宫为空串。
+    pub stems: [&'static str; 9],
+    /// 地盘中 5 之干（寄坤 2，随坤 2 一同旋转）。
+    pub center_stem: &'static str,
+    /// 中宫寄干在天盘上的落宫 1..=9。
+    pub center_palace: u8,
+}
+
+/// 天盘旋转（主流转盘法）。
+///
+/// 值符星原在**旬首六仪所在宫**，随时干走到**实际值符干所在宫**；整盘（九星 + 三奇六仪）
+/// 沿 [`ORBIT`] 作同一次刚体旋转。地盘中 5 之干寄坤 2，坤 2 转到哪它就跟到哪
+/// （等价于「随天芮星走」）。
+///
+/// 多源校验：以两则古例复现——阳遁三局丙寅时（旬首戊震 3、时干丙坎 1）与
+/// 阳遁一局庚午时（旬首戊坎 1、时干庚震 3），两例天盘九星各 8 宫全中。
+#[must_use]
+pub fn sky_rotation(earth: &[&'static str; 9], xun_yi_palace: u8, zhi_fu_palace: u8) -> SkyPlate {
+    let from = orbit_index(xun_yi_palace);
+    let to = orbit_index(zhi_fu_palace);
+    let shift = (to + 8 - from) % 8;
+    let mut stars = [""; 9];
+    let mut stems = [""; 9];
+    for (i, &target) in ORBIT.iter().enumerate() {
+        let src = ORBIT[(i + 8 - shift) % 8];
+        stars[target as usize - 1] = JIU_XING_PALACE[src as usize];
+        stems[target as usize - 1] = earth[src as usize - 1];
+    }
+    SkyPlate {
+        shift: shift as u8,
+        stars,
+        stems,
+        center_stem: earth[4],
+        center_palace: ORBIT[(orbit_index(2) + shift) % 8],
+    }
+}
 
 /// 地盘实排序列：六仪顺 + 三奇逆 → 戊己庚辛壬癸丁丙乙（值为天干序 0..9）。
 /// 阳遁沿宫序 +1 铺这条序列、阴遁沿宫序 −1 铺（互为镜像）：
@@ -229,8 +297,9 @@ pub struct Cast {
     /// **值符星名**：旬首六仪所在地盘宫的原配九星（本旬不变），如「天冲」「天英」。
     pub zhi_fu_xing: &'static str,
     /// 九星原配九宫：地盘初始未旋转的天盘九星，`jiuxing_earth[k]` = 第 `k+1` 宫的原配星。
-    /// 🟡 完整天盘旋转（随时干转，中宫寄宫法分歧）留 ，等多源排盘软件 oracle。
     pub jiuxing_earth: [&'static str; 9],
+    /// 天盘：九星与三奇六仪随值符旋转后的实际分布。
+    pub sky: SkyPlate,
 }
 
 /// 时柱地支（子时寄前夜 23：00）：奇门用「夜子归次日」（主流）。
@@ -336,6 +405,9 @@ pub fn compute_at(m: &Moment) -> Cast {
     let mut jiuxing_earth = [""; 9];
     jiuxing_earth.copy_from_slice(&JIU_XING_PALACE[1..=9]);
 
+    // 天盘 — 值符星自旬首宫走到时干宫，整盘沿后天八卦圆周同步旋转。
+    let sky = sky_rotation(&earth, xun_yi_palace, zhi_fu_palace);
+
     Cast {
         setup,
         fu_tou_branch: fu_tou.branch,
@@ -351,6 +423,7 @@ pub fn compute_at(m: &Moment) -> Cast {
         zhi_fu_palace,
         zhi_fu_xing,
         jiuxing_earth,
+        sky,
     }
 }
 
@@ -362,6 +435,136 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 
 #[cfg(test)]
 mod tests {
+    /// 阳遁三局丙寅时（古例）：旬首戊在震 3、时干丙在坎 1，值符天冲随时干落坎 1。
+    ///
+    /// 天盘九星期望值取自公开排盘教程的完整例题，8 宫逐宫比对。
+    #[test]
+    fn qm1b_sky_stars_oracle_yang_three_bingyin() {
+        let ep = earth_plate(3, true);
+        let mut earth = [""; 9];
+        for k in 0..9 {
+            earth[k] = STEM_NAMES[ep[k] as usize];
+        }
+        // 地盘先自证：阳三局 戊震3 己巽4 庚中5 辛乾6 壬兑7 癸艮8 丁离9 丙坎1 乙坤2
+        assert_eq!(earth, ["丙", "乙", "戊", "己", "庚", "辛", "壬", "癸", "丁"]);
+
+        let sky = sky_rotation(&earth, 3, 1);
+        assert_eq!(sky.shift, 6, "震 3 → 坎 1 沿圆周顺时针 6 格");
+        assert_eq!(
+            sky.stars,
+            ["天冲", "天心", "天英", "天芮", "", "天任", "天蓬", "天辅", "天柱"],
+            "坎1冲 坤2心 震3英 巽4芮 中5空 乾6任 兑7蓬 艮8辅 离9柱"
+        );
+        // 旬首随时干：值符宫的天盘干必是本旬六仪
+        assert_eq!(sky.stems[0], "戊");
+        assert_eq!(sky.stems, ["戊", "辛", "丁", "乙", "", "癸", "丙", "己", "壬"]);
+        // 中宫之干寄坤 2，随坤 2 转到巽 4（即随天芮走）
+        assert_eq!((sky.center_stem, sky.center_palace), ("庚", 4));
+        assert_eq!(sky.stars[3], "天芮", "中宫寄干的落宫正是天芮所在宫");
+    }
+
+    /// 阳遁一局庚午时（古例）：旬首戊在坎 1、时干庚在震 3，值符天蓬随时干落震 3。
+    #[test]
+    fn qm1b_sky_stars_oracle_yang_one_gengwu() {
+        let ep = earth_plate(1, true);
+        let mut earth = [""; 9];
+        for k in 0..9 {
+            earth[k] = STEM_NAMES[ep[k] as usize];
+        }
+        assert_eq!(earth, ["戊", "己", "庚", "辛", "壬", "癸", "丁", "丙", "乙"]);
+
+        let sky = sky_rotation(&earth, 1, 3);
+        assert_eq!(sky.shift, 2, "坎 1 → 震 3 沿圆周顺时针 2 格");
+        assert_eq!(
+            sky.stars,
+            ["天柱", "天辅", "天蓬", "天任", "", "天芮", "天英", "天心", "天冲"],
+            "坎1柱 坤2辅 震3蓬 巽4任 中5空 乾6芮 兑7英 艮8心 离9冲"
+        );
+        assert_eq!(sky.stems[2], "戊", "旬首六仪落到时干所在的震 3");
+    }
+
+    /// 时干恰为本旬六仪时不发生旋转：天盘 = 原配 / 地盘。
+    #[test]
+    fn qm1b_zero_shift_leaves_the_plate_untouched() {
+        let ep = earth_plate(1, true);
+        let mut earth = [""; 9];
+        for k in 0..9 {
+            earth[k] = STEM_NAMES[ep[k] as usize];
+        }
+        let sky = sky_rotation(&earth, 1, 1);
+        assert_eq!(sky.shift, 0);
+        for p in 1..=9u8 {
+            if p == 5 {
+                assert_eq!(sky.stars[4], "");
+                assert_eq!(sky.stems[4], "");
+            } else {
+                assert_eq!(sky.stars[p as usize - 1], JIU_XING_PALACE[p as usize]);
+                assert_eq!(sky.stems[p as usize - 1], earth[p as usize - 1]);
+            }
+        }
+    }
+
+    /// 旋转是刚体置换：任意起止组合下，外八宫的星集合与干集合都守恒，且中宫恒空。
+    #[test]
+    fn qm1b_rotation_is_a_permutation_of_the_outer_ring() {
+        let ep = earth_plate(5, false);
+        let mut earth = [""; 9];
+        for k in 0..9 {
+            earth[k] = STEM_NAMES[ep[k] as usize];
+        }
+        let want_stars: std::collections::BTreeSet<&str> =
+            ORBIT.iter().map(|&p| JIU_XING_PALACE[p as usize]).collect();
+        let want_stems: std::collections::BTreeSet<&str> =
+            ORBIT.iter().map(|&p| earth[p as usize - 1]).collect();
+        for from in ORBIT {
+            for to in ORBIT {
+                let sky = sky_rotation(&earth, from, to);
+                assert!(sky.shift < 8);
+                assert_eq!(sky.stars[4], "");
+                assert_eq!(sky.stems[4], "");
+                let got_stars: std::collections::BTreeSet<&str> =
+                    ORBIT.iter().map(|&p| sky.stars[p as usize - 1]).collect();
+                let got_stems: std::collections::BTreeSet<&str> =
+                    ORBIT.iter().map(|&p| sky.stems[p as usize - 1]).collect();
+                assert_eq!(got_stars, want_stars);
+                assert_eq!(got_stems, want_stems);
+                // 值符星必落在时干宫
+                assert_eq!(sky.stars[to as usize - 1], JIU_XING_PALACE[from as usize]);
+            }
+        }
+    }
+
+    /// 落中宫按寄坤 2 论：符首或时干在中 5 时与在坤 2 时结果相同。
+    #[test]
+    fn qm1b_center_palace_is_lodged_in_kun_two() {
+        let ep = earth_plate(2, true);
+        let mut earth = [""; 9];
+        for k in 0..9 {
+            earth[k] = STEM_NAMES[ep[k] as usize];
+        }
+        assert_eq!(lodged_palace(5), 2);
+        assert_eq!(sky_rotation(&earth, 5, 7), sky_rotation(&earth, 2, 7));
+        assert_eq!(sky_rotation(&earth, 3, 5), sky_rotation(&earth, 3, 2));
+    }
+
+    /// 1987-09-17 15:00 长沙男（阴遁 3 局）整链回归：时干壬在艮 8、旬首戊在震 3。
+    #[test]
+    fn qm1b_sky_plate_on_the_reference_moment() {
+        let c = compute(1987, 9, 17, 15, 0, 8.0);
+        assert_eq!((c.xun_yi_palace, c.zhi_fu_palace), (3, 8));
+        assert_eq!(c.zhi_fu_xing, "天冲");
+        // 圆周是 坎1→艮8→震3→…，故震 3 退到艮 8 等于顺时针走 7 格
+        assert_eq!(c.sky.shift, 7, "震 3 → 艮 8 沿圆周顺时针 7 格");
+        // 值符星天冲落到时干所在的艮 8
+        assert_eq!(c.sky.stars[7], "天冲");
+        assert_eq!(c.sky.stems[7], "戊", "旬首六仪随值符同落艮 8");
+        assert_eq!(
+            c.sky.stars,
+            ["天任", "天柱", "天辅", "天英", "", "天蓬", "天心", "天冲", "天芮"]
+        );
+    }
+
+
     use super::*;
 
     #[test]

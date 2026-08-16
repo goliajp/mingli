@@ -123,6 +123,27 @@ pub struct Query {
 }
 
 impl Query {
+    /// 只带时刻的最小查询：性别 / 坐标 / 种子 / 姓名 / 流派全部缺省。
+    ///
+    /// 需要这些原子的叶自会在缺省下走它的降级路径（如八字不排大运、占星不出 Asc）。
+    #[must_use]
+    pub fn at(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64) -> Self {
+        Self {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            tz,
+            gender: None,
+            latitude: None,
+            longitude: None,
+            seed: None,
+            name: None,
+            schools: BTreeMap::new(),
+        }
+    }
+
     /// 取叶 `engine_id` 的流派 id。未指定时返回 `default_id`。
     #[must_use]
     pub fn school_of<'a>(&'a self, engine_id: &str, default_id: &'a str) -> &'a str {
@@ -479,3 +500,174 @@ pub trait WordEngine: Send + Sync {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn q() -> Query {
+        Query::at(1990, 6, 15, 14, 30, 8.0)
+    }
+
+    fn t() -> AskTime {
+        AskTime { year: 2026, month: 8, day: 16, hour: 12, minute: 0, tz: 8.0 }
+    }
+
+    /// 假叶：只实现必需项，用来验 trait 默认与 [`effective_school_id`] 的落默认行为。
+    #[derive(Debug, Default)]
+    struct Bare;
+    impl CastingEngine for Bare {
+        fn id(&self) -> &'static str {
+            "bare"
+        }
+        fn name(&self) -> &'static str {
+            "裸叶"
+        }
+        fn family(&self) -> Family {
+            Family::Cyclic
+        }
+        fn cast(&self, _m: &Moment, _q: &Query) -> Value {
+            Value::Null
+        }
+    }
+
+    /// 带流派的假叶。
+    #[derive(Debug, Default)]
+    struct Dressed;
+    impl CastingEngine for Dressed {
+        fn id(&self) -> &'static str {
+            "dressed"
+        }
+        fn name(&self) -> &'static str {
+            "有流派的叶"
+        }
+        fn family(&self) -> Family {
+            Family::Sampling
+        }
+        fn cast(&self, _m: &Moment, _q: &Query) -> Value {
+            Value::Null
+        }
+        fn profile(&self) -> &'static [DetItem] {
+            const { &[d("某项", Determinism::Und, "流派分歧")] }
+        }
+        fn schools(&self) -> &'static [SchoolItem] {
+            const { &[s("one", "甲", true, "默认"), s("two", "乙", false, "备选")] }
+        }
+    }
+
+    #[test]
+    fn minimal_query_leaves_every_optional_atom_empty() {
+        let q = q();
+        assert_eq!((q.year, q.hour, q.tz), (1990, 14, 8.0));
+        assert!(q.gender.is_none() && q.latitude.is_none() && q.seed.is_none() && q.name.is_none());
+        assert!(q.schools.is_empty());
+        // 未指定流派 → 落到调用方给的默认
+        assert_eq!(q.school_of("bazi", "late_lichun"), "late_lichun");
+    }
+
+    #[test]
+    fn explicit_school_wins_over_the_default() {
+        let mut q = q();
+        q.schools.insert("bazi".to_string(), "early_sf".to_string());
+        assert_eq!(q.school_of("bazi", "late_lichun"), "early_sf");
+        assert_eq!(q.school_of("ziwei", "standard"), "standard", "只影响指定的那片叶");
+    }
+
+    #[test]
+    fn seed_is_explicit_or_derived_from_the_moment() {
+        let m = Moment::new(1990, 6, 15, 14, 30, 8.0);
+        let derived = effective_seed(&m, &q());
+        assert_eq!(derived, m.jd_ut.to_bits(), "缺省种子由共享时刻派生 → 同一时刻可复现");
+        let mut fixed = q();
+        fixed.seed = Some(2024);
+        assert_eq!(effective_seed(&m, &fixed), 2024);
+    }
+
+    #[test]
+    fn effective_school_falls_back_then_yields_to_explicit() {
+        let bare = Bare;
+        let dressed = Dressed;
+        assert_eq!(effective_school_id(&bare, &q()), "", "无流派的叶给空串");
+        assert_eq!(effective_school_id(&dressed, &q()), "one", "有流派的叶落到 default");
+        let mut q = q();
+        q.schools.insert("dressed".to_string(), "two".to_string());
+        assert_eq!(effective_school_id(&dressed, &q), "two");
+    }
+
+    #[test]
+    fn trait_defaults_are_empty_declarations() {
+        let bare = Bare;
+        assert!(bare.profile().is_empty() && bare.schools().is_empty());
+        assert!(!Dressed.profile().is_empty());
+    }
+
+    #[test]
+    fn every_label_is_populated() {
+        for f in [Family::Cyclic, Family::Angular, Family::Sampling, Family::Hashing, Family::CrossCutting] {
+            assert!(!f.label().is_empty());
+        }
+        for d in [Determinism::Det, Determinism::Sto, Determinism::Und] {
+            assert!(!d.label().is_empty());
+        }
+    }
+
+    #[test]
+    fn querykind_survives_a_serde_round_trip() {
+        let kind = QueryKind::Fortune { natal: q(), t_target: t() };
+        let json = serde_json::to_string(&kind).expect("应可序列化");
+        assert!(json.contains(r#""kind":"fortune""#), "内部标签用于 HTTP 契约");
+        let back: QueryKind = serde_json::from_str(&json).expect("应可反序列化");
+        assert_eq!(back.id(), "fortune");
+    }
+
+    #[test]
+    fn querykind_id_covers_all_variants() {
+        // 8 个变体 id 全唯一，与 intents() 顺序对应。
+        let kinds = [
+            QueryKind::Natal(q()),
+            QueryKind::Fortune { natal: q(), t_target: t() },
+            QueryKind::Event { t_ask: t(), seed: 42, q_text: None },
+            QueryKind::Election { window_start: t(), window_end: t(), category: "婚".into() },
+            QueryKind::Synastry { a: q(), b: q() },
+            QueryKind::Mundane { p_polity: q() },
+            QueryKind::Locative { t_ask: t(), seed: 7, category: "寻物".into() },
+            QueryKind::Onomancy { name: "李白".into(), surname_strokes: Some(7), given_strokes: Some(5) },
+        ];
+        let ids: Vec<&'static str> = kinds.iter().map(QueryKind::id).collect();
+        assert_eq!(ids, vec!["natal", "fortune", "event", "election", "synastry", "mundane", "locative", "onomancy"]);
+        // status 标签非空。
+        assert!(!IntentStatus::Live.label().is_empty());
+        assert!(!IntentStatus::Pending.label().is_empty());
+    }
+
+    #[test]
+    fn intents_well_formed_and_aligned_with_querykind() {
+        let specs = intents();
+        assert_eq!(specs.len(), 8, "应有 8 类问事意图");
+        // id 唯一 + 非空字段 + atoms/leaves 非空。
+        let mut seen = std::collections::HashSet::new();
+        for s in specs {
+            assert!(seen.insert(s.id), "意图 id 应唯一： {}", s.id);
+            assert!(!s.name_zh.is_empty());
+            assert!(!s.atoms.is_empty(), "{} atoms 应非空", s.id);
+            assert!(!s.default_leaves.is_empty(), "{} default_leaves 应非空", s.id);
+            assert!(!s.output_shape.is_empty());
+            assert!(!s.note.is_empty());
+        }
+        // QueryKind 8 变体 id 与 intents 清单 id 一一对应。
+        let kind_ids = [
+            QueryKind::Natal(q()).id(),
+            QueryKind::Fortune { natal: q(), t_target: t() }.id(),
+            QueryKind::Event { t_ask: t(), seed: 0, q_text: None }.id(),
+            QueryKind::Election { window_start: t(), window_end: t(), category: String::new() }.id(),
+            QueryKind::Synastry { a: q(), b: q() }.id(),
+            QueryKind::Mundane { p_polity: q() }.id(),
+            QueryKind::Locative { t_ask: t(), seed: 0, category: String::new() }.id(),
+            QueryKind::Onomancy { name: String::new(), surname_strokes: None, given_strokes: None }.id(),
+        ];
+        let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
+        assert_eq!(kind_ids.to_vec(), spec_ids);
+        // natal + onomancy + fortune 为 Live，其余 5 个 Pending。
+        let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
+        assert_eq!(live_count, 3, "natal + onomancy + fortune 为 Live");
+    }
+}
