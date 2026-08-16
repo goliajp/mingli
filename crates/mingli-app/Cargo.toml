@@ -6,6 +6,7 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
+mingli-astro = { workspace = true }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
 mingli-analysis = { workspace = true }
@@ -13,6 +14,7 @@ mingli-interpret = { workspace = true }
 # 用例依赖具体领域实体是允许方向；编排层（engine）则不允许。
 mingli-bazi = { workspace = true }
 mingli-ziwei = { workspace = true }
+mingli-zeri = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
