@@ -289,6 +289,37 @@ pub fn interpret_locative(it: &dyn Interpreter, locative_json: &str) -> std::io:
     })
 }
 
+/// 合盘（两人）释义的护栏——输出形态是**配**：契合在哪、短板在哪、互相给了对方什么。
+pub const SYNASTRY_GUARDRAIL: &str = "你是术数释义助手。下面是已由确定性引擎算好的【合盘】结果：\
+甲乙两人各自的旺衰 / 用神，以及**互相给对方主用神的供给度**（`a_supplies_b` 甲盘里有多少乙所喜的五行、\
+`b_supplies_a` 反之）。规则：\
+1) 只解释，绝不修改或新增任何数字与名称；\
+2) **可以给出契合度评估**——从两个方向分别说：甲给乙什么、乙给甲什么；供给高的一方是「补对方之缺」，\
+供给低则那一面要靠别处补；两数悬殊时点出这是**不对称的互补**；\
+3) 再看两人日主五行与旺衰的关系（生 / 克 / 同）与团队五行画像的缺旺，作为第二层依据；\
+4) 评估须有依据，说清基于哪几个数；不把结构事实写成关系定论，也不给「该不该在一起 / 合作」的指令；\
+5) 250 字以内，简体中文，结尾标注『仅供研究与娱乐』。\n\n";
+
+/// 组装合盘释义提示词。
+#[must_use]
+pub fn build_synastry_prompt(synastry_json: &str) -> String {
+    format!("{SYNASTRY_GUARDRAIL}\n合盘结果 JSON：\n{synastry_json}\n")
+}
+
+/// 释义一次合盘，返回 `Interpretation { leaf: "synastry" }`。
+///
+/// # Errors
+///
+/// 释义后端不可用时返回其 I/O 错误。
+pub fn interpret_synastry(it: &dyn Interpreter, synastry_json: &str) -> std::io::Result<Interpretation> {
+    Ok(Interpretation {
+        leaf: "synastry".to_string(),
+        text: it.interpret(&build_synastry_prompt(synastry_json))?,
+        backend: it.backend(),
+        kind: "INT",
+    })
+}
+
 /// 团队合盘释义的护栏。
 pub const TEAM_GUARDRAIL: &str = "你是术数释义助手。下面是已由确定性引擎算好的【团队合盘】结果。规则：\
 1) 只解释，绝不修改或新增任何数字与名称；\
@@ -571,6 +602,24 @@ mod tests {
     fn locative_interpretation_round_trips_through_the_offline_backend() {
         let r = interpret_locative(&Template, r#"{"bearings":[]}"#).expect("模板后端应可用");
         assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("locative", "INT", "template"));
+    }
+
+    #[test]
+    fn synastry_prompt_reads_supply_in_both_directions() {
+        let json = r#"{"a_name":"甲","b_name":"乙","a_supplies_b":23,"b_supplies_a":18,"detail":{}}"#;
+        let p = build_synastry_prompt(json);
+        assert!(p.contains("合盘") && p.contains("契合度评估"));
+        // 两个方向都要说，且要识别不对称
+        assert!(p.contains("a_supplies_b") && p.contains("b_supplies_a") && p.contains("不对称"));
+        // 不下关系指令
+        assert!(p.contains("该不该在一起"));
+        assert!(p.contains("仅供研究与娱乐") && p.contains(json));
+    }
+
+    #[test]
+    fn synastry_interpretation_round_trips_through_the_offline_backend() {
+        let r = interpret_synastry(&Template, r#"{"a_supplies_b":1}"#).expect("模板后端应可用");
+        assert_eq!((r.leaf.as_str(), r.kind, r.backend), ("synastry", "INT", "template"));
     }
 
     #[test]

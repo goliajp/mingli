@@ -1,7 +1,7 @@
 // 后端 HTTP 客户端。所有网络访问集中在这里，组件只调具名端点，不碰 fetch 与路径字面。
 import type {
   Analysis, BaziChart, CastResponse, ChartRequest, Election, EventCast, FortuneResponse, IntentsResponse,
-  Interpretation, Locative, OverlayStrength, TeamResult, ZiweiChart,
+  Interpretation, Locative, OverlayStrength, Synastry, TeamResult, ZiweiChart,
 } from '../types'
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -80,3 +80,9 @@ export const fetchLocative = (body: unknown) => post<Locative>('/api/locative', 
 
 /** 寻方位的「位」释义。 */
 export const fetchLocativeAdvice = (body: unknown) => post<Interpretation>('/api/locative/interpret', body)
+
+/** 合盘：两人互供用神。 */
+export const fetchSynastry = (body: unknown) => post<Synastry>('/api/synastry', body)
+
+/** 合盘的「配」释义。 */
+export const fetchSynastryAdvice = (body: unknown) => post<Interpretation>('/api/synastry/interpret', body)

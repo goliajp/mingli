@@ -406,3 +406,12 @@ export interface Locative {
   bearings: Bearing[]
   leaves: CastLeaf[]
 }
+
+/** 合盘结果（对应 app::synastry::Synastry::to_json）。 */
+export interface Synastry {
+  a_name: string
+  b_name: string
+  a_supplies_b: number
+  b_supplies_a: number
+  detail: TeamResult
+}

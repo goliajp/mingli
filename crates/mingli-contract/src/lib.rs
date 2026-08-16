@@ -438,8 +438,8 @@ pub fn intents() -> &'static [IntentSpec] {
             "synastry", "合（合盘）",
             &["instant(a)", "instant(b)", "sex(a,b)"],
             &["bazi", "astrology", "jyotish"],
-            "配（契合度/互补结构）", Pending,
-            "bazi 已有 /api/team N×N 互补矩阵雏形；astrology 合盘几何相位待加；契合度权重 🟡",
+            "配（契合度/互补结构）", Live,
+            "/api/synastry 两人本命互供用神（甲供乙 / 乙供甲）+ 团队五行画像；「配」模板要求两个方向分说、识别不对称互补；🟡 占星合盘几何相位待加",
         ),
         i(
             "mundane", "群/国（国运）",
@@ -666,8 +666,8 @@ mod tests {
         ];
         let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
         assert_eq!(kind_ids.to_vec(), spec_ids);
-        // natal + onomancy + fortune + event + election + locative 为 Live，其余 2 个 Pending。
+        // 除 mundane 外 7 意图皆 Live。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
-        assert_eq!(live_count, 6, "natal + onomancy + fortune + event + election + locative 为 Live");
+        assert_eq!(live_count, 7, "除 mundane 外 7 意图皆 Live");
     }
 }
