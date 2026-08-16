@@ -14,8 +14,11 @@
 //! 3. **天盘**：九星与三奇六仪随值符从「旬首宫」旋到「时干宫」，沿后天八卦圆周作一次刚体旋转
 //!    （[`sky_rotation`]）。以两则古例复现校验，中宫取主流「寄坤 2」。
 //!
-//! 诚实边界（🟡 暂缺）：八门 / 八神（值使旋转、八神布列）含两处流派开关（值使数法、八神第 5/6 位），
-//! 本项目暂无权威排盘软件做数值回归，故不实现，留待校验工具到位；天禽寄宫取通行的坤 2，古本寄艮 8 一派未开关。
+//! 4. **人盘八门**：值使门自旬首宫按宫序号线性数过本旬时辰位次落宫，八门再沿同一圆周旋转
+//!    （[`gate_plate`]）。
+//!
+//! 诚实边界（🟡 暂缺）：八神布列（第 5/6 位勾陈 / 朱雀两派）暂无权威 oracle，不实现；
+//! 天禽与中宫寄宫取通行的坤 2，古本「阳遁寄艮 8」一派未开关。
 //! 定局的「拆补法 / 置闰法」差异只在交节临界数日的元/局对齐，本 crate 用**主流拆补法**（符头定元）。
 
 #![allow(
@@ -138,6 +141,56 @@ pub fn sky_rotation(earth: &[&'static str; 9], xun_yi_palace: u8, zhi_fu_palace:
         stems,
         center_stem: earth[4],
         center_palace: ORBIT[(orbit_index(2) + shift) % 8],
+    }
+}
+
+/// 八门本位，与 [`ORBIT`] 同序：休坎 1 · 生艮 8 · 伤震 3 · 杜巽 4 · 景离 9 · 死坤 2 · 惊兑 7 · 开乾 6。
+///
+/// 八门的原配次序恰与后天八卦圆周重合，所以八门旋转与九星旋转是同一种刚体位移。
+pub const BA_MEN_ORBIT: [&str; 8] = ["休门", "生门", "伤门", "杜门", "景门", "死门", "惊门", "开门"];
+
+/// 人盘八门：值使门与其落宫，以及旋转后的八门分布。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GatePlate {
+    /// 值使门 —— 旬首六仪所在宫的本位门（本旬不变）。
+    pub zhi_shi_gate: &'static str,
+    /// 值使门落宫 1..=9（落中 5 时按寄坤 2 归并）。
+    pub zhi_shi_palace: u8,
+    /// 占事时辰在本旬中的位次 0..=9（甲子旬的甲子时为 0）。
+    pub steps: u8,
+    /// 八门沿 [`ORBIT`] 的旋转格数 0..=7。
+    pub shift: u8,
+    /// 八门分布，`gates[k]` = 第 `k+1` 宫；中 5 宫为空串（八门不入中宫）。
+    pub gates: [&'static str; 9],
+}
+
+/// 值使门与八门旋转（主流转盘法）。
+///
+/// 与九星「随时干」不同，值使**随时辰**走：自旬首六仪所在宫起，按**宫序号线性**
+/// 阳遁 +1 / 阴遁 −1（数宫时中 5 也占一位）数过本旬内的时辰位次，落点即值使门所在宫；
+/// 落到中 5 则按寄坤 2 论。其余七门再自值使宫起沿 [`ORBIT`] 圆周顺布。
+///
+/// 校验：阳遁一局庚午时（旬首戊坎 1、庚午为甲子旬第 7 个时辰）→ 休门数至兑 7，
+/// 八门 坎1伤 艮8杜 震3景 巽4死 离9惊 坤2开 兑7休 乾6生，8 宫全中。
+#[must_use]
+pub fn gate_plate(xun_yi_palace: u8, head_branch: u8, time_branch: u8, yang_dun: bool) -> GatePlate {
+    let steps = (time_branch + 12 - head_branch) % 12;
+    let from = lodged_palace(xun_yi_palace);
+    let delta = i32::from(steps) * if yang_dun { 1 } else { -1 };
+    let landed = (i32::from(from) - 1 + delta).rem_euclid(9) + 1;
+    let zhi_shi_palace = lodged_palace(u8::try_from(landed).unwrap_or(2));
+    let start = orbit_index(from);
+    let shift = (orbit_index(zhi_shi_palace) + 8 - start) % 8;
+    let mut gates = [""; 9];
+    for (i, &target) in ORBIT.iter().enumerate() {
+        gates[target as usize - 1] = BA_MEN_ORBIT[(i + 8 - shift) % 8];
+    }
+    GatePlate {
+        zhi_shi_gate: BA_MEN_ORBIT[start],
+        zhi_shi_palace,
+        steps,
+        shift: shift as u8,
+        gates,
     }
 }
 
@@ -300,6 +353,8 @@ pub struct Cast {
     pub jiuxing_earth: [&'static str; 9],
     /// 天盘：九星与三奇六仪随值符旋转后的实际分布。
     pub sky: SkyPlate,
+    /// 人盘：值使门与旋转后的八门分布。
+    pub gates: GatePlate,
 }
 
 /// 时柱地支（子时寄前夜 23：00）：奇门用「夜子归次日」（主流）。
@@ -407,6 +462,8 @@ pub fn compute_at(m: &Moment) -> Cast {
 
     // 天盘 — 值符星自旬首宫走到时干宫，整盘沿后天八卦圆周同步旋转。
     let sky = sky_rotation(&earth, xun_yi_palace, zhi_fu_palace);
+    // 人盘 — 值使随时辰走：自旬首宫按宫序号线性数过本旬时辰位次。
+    let gates = gate_plate(xun_yi_palace, head_branch, time.branch, setup.yang_dun);
 
     Cast {
         setup,
@@ -424,6 +481,7 @@ pub fn compute_at(m: &Moment) -> Cast {
         zhi_fu_xing,
         jiuxing_earth,
         sky,
+        gates,
     }
 }
 
@@ -435,6 +493,67 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 
 #[cfg(test)]
 mod tests {
+
+    /// 阳遁一局庚午时（古例）：旬首戊在坎 1，庚午是甲子旬第 7 个时辰，
+    /// 值使休门自坎 1 按宫号顺数 6 步落兑 7；八门 8 宫逐宫比对。
+    #[test]
+    fn qm2_gate_plate_oracle_yang_one_gengwu() {
+        // 甲子旬首（子 = 0），庚午（午 = 6）
+        let g = gate_plate(1, 0, 6, true);
+        assert_eq!((g.zhi_shi_gate, g.zhi_shi_palace), ("休门", 7));
+        assert_eq!(g.steps, 6);
+        assert_eq!(g.shift, 6);
+        assert_eq!(
+            g.gates,
+            ["伤门", "开门", "景门", "死门", "", "生门", "休门", "杜门", "惊门"],
+            "坎1伤 坤2开 震3景 巽4死 中5空 乾6生 兑7休 艮8杜 离9惊"
+        );
+    }
+
+    /// 值使随时辰走的是**宫序号线性**（阳遁 +1 / 阴遁 −1，中 5 也占一位），
+    /// 与九星沿圆周走不同 —— 这是八门最易与天盘混淆之处。
+    #[test]
+    fn qm2_zhi_shi_counts_along_palace_numbers_not_the_orbit() {
+        // 阳遁：坎1 起，逐时辰 1→2→3→4→5(中,寄坤2)→6→7
+        let landed: Vec<u8> = (0..7).map(|k| gate_plate(1, 0, k, true).zhi_shi_palace).collect();
+        assert_eq!(landed, [1, 2, 3, 4, 2, 6, 7], "第 5 步落中 5 → 寄坤 2");
+        // 阴遁：同起点反向 1→9→8→7…
+        let back: Vec<u8> = (0..4).map(|k| gate_plate(1, 0, k, false).zhi_shi_palace).collect();
+        assert_eq!(back, [1, 9, 8, 7]);
+    }
+
+    /// 一旬十个时辰：值使门恒为旬首宫本位门，八门恒是外八宫的一个置换，中宫恒空。
+    #[test]
+    fn qm2_gates_stay_a_permutation_across_a_whole_decade() {
+        let want: std::collections::BTreeSet<&str> = BA_MEN_ORBIT.iter().copied().collect();
+        for &yang in &[true, false] {
+            for head in [0u8, 2, 4, 6, 8, 10] {
+                for k in 0..10u8 {
+                    let g = gate_plate(3, head, (head + k) % 12, yang);
+                    assert_eq!(g.steps, k);
+                    assert_eq!(g.zhi_shi_gate, BA_MEN_ORBIT[orbit_index(3)], "值使 = 旬首宫本位门");
+                    assert_eq!(g.gates[4], "", "八门不入中宫");
+                    let got: std::collections::BTreeSet<&str> =
+                        ORBIT.iter().map(|&p| g.gates[p as usize - 1]).collect();
+                    assert_eq!(got, want);
+                    // 值使门必落在算出的那一宫
+                    assert_eq!(g.gates[g.zhi_shi_palace as usize - 1], g.zhi_shi_gate);
+                }
+            }
+        }
+    }
+
+    /// 1987-09-17 15:00（阴遁 3 局，旬首戊震 3，壬申为甲子旬第 9 个时辰）整链回归。
+    #[test]
+    fn qm2_gate_plate_on_the_reference_moment() {
+        let c = compute(1987, 9, 17, 15, 0, 8.0);
+        assert_eq!(c.gates.steps, 8, "申 = 8，甲子旬第 9 个时辰");
+        assert_eq!(c.gates.zhi_shi_gate, "伤门", "旬首戊在震 3，震 3 本位门为伤门");
+        // 阴遁自震 3 逆数 8 步：3→2→1→9→8→7→6→5(寄坤2)→4
+        assert_eq!(c.gates.zhi_shi_palace, 4);
+        assert_eq!(c.gates.gates[3], "伤门");
+    }
+
     /// 阳遁三局丙寅时（古例）：旬首戊在震 3、时干丙在坎 1，值符天冲随时干落坎 1。
     ///
     /// 天盘九星期望值取自公开排盘教程的完整例题，8 宫逐宫比对。
