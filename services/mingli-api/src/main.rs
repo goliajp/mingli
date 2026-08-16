@@ -356,6 +356,60 @@ async fn fortune_handler(Json(req): Json<FortuneRequest>) -> impl IntoResponse {
     }
 }
 
+/// 占事请求：问事此刻 + 取机 + 问句。
+#[derive(Debug, Deserialize)]
+struct EventRequest {
+    /// 问事此刻（缺省字段按 0 / +8 处理）。
+    t_ask: TTime,
+    /// 取机种子；缺省表示未取机，各叶按问事时刻自行派生。
+    seed: Option<u64>,
+    /// 问句（只入释义，不参与计算）。
+    question: Option<String>,
+}
+
+fn ask_time(t: &TTime) -> mingli_contract::AskTime {
+    mingli_contract::AskTime {
+        year: t.year,
+        month: t.month,
+        day: t.day,
+        hour: t.hour,
+        minute: t.minute,
+        tz: t.tz,
+    }
+}
+
+/// 占事：按问事此刻与取机把卜筮诸叶各排一盘。
+async fn event_handler(Json(req): Json<EventRequest>) -> impl IntoResponse {
+    match mingli_app::event::cast(leaves(), &ask_time(&req.t_ask), req.seed, req.question) {
+        Ok(ev) => Json(ev).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+/// 占事释义：同 `/api/event` 的 body → 算出诸盘 → 交释义后端出「断」。
+async fn event_interpret_handler(Json(req): Json<EventRequest>) -> impl IntoResponse {
+    let ev = match mingli_app::event::cast(leaves(), &ask_time(&req.t_ask), req.seed, req.question) {
+        Ok(ev) => ev,
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response()
+        }
+    };
+    let json = serde_json::to_string(&ev).unwrap_or_default();
+    let result = tokio::task::spawn_blocking(move || {
+        mingli_interpret::interpret_event(&ClaudeCli, &json)
+            .or_else(|_| mingli_interpret::interpret_event(&mingli_interpret::Template, &json))
+    })
+    .await;
+    match result {
+        Ok(Ok(interp)) => Json(interp).into_response(),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "释义后端不可用" })),
+        )
+            .into_response(),
+    }
+}
+
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 async fn intents_handler() -> impl IntoResponse {
     let intents: Vec<_> = mingli_contract::intents()
@@ -439,6 +493,8 @@ async fn main() {
         .route("/api/intents", get(intents_handler))
         .route("/api/route", post(route_handler))
         .route("/api/fortune", post(fortune_handler))
+        .route("/api/event", post(event_handler))
+        .route("/api/event/interpret", post(event_interpret_handler))
         .layer(CorsLayer::permissive());
 
     // 端口由 port-registry 分配（lab32-mingli → 6027）；可用 MINGLI_API_BIND 覆盖。

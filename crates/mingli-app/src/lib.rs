@@ -9,6 +9,7 @@
 
 pub mod analysis;
 pub mod bazi;
+pub mod event;
 pub mod interpret;
 pub mod team;
 pub mod word;

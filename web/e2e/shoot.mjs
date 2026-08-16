@@ -25,6 +25,8 @@ const SCREENS = [
   { name: '07-文字术数', tab: '字 文字术数', wait: '.word-form' },
   { name: '08-合盘团队', tab: '合 合盘 / 团队', wait: '.lp-sec-t' },
   { name: '09-相关性', tab: '⊞ 相关性', wait: '.card' },
+  // 意图页：先点顶部意图 chip，再等该意图自己的界面
+  { name: '10-占事', intent: '事（占事）', wait: '.ev-draw' },
 ]
 
 const problems = []
@@ -49,13 +51,22 @@ await page.waitForSelector('.leaf-tabs', { timeout: 30_000 })
 const only = process.argv.slice(2)
 for (const s of SCREENS) {
   if (only.length && !only.some((k) => s.name.includes(k))) continue
-  if (s.tab) {
-    const btn = page.getByRole('button', { name: s.tab, exact: false }).first()
+  const target = s.tab ?? s.intent
+  if (target) {
+    const btn = page.getByRole('button', { name: target, exact: false }).first()
     if (!(await btn.count())) {
-      problems.push(`找不到 tab：${s.tab}`)
+      problems.push(`找不到入口：${target}`)
       continue
     }
     await btn.click()
+  }
+  if (s.intent) {
+    // 占事要先起盘才有内容可看
+    const cast = page.getByRole('button', { name: '起 盘', exact: false }).first()
+    if (await cast.count()) {
+      await cast.click()
+      await page.waitForSelector('.ev-leaves', { timeout: 20_000 }).catch(() => problems.push('占事：起盘后等不到 .ev-leaves'))
+    }
   }
   try {
     await page.waitForSelector(s.wait, { timeout: 20_000 })

@@ -356,3 +356,11 @@ export interface ZiweiChart {
   palaces: Palace[]
   sihua: Sihua
 }
+
+/** 占事结果（对应 app::event::EventCast）。 */
+export interface EventCast {
+  asked_at: { year: number; month: number; day: number; hour: number; minute: number; tz: number }
+  seed: number | null
+  question: string | null
+  leaves: CastLeaf[]
+}
