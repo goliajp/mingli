@@ -41,6 +41,11 @@ impl CastingEngine for ZiweiEngine {
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Fortune]
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示】`palaces[12]` 十二宫（命/兄弟/夫妻/子女/财帛/疾厄/迁移/交友/官禄/田宅/福德/父母）；\
+            每宫地支干支+主星；`is_ming/is_shen` 标命/身宫；`ju` 五行局（由命宫纳音得）；\
+            `aux 4`（昌曲辅弼）+ `sihua`（四化：禄权科忌）。**结合星曜组合的传统吉凶含义给出整体格局评估**（如紫微在命=尊贵但需辅、贪狼=多才善变需修身、太阴在命=情感细腻喜独处、化禄主进财、化忌主阻滞等），并对各宫给出有利/不利倾向。")
+    }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 命宫所落之支——紫微起盘的第一处落点。
         let c = chart(self, m, q);

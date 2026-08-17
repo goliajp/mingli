@@ -35,6 +35,18 @@ impl CastingEngine for QimenEngine {
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event, Intent::Mundane, Intent::Locative]
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（时家奇门四盘，读懂后给出有据的吉凶/宜忌评估）】\n\
+            - `setup`：阴阳遁 + 局数 + 节气 + 三元。阳遁主升发外向、阴遁主收敛内守，是全盘基调。\n\
+            - `time_ganzhi` / `xun`：占事时柱与所在旬；`xun.xunkong` 是旬空二支——**落空亡的宫位其力减半、事多虚耗**，是传统判读的重要一笔。\n\
+            - `earth[9]` / `sky.stems[9]`：地盘与天盘三奇六仪，按宫号 1..9 排（1 坎 2 坤 3 震 4 巽 5 中 6 乾 7 兑 8 艮 9 离）。乙丙丁为三奇（乙日奇/丙月奇/丁星奇，主吉利、逢之多顺），戊己庚辛壬癸为六仪；**庚为格神主阻滞、辛主过错、壬主陷、癸主晦**，读到这些干时可点出其传统象义。\n\
+            - `sky.stars[9]` + `star_vigor[9]`：天盘九星与其在月令下的旺相休囚死。九星传统吉凶——天心/天任/天禽/天辅为吉，天冲中平，天蓬/天芮/天柱为凶，天英中性；**旺相则其性显、休囚死则其力弱**，凶星休囚反而害轻，这层要合起来说。\n\
+            - `gates.gates[9]`：人盘八门。开/休/生为三吉门（宜谋事、出行、求财），死/惊/伤为三凶门（主损耗、惊扰、伤病），杜门主闭塞宜隐藏，景门主文书信息中平。`gates.zhi_shi_gate` 是值使门——**代表求测者所处的动态**。\n\
+            - `spirits.spirits[9]`：神盘八神。值符主贵人尊长、腾蛇主虚惊怪异、太阴主暗中庇护、六合主和合中介、白虎（一系作勾陈）主刚猛争斗、玄武（一系作朱雀）主暗昧盗失、九地主藏守、九天主扬动。第 5/6 位两系称谓不同但位序一致，随文用其一即可。\n\
+            - `zhi_fu_palace` / `gates.zhi_shi_palace`：值符宫与值使宫——一盘之枢，落宫的星门神与旺衰最值得先看。\n\
+            - `patterns`：已算定的盘面结构。`star_fu_yin/gate_fu_yin/full_fu_yin` 伏吟主停滞守成、**利主不利客，不宜主动**；`star_fan_yin/gate_fan_yin` 反吟主反复颠倒、事有变；`qi_gates` 是三奇临吉门，传统视为得力之处，可点为有利方位或时机。\n\
+            - **读法**：先看值符宫与值使宫（含其星门神与旺衰），再看用神宫（依所问之事取），最后结合 `patterns` 与旬空收束；挑最值得一说的 2-3 处给出宜忌与方位/时机建议，不必逐宫铺陈。")
+    }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 阴阳遁的局数——一盘之所本。
         let c = chart(self, m, q);
