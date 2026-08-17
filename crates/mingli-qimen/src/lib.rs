@@ -608,14 +608,18 @@ fn effective_zhi_fu_stem(time_stem: u8, head_yi_stem: u8) -> u8 {
     if time_stem == 0 { head_yi_stem } else { time_stem }
 }
 
-/// 某天干在地盘九宫所在的宫(1..=9)；找不到 → 0（理论不会发生 — 地盘含 9 个三奇六仪）。
+/// 某天干在地盘九宫所在的宫(1..=9)。
+///
+/// 地盘恰好摆着三奇六仪九个干（甲遁不上盘），而值符干经 [`effective_zhi_fu_stem`]
+/// 之后必是这九个之一，故必然找得到。找不到就是地盘坏了——与其把 0 当宫号传下去
+/// 污染天盘旋转与八神布局，不如就地炸掉。
 fn earth_position_of_stem(earth: &[&str; 9], stem_name: &str) -> u8 {
     for (k, &s) in earth.iter().enumerate() {
         if s == stem_name {
             return (k + 1) as u8;
         }
     }
-    0
+    unreachable!("值符干 {stem_name} 应在地盘九宫之一")
 }
 
 /// 旬首干支字面（6 旬）：甲子 / 甲戌 / 甲申 / 甲午 / 甲辰 / 甲寅。

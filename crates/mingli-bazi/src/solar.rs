@@ -93,3 +93,60 @@ pub fn compute_with_true_solar(input: BirthInput, longitude: f64) -> BaziChart {
     let moment = Moment::new(ny, nm, nd, nh, nmin, input.tz);
     compute_at(&moment, input.gender)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn century_years_follow_the_gregorian_rule() {
+        assert!(is_leap_year(2024) && is_leap_year(2000), "普通四年闰与四百年闰");
+        assert!(!is_leap_year(1900) && !is_leap_year(2100), "百年不闰");
+        assert!(!is_leap_year(2023));
+        assert_eq!(days_in_month(2024, 2), 29);
+        assert_eq!(days_in_month(1900, 2), 28);
+        assert_eq!(day_of_year(2024, 3, 1), 61, "闰年三月一日是第 61 天");
+        assert_eq!(day_of_year(2023, 3, 1), 60);
+    }
+
+    #[test]
+    fn adding_days_walks_backwards_across_a_year_boundary() {
+        assert_eq!(add_days_civil(2026, 1, 1, -1), (2025, 12, 31));
+        assert_eq!(add_days_civil(2026, 3, 1, -1), (2026, 2, 28));
+        assert_eq!(add_days_civil(2024, 3, 1, -1), (2024, 2, 29), "闰年二月");
+        assert_eq!(add_days_civil(2025, 12, 31, 1), (2026, 1, 1));
+        assert_eq!(add_days_civil(2026, 1, 1, 0), (2026, 1, 1));
+    }
+
+    /// 真太阳时校正把时刻推过午夜时，日期必须跟着走——否则日柱会错一整柱。
+    #[test]
+    fn true_solar_correction_can_carry_the_date_across_midnight() {
+        let base = |year, month, day, hour, minute| BirthInput {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            tz: 8.0,
+            gender: None,
+        };
+        // 东八区 +8 的标准经线是 120°E。取 175°E：经度差 +55° × 4 分钟 = +220 分钟，
+        // 23:00 加上去越过午夜，日期须进一天。
+        let late = compute_with_true_solar(base(2026, 6, 15, 23, 0), 175.0);
+        let next = crate::compute(base(2026, 6, 16, 2, 40));
+        assert_eq!(
+            late.day.ganzhi, next.day.ganzhi,
+            "越过午夜后应与次日同一日柱"
+        );
+        // 取 60°E：经度差 −60° × 4 分钟 = −240 分钟，00:30 减下去退回前一天。
+        let early = compute_with_true_solar(base(2026, 6, 15, 0, 30), 60.0);
+        let prev = crate::compute(base(2026, 6, 14, 20, 30));
+        assert_eq!(
+            early.day.ganzhi, prev.day.ganzhi,
+            "退回午夜前应与前一日同一日柱"
+        );
+        // 同一时区标准经线上只剩均时差，日期不动。
+        let same = compute_with_true_solar(base(2026, 6, 15, 12, 0), 120.0);
+        assert_eq!(same.day.ganzhi, crate::compute(base(2026, 6, 15, 12, 0)).day.ganzhi);
+    }
+}

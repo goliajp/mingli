@@ -54,6 +54,29 @@ impl CastingEngine for AstrologyEngine {
 mod tests {
     use super::*;
 
+    /// 坐标是本叶的可选原子：给了就出 Asc/MC 与宫位，没给就只出行星落座。
+    /// 两条路都得走一遍——缺坐标时的降级路径与带坐标时的完整路径同样是契约的一部分。
+    #[test]
+    fn coordinates_are_optional_and_both_paths_hold() {
+        let e = AstrologyEngine;
+        let m = Moment::new(1961, 7, 1, 19, 45, 1.0);
+        let mut q = Query::at(1961, 7, 1, 19, 45, 1.0);
+
+        let without = e.cast(&m, &q);
+        assert!(without["angles"].is_null(), "没有坐标就不该凭空出 Asc/MC");
+        assert!(without["planets"].is_array(), "行星落座不依赖坐标");
+
+        q.latitude = Some(52.833);
+        q.longitude = Some(0.500);
+        let with = e.cast(&m, &q);
+        assert_eq!(with["angles"]["asc_sign"], "射手", "Diana 上升在射手");
+        assert_eq!(with["cusp_system"], "placidus", "缺省分宫制");
+        // 单给一边不算给：纬度经度必须成对。
+        let mut half = Query::at(1961, 7, 1, 19, 45, 1.0);
+        half.latitude = Some(52.833);
+        assert!(e.cast(&m, &half)["angles"].is_null(), "只给纬度不成对，应走降级路径");
+    }
+
     /// 适配器把本叶接到统一契约上：元数据齐备、能出盘、确定性谱已声明、
     /// 有流派时恰有一个默认。
     #[test]
