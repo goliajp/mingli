@@ -5,7 +5,7 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["divination", "use-cases", "orchestration"]
+keywords = ["divination", "use-cases", "orchestration", "intents"]
 categories = ["algorithms", "api-bindings"]
 
 [dependencies]

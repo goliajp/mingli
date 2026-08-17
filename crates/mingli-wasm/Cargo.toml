@@ -5,7 +5,7 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["wasm", "divination", "bindings", "browser"]
+keywords = ["webassembly", "divination", "bindings", "browser"]
 categories = ["wasm", "api-bindings", "algorithms"]
 
 [lib]

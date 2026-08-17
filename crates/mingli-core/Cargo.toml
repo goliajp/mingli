@@ -5,7 +5,7 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["algorithms", "cyclic", "crt", "gf2", "divination"]
+keywords = ["cyclic-group", "crt", "gf2", "quantizer", "divination"]
 categories = ["algorithms", "mathematics"]
 
 # 数学石必须零依赖：它是整棵树的根，放大半径=全栈。
