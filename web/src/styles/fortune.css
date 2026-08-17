@@ -1,0 +1,122 @@
+/* 运势视图：供给曲线、吉凶判读、命 / 运双行四柱、大运条、重大节点。 */
+/* —— Fortune 视图（用神供给曲线） —— */
+.fortune { padding: 18px 22px; border: 1px solid var(--line); border-radius: 12px; }
+.fortune-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.fortune-title { display: inline-flex; flex-direction: column; gap: 2px; }
+.fortune-name { font-size: 20px; font-weight: 900; letter-spacing: .05em; color: var(--shu); }
+.fortune-sub { font-size: 14px; color: var(--washi-faint); letter-spacing: .04em; }
+.fortune-load { padding: 30px 0; text-align: center; color: var(--washi-faint); font-size: 14px; }
+
+.fortune-now { background: var(--sumi); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.fortune-now-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+.fortune-now-row.supplies { gap: 12px; margin-top: 12px; }
+.fortune-now-l { color: var(--washi-faint); letter-spacing: .03em; font-size: 14px; }
+.fortune-now-v { font-family: var(--mono); color: var(--washi); }
+.fortune-now-sep { color: var(--washi-faint); opacity: .5; }
+.fortune-now-lvl { color: var(--washi-faint); font-size: 14px; margin-left: 3px; }
+.fortune-delta { font-family: var(--mono); font-size: 14px; padding: 2px 8px; border-radius: 999px; margin-left: 8px; }
+.fortune-delta.pos { color: var(--mu); background: var(--mu-soft); }
+.fortune-delta.neg { color: var(--huo); background: rgba(188, 71, 71, 0.18); }
+.fortune-delta.zero { color: var(--washi-faint); background: var(--sumi3); }
+
+.supply-stat { display: inline-flex; flex-direction: column; gap: 2px; padding: 8px 14px; border: 1px solid; border-radius: 8px; min-width: 100px; }
+.supply-stat-l { font-size: 14px; color: var(--washi-faint); letter-spacing: .04em; }
+.supply-stat-v { font-size: 17px; font-weight: 800; font-family: var(--mono); }
+.supply-stat-pct { font-size: 16px; font-family: var(--mono); color: var(--washi); margin-top: 2px; }
+.supply-stat.avoid { opacity: .92; }
+
+.fortune-note { font-size: 14px; color: var(--washi-soft); line-height: 1.7; margin-top: 10px; padding-top: 10px; border-top: 1px dotted var(--line); text-indent: 2em; }
+.fortune-note i { color: var(--washi-faint); font-style: normal; }
+
+.fortune-chart-wrap { background: var(--sumi); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.fortune-chart-l { font-size: 14px; color: var(--washi-faint); margin-bottom: 6px; letter-spacing: .05em; font-family: var(--mono); }
+.fortune-chart { width: 100%; height: auto; display: block; }
+.fortune-chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 14px; font-family: var(--mono); }
+.fortune-leg { letter-spacing: .03em; }
+.fortune-chart-foot { font-size: 14px; color: var(--washi-soft); line-height: 1.7; margin-top: 10px; padding-top: 8px; border-top: 1px dotted var(--line); }
+.fortune-chart-foot b { color: var(--shu); }
+
+/* —— 吉凶判读 chip + summary —— */
+.judgment-chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 4px 12px; border-radius: 999px; border: 1px solid;
+  font-family: var(--mono);
+}
+.judgment-chip.big { padding: 10px 22px; gap: 10px; font-size: 22px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+.judgment-chip-l { font-weight: 900; letter-spacing: .05em; }
+.judgment-chip-s { font-size: 0.7em; opacity: 0.9; }
+.fortune-judgment-summary {
+  margin-bottom: 14px; padding: 10px 14px;
+  background: var(--sumi); border-left: 3px solid var(--shu); border-radius: 6px;
+  font-size: 14px; color: var(--washi-soft); line-height: 1.6;
+}
+.fortune-head { align-items: center; gap: 14px; }
+.fortune-judgment-summary { display: flex; align-items: baseline; gap: 12px; }
+.fjs-l { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); white-space: nowrap; }
+
+/* —— 命 / 运 双行四柱 —— */
+.fortune-pillars {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--sumi); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 14px;
+}
+.fortune-pillars-row {
+  display: grid; grid-template-columns: 130px 1fr; gap: 14px; align-items: center;
+  padding-left: 8px;
+  border-left: 3px solid;
+}
+.fortune-pillars-row.ming { border-left-color: var(--kin); }
+.fortune-pillars-row.yun  { border-left-color: var(--mu); }
+.fortune-pillars-label { display: flex; flex-direction: column; gap: 4px; }
+.fortune-pillars-l { font-size: 14px; color: var(--washi-faint); letter-spacing: .04em; }
+.fortune-pillars-cells { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.natal-cell {
+  flex: 1 1 110px; min-width: 100px;
+  background: var(--sumi2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.natal-cell-l { font-size: 14px; color: var(--washi-faint); letter-spacing: .04em; }
+.natal-cell-gz { display: flex; gap: 4px; font-size: 26px; font-weight: 900; font-family: var(--mono); letter-spacing: .04em; line-height: 1; }
+.natal-cell-sub { font-size: 14px; color: var(--washi); font-family: var(--mono); }
+.natal-cell-shensha { font-size: 14px; color: var(--kin); font-family: var(--mono); letter-spacing: .03em; }
+
+/* —— 大运 10 步条 —— */
+.fortune-dayun-row {
+  background: var(--sumi); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.fortune-dayun-l { font-size: 14px; color: var(--washi-faint); margin-bottom: 8px; letter-spacing: .05em; font-family: var(--mono); }
+.fortune-dayun-strip { display: flex; gap: 4px; }
+.dyx-step {
+  flex: 1; min-width: 60px;
+  background: var(--sumi2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  transition: all .25s ease;
+}
+.dyx-step.on { background: linear-gradient(180deg, rgba(140, 180, 90, 0.18), rgba(140, 180, 90, 0.06)); border-color: var(--mu); box-shadow: 0 1px 8px rgba(140,180,90,0.2); }
+.dyx-step-age { font-size: 14px; color: var(--washi-faint); font-family: var(--mono); }
+.dyx-step-gz { display: flex; gap: 2px; font-size: 17px; font-weight: 800; font-family: var(--mono); }
+.dyx-step-i  { font-size: 14px; color: var(--washi-faint); font-family: var(--mono); opacity: 0.65; }
+
+/* —— 重大节点 chip 列 —— */
+.fortune-milestones {
+  background: var(--sumi); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.fortune-mile-l { font-size: 14px; color: var(--washi-faint); margin-bottom: 8px; letter-spacing: .03em; }
+.fortune-mile-l small { color: var(--washi-soft); margin-left: 6px; font-size: 14px; }
+.fortune-mile-row { display: flex; flex-direction: column; gap: 8px; }
+.fortune-mile-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fortune-mile-tag {
+  font-weight: 900; font-size: 14px; padding: 3px 10px; border-radius: 4px; font-family: var(--mono);
+}
+.fortune-mile-group.daji .fortune-mile-tag { background: #5a7a3a; color: #dbe8b8; }
+.fortune-mile-group.daxiong .fortune-mile-tag { background: #a83828; color: #f0c8c0; }
+.fortune-mile-chip {
+  font-family: var(--mono); font-size: 14px;
+  padding: 3px 9px; border-radius: 999px; border: 1px solid;
+}
+.fortune-mile-chip.daji { color: #cfe1a8; border-color: #6a8a4a; background: rgba(120, 180, 80, 0.10); }
+.fortune-mile-chip.daxiong { color: #e8b8b0; border-color: #8a4a3a; background: rgba(188, 71, 71, 0.10); }
+.fortune-mile-chip small { opacity: 0.7; margin-left: 3px; }
