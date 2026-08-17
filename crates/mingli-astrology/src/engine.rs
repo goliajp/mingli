@@ -37,7 +37,10 @@ impl CastingEngine for AstrologyEngine {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
     fn answers(&self) -> &'static [Intent] {
-        &[Intent::Natal, Intent::Fortune, Intent::Synastry, Intent::Mundane]
+        // 「运」要行运（transit / 推运 / 太阳返照），「合」要两盘之间的几何关系，
+        // 本叶两者都还没有——只有本命盘与盘内相位。「群/国」用的是立国盘，那是本命盘的一种用法，
+        // 同一份计算即可，故答。
+        &[Intent::Natal, Intent::Mundane]
     }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 太阳所在星座。

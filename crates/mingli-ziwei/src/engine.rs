@@ -39,7 +39,10 @@ impl CastingEngine for ZiweiEngine {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
     fn answers(&self) -> &'static [Intent] {
-        &[Intent::Natal, Intent::Fortune]
+        // 只答「命」。「运」要的是时间序列，而本叶的大限 / 流年尚未实现
+        // （见 lib.rs 里 `gender` 字段那句「保留以备大限/流年扩展」）——
+        // 传统上紫微当然论运，但那是「还没做」，不是「算得出」。
+        &[Intent::Natal]
     }
     fn reading_notes(&self) -> Option<&'static str> {
         Some("\n【字段语义提示】`palaces[12]` 十二宫（命/兄弟/夫妻/子女/财帛/疾厄/迁移/交友/官禄/田宅/福德/父母）；\
