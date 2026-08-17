@@ -163,7 +163,7 @@ assert_eq!(s.spirits_alt[1], "朱雀", "坤 2 的玄武在另一系作朱雀");
 assert_eq!(s.spirits_alt[0], "值符");
 }
 
-/// 阴遁逆布：同一起点下顺序沿圆周反向，且阴遁不改名。
+/// 阴遁逆布：同一起点下顺序沿圆周反向。
 #[test]
 fn qm3_spirits_run_backwards_under_yin_escape() {
 let s = spirit_plate(1, false);
@@ -172,7 +172,31 @@ assert_eq!(
     ["值符", "六合", "九地", "玄武", "", "腾蛇", "太阴", "九天", "白虎"],
     "坎1值符 乾6腾蛇 兑7太阴 坤2玄武…… 逆时针"
 );
-assert_eq!(s.spirits_alt, s.spirits, "阴遁两系同名");
+}
+
+/// 两套称谓都不分阴阳遁——只有第 5 / 6 位换名，位置与其余六神一字不动。
+///
+/// 《遁甲演义》两遁俱用白虎 / 玄武，《奇门遁甲统宗》两遁俱用勾陈 / 朱雀且明言异名同位。
+/// 坊间「阳遁勾陈朱雀、阴遁白虎玄武」在转盘语境下无据，见 `BA_SHEN_ALT` 的说明。
+#[test]
+fn qm3_the_second_naming_applies_under_both_escapes() {
+for palace in 1..=9u8 {
+    for yang in [true, false] {
+        let s = spirit_plate(palace, yang);
+        for k in 0..9 {
+            let (a, b) = (s.spirits[k], s.spirits_alt[k]);
+            let want = match a {
+                "白虎" => "勾陈",
+                "玄武" => "朱雀",
+                other => other,
+            };
+            assert_eq!(b, want, "宫 {} 遁 {yang}：{a} 的另一名应是 {want}", k + 1);
+        }
+        // 两套里第 5 / 6 位必定各出现一次，别的六神一字不改
+        assert_eq!(s.spirits_alt.iter().filter(|n| **n == "勾陈").count(), 1);
+        assert_eq!(s.spirits_alt.iter().filter(|n| **n == "朱雀").count(), 1);
+    }
+}
 }
 
 /// 任意起点与遁向：八神恒是外八宫的置换，值符恒在起点，中宫恒空。
