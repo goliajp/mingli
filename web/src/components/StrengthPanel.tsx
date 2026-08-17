@@ -1,6 +1,6 @@
 // 旺衰量化面板：得令 / 得地 / 得势三栏与五行分布。
 import type { Strength } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 
 // 旺衰量化：得令/得地/得势三栏 0-30 → 综合 0-100 强度条 + 五行力量分布。
 export function StrengthPanel({ s, dayWx }: { s: Strength; dayWx: string }) {

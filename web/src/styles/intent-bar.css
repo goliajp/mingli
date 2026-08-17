@@ -1,0 +1,63 @@
+/* 问局意图选择器与「还没做」的占位卡。 */
+/* —— 问局意图选择器 —— */
+.intent-bar {
+  background: linear-gradient(180deg, rgba(190, 100, 80, 0.06), transparent);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px 14px; margin-bottom: 14px;
+}
+.intent-bar-hint { font-size: 14px; color: var(--washi-faint); margin-bottom: 8px; letter-spacing: .05em; }
+.intent-bar-hint b { color: var(--shu); font-weight: 700; }
+.intent-bar-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.intent-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--sumi2); border: 1px solid var(--line);
+  font-size: 14px; color: var(--washi); cursor: pointer;
+  transition: all .15s ease;
+}
+.intent-chip:hover { background: var(--sumi3); border-color: var(--line-strong); }
+.intent-chip.on { background: var(--shu-soft); border-color: var(--shu); color: #fff; }
+/* 红底上 --washi-faint 的对比度过低，选中态单独提亮副文字 */
+.intent-chip.on .intent-chip-shape { color: rgba(255, 255, 255, .82); }
+.intent-chip.pending { opacity: .76; }
+.intent-chip.pending.on { opacity: 1; background: linear-gradient(160deg, var(--shu-soft) 0%, var(--sumi3) 100%); border-color: var(--kin); }
+.intent-chip-name { font-weight: 700; letter-spacing: .04em; }
+.intent-chip-shape { font-size: 14px; color: var(--washi-faint); font-family: var(--mono); }
+.intent-chip-dot { font-size: 14px; margin-left: 2px; font-style: normal; }
+
+/* —— 待承接占位卡 —— */
+.intent-pending {
+  padding: 18px 20px;
+  border: 1px dashed var(--kin); border-radius: 12px;
+  background: linear-gradient(170deg, var(--sumi3), var(--sumi2));
+}
+.intent-pending-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 14px; }
+.intent-pending-title { display: inline-flex; align-items: center; gap: 12px; }
+.intent-pending-name { font-size: 22px; font-weight: 900; letter-spacing: .04em; }
+.intent-pending-status { font-size: 14px; padding: 3px 8px; border-radius: 6px; }
+.intent-pending-status.live { background: var(--mu-soft); color: var(--mu); }
+.intent-pending-status.pending { background: var(--kin-soft); color: var(--kin); }
+.intent-pending-shape { font-size: 14px; color: var(--washi-faint); font-family: var(--mono); }
+.intent-pending-shape b { color: var(--shu); }
+.intent-pending-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; margin-bottom: 12px; }
+@media (max-width: 800px) { .intent-pending-grid { grid-template-columns: 1fr; } }
+.intent-pending-cell { background: var(--sumi); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.intent-pending-cell-l { font-size: 14px; color: var(--washi-faint); letter-spacing: .05em; margin-bottom: 6px; }
+.intent-pending-cell-v { display: flex; flex-wrap: wrap; gap: 6px; }
+.atom-chip {
+  font-family: var(--mono); font-size: 14px; padding: 3px 8px; border-radius: 6px;
+  background: var(--sumi3); color: var(--washi); border: 1px solid var(--line);
+}
+.leaf-chip {
+  font-family: var(--mono); font-size: 14px; padding: 3px 8px; border-radius: 6px;
+  background: var(--mu-soft); color: var(--mu); border: 1px solid var(--mu);
+}
+.intent-pending-note { font-size: 14px; color: var(--washi-soft); line-height: 1.7; padding: 8px 0; border-top: 1px dotted var(--line); text-indent: 2em; }
+.intent-pending-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 8px; padding-top: 10px; border-top: 1px dotted var(--line); flex-wrap: wrap; }
+.intent-pending-foot-meta { font-size: 14px; color: var(--washi-faint); font-family: var(--mono); }
+.back-natal {
+  font-family: var(--mono); font-size: 14px;
+  padding: 6px 12px; border-radius: 6px;
+  background: var(--sumi2); border: 1px solid var(--line); color: var(--washi); cursor: pointer;
+}
+.back-natal:hover { background: var(--shu-soft); border-color: var(--shu); }

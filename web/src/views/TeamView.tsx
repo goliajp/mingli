@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { fetchTeam, fetchTeamInterpretation } from '../api/client'
 import type { Interpretation, TeamResult } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 
 // 跨叶相关性热力图
 // 合盘 / 团队：N 人输入 → 团队五行画像 + N×N 互补矩阵。

@@ -1,5 +1,5 @@
 // 运层单柱格。
-import { WUXING_COLOR, wxRelation } from '../leaves'
+import { WUXING_COLOR, wxRelation } from '../lib/display'
 import { gzWuxing } from '../lib/ganzhi'
 
 export function YunCell({ label, gz, sub, dayWx, hi }: {

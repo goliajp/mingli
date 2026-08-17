@@ -1,6 +1,6 @@
 // 岁运叠加旺衰面板：运层与本命的对照。
 import type { OverlayStrength } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 
 // 岁运叠加旺衰：大运柱 + 流年柱 拼到本命之上 → t 时刻的实际旺衰。
 // 拨杆动时这条会随之脉动，与本命旺衰条形成「命底·运面」对照。

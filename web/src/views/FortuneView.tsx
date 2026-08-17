@@ -1,6 +1,6 @@
 // 运势视图：t 时刻切片 + 百年用神供给曲线。
 import type { FortuneResponse, Pillar } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 import { JUDGMENT_FILL, JudgmentChip } from '../components/JudgmentChip'
 import { YunCell } from '../components/YunCell'
 import { gzWuxing } from '../lib/ganzhi'

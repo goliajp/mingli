@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { Interpretation, Synastry, TeamMember } from '../types'
 import { fetchSynastry, fetchSynastryAdvice } from '../api/client'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 
 type Person = { name: string; year: number; month: number; day: number; hour: number; minute: number; tz: number; gender: 'male' | 'female' }
 

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { Interpretation, Mundane, YearStep } from '../types'
 import { fetchMundane, fetchMundaneAdvice } from '../api/client'
-import { LeafChart } from '../leaves'
+import { LeafChart } from '../views/leaves'
 
 /** 八宫在时间线上的行序：按太乙阳遁顺行 1→2→3→4→6→7→8→9（不入 5）。 */
 const PALACE_ROWS = [1, 2, 3, 4, 6, 7, 8, 9]

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { fetchOverlayStrength } from '../api/client'
 import type { BaziChart, ChartRequest, OverlayStrength, Pillar } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 import { OverlayStrengthPanel } from '../components/OverlayStrengthPanel'
 import { PatternPanel } from '../components/PatternPanel'
 import { StrengthPanel } from '../components/StrengthPanel'

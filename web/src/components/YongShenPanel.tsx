@@ -1,6 +1,6 @@
 // 用神 / 喜忌面板，含 t 时刻供给度。
 import type { YongShen } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 
 // 用神 / 喜忌：把旺衰+格局合起来，告诉命主「该补什么 / 该忌什么」。
 // 若有运层叠加，旁边附「t 时刻拿到了多少喜用」（本命用神为锚，看运给的够不够）。
