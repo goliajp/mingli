@@ -26,7 +26,9 @@ impl CastingEngine for GeomancyEngine {
         const { &[
             d("四母→盾牌图", Sto, "种子可复现"),
             d("法官恒为偶", Det, "GF(2) 线性，穷举证于 core::gf2"),
-            d("16 figure 名", Und, "查表待补，只显 GF(2) 四点结构"),
+            d("16 图名与点阵", Det, "三源一致：Unicode 提案 L2/23-218(已入 Unicode 17.0，给出编码规则原句) · Princeton「Medieval Geomancy」图版(Martin of Spain《De geomantia》英译) · en.wikipedia《Geomantic figures》(其偶/奇各 8、对称 4、进出各 6 四张分类表与点阵全维度自洽)"),
+            d("行星 / 星座归属", Und, "Puer 与 Puella 的归属两派相反：Martin of Spain 从 Moerbeke/Cremona 作 Puer=金星双子、Puella=火星天秤；Agrippa 与现代主流作 Puer=火星白羊、Puella=金星天秤。两派的名↔点阵映射一致，只有星占字段冲突"),
+            d("阿拉伯名", Und, "名集 15/16 两源相符(Savage-Smith & Smith 1980 据大英博物馆 13 世纪铜盘 · The Digital Ambler)，但同一图常有多个并行名(ʿuqla 亦作 thikāf、inkis 亦作 mankūs/nākis/rakīza 等)，且 Puer 一图两源给出不同名(jawdala / faraḥ)；单值入库会失真"),
         ] }
     }
 }

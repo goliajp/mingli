@@ -694,6 +694,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .sp-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .geo-fig-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .geo-lbl { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); }
+.geo-name { font-family: var(--mono); font-size: 12px; letter-spacing: .02em; color: var(--washi-dim); white-space: nowrap; }
 .geofig { display: flex; flex-direction: column; gap: 4px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: rgba(0,0,0,.2); }
 .geofig.hi { border-color: var(--kin); background: rgba(201,162,74,.12); }
 .geo-row { display: flex; gap: 5px; justify-content: center; height: 7px; }
