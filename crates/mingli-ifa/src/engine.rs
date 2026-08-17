@@ -24,12 +24,12 @@ impl CastingEngine for IfaEngine {
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Sto, Und};
         const { &[
-            d("双 figure→256 odu", Sto, "种子可复现；16×16 = (Z₂)⁴ 组合"),
+            d("双 figure→256 odu", Sto, "八次二进制投掷由种子派生（同种子同 odù 可复现）；右四次成右半、左四次成左半，16×16 = (Z₂)⁴ 得 256 组合"),
             d("16 主 odù 的名与点阵", Det, "Bascom《Ifa Divination》(1969) Table 1(p.4) 与 Table 3(p.48) 为一手；en.wikipedia《Ifá》的 Yoruba 与 Fon 两张表、Commons《The Meji Odus》图、跨系统对照表四处逐条相符"),
             d("行序与左右序", Det, "Bascom Fig. 2 面板 A(p.41) 把八次投掷的编号直接画在八个位置上：顶行右→顶行左→次行右→…；正文 p.40-41 明记右(ọ̀tún)为长、复合名右名在前，并警告反过来是另一个 odù。ifa-odu.com 独立表述一致；Fon/贝宁 Fa 传统同理由"),
-            d("16 主 odù 的排序", Und, "无定本。Bascom Table 3 自己就并列 A.Ifẹ̀ 与 B.Southwestern Yoruba 两套(差异在第 5–8 与 11–14 位)，p.47 记明另有二十一套排序在案。故本叶按数值索引而非名次排，不发布任何「第 N 号 odù」"),
-            d("256 复合 odù 的名与经文", Und, "尼日利亚 / 古巴 Lucumí / 贝宁三系拼写系统性不同(Ogbe-Iwori 在古巴作 Ogbe Weñe)，缩合形式因 lineage 而异；未取得多源一致的全表。本叶只按「右名 + 左名」拼出复合名，不发经文"),
-            d("0/1 整数编码", Und, "传统只写单画 / 双画，不写数值。本叶取「置位 = 单画、bit0 = 顶行」为内部表示；可引用的原始写法是 Bascom 的四位 1/2 串(见 `bascom_notation`)"),
+            d("16 主 odù 的排序", Und, "🟡 无定本。Bascom Table 3 自己就并列 A.Ifẹ̀ 与 B.Southwestern Yoruba 两套(差异在第 5–8 与 11–14 位)，p.47 记明另有二十一套排序在案。故本叶按数值索引而非名次排，不发布任何「第 N 号 odù」"),
+            d("256 复合 odù 的名与经文", Und, "🟡 尼日利亚 / 古巴 Lucumí / 贝宁三系拼写系统性不同(Ogbe-Iwori 在古巴作 Ogbe Weñe)，缩合形式因 lineage 而异；未取得多源一致的全表。本叶只按「右名 + 左名」拼出复合名，不发经文"),
+            d("0/1 整数编码", Und, "🟡 传统只写单画 / 双画，不写数值。本叶取「置位 = 单画、bit0 = 顶行」为内部表示；可引用的原始写法是 Bascom 的四位 1/2 串(见 `bascom_notation`)"),
         ] }
     }
 }

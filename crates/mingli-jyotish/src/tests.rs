@@ -303,3 +303,22 @@ fn the_length_of_a_year_scales_the_timeline_without_moving_the_ages() {
     let d = vimshottari_timeline(123.456, birth);
     assert!((d[0].end_jd - julian[0].end_jd).abs() < 1e-9);
 }
+
+/// 108 个 navamsa 边界逐个落在正确的一格里。
+///
+/// 边界是零测集，实盘几乎踩不到，但这条守卫零成本，而它挡的是一类很隐蔽的错：
+/// `lon × 0.3` 看着等价于 `lon × 9 / 30`，实际 0.3 在二进制里表示不精确，
+/// 108 个边界里有 25 个会落回上一格——盘面照出，只是那一格错了。
+#[test]
+fn all_one_hundred_eight_navamsa_boundaries_land_in_the_right_division() {
+    for k in 0..108 {
+        let lon = f64::from(k) * 10.0 / 3.0;
+        assert_eq!(
+            navamsa_of(lon),
+            (k as usize) % 12,
+            "第 {k} 个 navamsa 边界（{lon}°）落错格"
+        );
+        // 格内一点点也该在同一格
+        assert_eq!(navamsa_of(lon + 1.0), (k as usize) % 12, "边界 {k} 之后 1° 应仍在本格");
+    }
+}

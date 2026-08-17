@@ -24,11 +24,11 @@ impl CastingEngine for SikidyEngine {
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Sto, Und};
         const { &[
-            d("四母→16 列", Sto, "种子可复现，同地占 GF(2) 代数"),
+            d("四母→16 列", Sto, "四母列由种子随机起（同种子同盘可复现）；其余十二列由母列经转置与 XOR 树完全决定，与地占共用同一套 GF(2) 代数"),
             d("创世者 C15 恒偶", Det, "与地占法官同一定理"),
             d("16 列的角色与编号", Det, "三源交叉印证(Ascher 1997 Historia Mathematica · Chemillier 2007 L'Homme · Dahle-Sibree 1892 Folk-Lore)；Dahle 用马语列名写的八条生成规则与本叶公式逐条对上。本叶用 Ascher 生成序编号，创世者列在生成序为第 15、空间序为第 12——英文维基条目内部混用两套，勿照抄"),
-            d("第 6 与第 14 列的语义", Und, "三源三说：第 6 作 the bad intentions / abily(奴隶) / Marìna；第 14 作 the people / saily / Mpànontàny(发问者)。不硬选一说，两处留空"),
-            d("16 个图（四行点阵）的马语名", Und, "Sibree 1892 自己就并列了 Hova / Sakalava / 东非阿拉伯商人三套互不相同的命名(如同一图作 Jamà/Asombòla/Asombòla)，未取得第二个独立来源"),
+            d("第 6 与第 14 列的语义", Und, "🟡 三源三说：第 6 作 the bad intentions / abily(奴隶) / Marìna；第 14 作 the people / saily / Mpànontàny(发问者)。不硬选一说，两处留空"),
+            d("16 个图（四行点阵）的马语名", Und, "🟡 Sibree 1892 自己就并列了 Hova / Sakalava / 东非阿拉伯商人三套互不相同的命名(如同一图作 Jamà/Asombòla/Asombòla)，未取得第二个独立来源"),
         ] }
     }
 }
