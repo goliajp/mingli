@@ -809,6 +809,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .g9 { flex: 1; border: 1px solid var(--line); border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,.2); padding: 6px; }
 .g9-stem { font-size: 22px; font-weight: 800; color: var(--kin-bright); }
 .g9-stem.sm { font-size: 14px; }
+.g9-stem.xs { font-size: 13px; font-weight: 500; color: var(--washi-faint); }
 .g9-gong { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); margin-top: 3px; }
 .g9-gong.big { font-size: 26px; color: var(--washi-dim); font-family: var(--serif); margin: 0; }
 .g9.mid { background: rgba(201,162,74,.08); }
@@ -990,3 +991,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .mu-key { padding: 1px 9px; border-radius: 10px; color: var(--sumi); font-weight: 600; }
 .mu-key.tian { background: var(--kin); } .mu-key.di { background: var(--mu); } .mu-key.ren { background: var(--teal); }
 .mu-key-note { color: var(--washi-faint); }
+
+/* 太乙二目与诸将 */
+.ty-mus { display: flex; gap: 12px; flex-wrap: wrap; }
+.ty-mu { flex: 1 1 220px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.ty-mu.zhu { border-color: var(--mu); }
+.ty-mu.ke { border-color: var(--kin); }
+.ty-mu-h { font-size: 15px; color: var(--washi); letter-spacing: .04em; }
+.ty-mu-h i { font-style: normal; font-family: var(--mono); font-size: 13px; color: var(--washi-faint); margin-left: 8px; }
+.ty-mu-b { font-family: var(--mono); font-size: 14px; color: var(--washi-dim); margin-top: 4px; }
