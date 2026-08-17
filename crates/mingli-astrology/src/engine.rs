@@ -1,12 +1,27 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 西洋占星本命盘叶（B 族）。仅 `astrology` feature 开启时编译（连带 VSOP87 星历）。
 #[derive(Debug, Default)]
 pub struct AstrologyEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &AstrologyEngine, m: &Moment, q: &Query) -> crate::NatalChart {
+    let geo = match (q.latitude, q.longitude) {
+        (Some(latitude), Some(longitude)) => Some(crate::GeoLocation {
+            latitude,
+            longitude,
+        }),
+        _ => None,
+    };
+    let house_system = crate::HouseSystem::from_id(q.school_of(e.id(), "placidus"));crate::compute_at(m, geo, house_system)
+}
 
 impl CastingEngine for AstrologyEngine {
     fn id(&self) -> &'static str {
@@ -19,16 +34,15 @@ impl CastingEngine for AstrologyEngine {
         Family::Angular
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let geo = match (q.latitude, q.longitude) {
-            (Some(latitude), Some(longitude)) => Some(crate::GeoLocation {
-                latitude,
-                longitude,
-            }),
-            _ => None,
-        };
-        let house_system = crate::HouseSystem::from_id(q.school_of(self.id(), "placidus"));
-        serde_json::to_value(crate::compute_at(m, geo, house_system))
-            .unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Fortune, Intent::Synastry, Intent::Mundane]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 太阳所在星座。
+        let c = chart(self, m, q);
+        Some(Principal { label: "太阳星座", value: c.planets.first().map_or_else(String::new, |p| p.sign.clone()) })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::Det;

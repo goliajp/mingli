@@ -1,12 +1,20 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Moment, Query};
+use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query};
 use serde_json::Value;
 
 /// 小六壬叶（A 族·时间起课，确定性）。月→日→时辰在 Z₆ 上掐指。
 #[derive(Debug, Default)]
 pub struct XiaoliurenEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(_e: &XiaoliurenEngine, m: &Moment, _q: &Query) -> crate::Cast {
+crate::compute_at(m)
+}
 
 impl CastingEngine for XiaoliurenEngine {
     fn id(&self) -> &'static str {
@@ -18,8 +26,16 @@ impl CastingEngine for XiaoliurenEngine {
     fn family(&self) -> Family {
         Family::Cyclic
     }
-    fn cast(&self, m: &Moment, _q: &Query) -> Value {
-        serde_json::to_value(crate::compute_at(m)).unwrap_or(Value::Null)
+    fn cast(&self, m: &Moment, q: &Query) -> Value {
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Election, Intent::Locative]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 时辰落在六神的哪一位。
+        let c = chart(self, m, q);
+        Some(Principal { label: "时神位", value: c.hour_pos.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::Det;

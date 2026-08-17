@@ -143,7 +143,8 @@ mod tests {
     fn routes_to_taiyi_qimen_astrology() {
         let m = cast(&registry(), &prc(), Some(39.9), Some(116.4), None, None).expect("应可推");
         let ids: Vec<&str> = m.founding.iter().map(|l| l.id).collect();
-        assert_eq!(ids, ["taiyi", "qimen", "astrology"]);
+        // 次序即注册表次序（从前是端口层手写表的次序）
+        assert_eq!(ids, ["astrology", "qimen", "taiyi"]);
     }
 
     #[test]

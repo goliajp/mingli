@@ -6,7 +6,7 @@
 use mingli_contract::{
     d, AskTime, CastingEngine, Determinism, Family, Gender, Moment, Query, QueryKind,
 };
-use mingli_contract::intents;
+use mingli_contract::Intent;
 use mingli_engine::{cast_all, cast_all_detailed, cast_one, route};
 use mingli_registry::registry;
 use serde_json::Value;
@@ -314,39 +314,75 @@ fn ask_2026() -> AskTime {
 }
 
 #[test]
-fn intents_natal_covers_registry() {
-    // 契约层不知道 feature 的存在——`intents()` 声明的永远是全部二十一片。
-    // 所以恒成立的是「注册表 ⊆ natal.default_leaves」；两者相等只在全 feature 下成立。
-    let natal = intents().iter().find(|s| s.id == "natal").expect("应有 natal 意图");
-    let reg_ids: std::collections::HashSet<&'static str> =
-        registry().iter().map(|e| e.id()).collect();
-    let intent_ids: std::collections::HashSet<&'static str> =
-        natal.default_leaves.iter().copied().collect();
-    for id in &reg_ids {
-        assert!(intent_ids.contains(id), "注册了却没在 natal.default_leaves 里声明的叶：{id}");
+fn every_leaf_answers_the_natal_intent() {
+    // 「命」是缺省：一片时刻叶总能给出生切片。哪片叶要不答它，得是有意的，
+    // 那就得动它自己的 `answers()`，并在这里说明为什么。
+    for e in &registry() {
+        assert!(
+            e.answers().contains(&Intent::Natal),
+            "叶 `{}` 没有认领「命」——时刻叶都该能给出生切片，若确实不能，请在这里写明原因",
+            e.id()
+        );
     }
-    #[cfg(all(feature = "astrology", feature = "jyotish", feature = "qizhengsiyu"))]
-    assert_eq!(intent_ids, reg_ids, "全 feature 下 natal.default_leaves 应与 registry 相等");
 }
 
 #[test]
-fn intents_non_natal_leaves_are_declared_leaves() {
-    // 参照系是**契约声明的全集**（natal.default_leaves），不是当前注册表——
-    // feature 关掉某片叶时 `route` 会把它过滤掉，那是设计如此，不该让测试红。
-    // 这条要抓的是「意图引用了一个根本不存在的叶 id」。
-    let declared: std::collections::HashSet<&'static str> = intents()
-        .iter()
-        .find(|s| s.id == "natal")
-        .expect("应有 natal 意图")
-        .default_leaves
-        .iter()
-        .copied()
-        .collect();
-    for s in intents().iter().filter(|s| s.id != "natal") {
-        for leaf in s.default_leaves {
-            assert!(declared.contains(leaf), "{} 意图引用了不存在的叶 {}", s.id, leaf);
+fn a_leaf_that_claims_an_intent_can_actually_answer_it() {
+    // 声明的判定标准是「当下算得出」，不是「传统上该答」（见 `CastingEngine::answers` 的说明）。
+    // 标准既然是事实，就该能验：认领了哪一类，路由到那一类时就得真出得来东西。
+    //
+    // 从前这层关系写在端口层的一张「意图 → 叶 id」表里，那张表没有任何东西验证过——
+    // 表里多一个不存在的 id 会静默地少路由一片叶，少一个则新叶永远不入路由。
+    let reg = registry();
+    let m = mingli_contract::Moment::new(2026, 6, 16, 10, 0, 8.0);
+    let q = sample();
+    for e in &reg {
+        for intent in e.answers() {
+            let routed = route(&reg, &kind_of(*intent));
+            assert!(
+                routed.contains(&e.id()),
+                "叶 `{}` 认领了 {:?}，路由却没把它算进去",
+                e.id(),
+                intent
+            );
+            assert!(
+                !e.cast(&m, &q).is_null(),
+                "叶 `{}` 认领了 {:?}，却排不出盘",
+                e.id(),
+                intent
+            );
         }
     }
+}
+
+/// 每类意图的一个最小载荷，用来验证路由。
+fn kind_of(intent: Intent) -> QueryKind {
+    match intent {
+        Intent::Natal => QueryKind::Natal(sample()),
+        Intent::Fortune => QueryKind::Fortune { natal: sample(), t_target: ask_2026() },
+        Intent::Event => QueryKind::Event { t_ask: ask_2026(), seed: 42, q_text: None },
+        Intent::Election => {
+            QueryKind::Election { window_start: ask_2026(), window_end: ask_2026(), category: String::new() }
+        }
+        Intent::Synastry => QueryKind::Synastry { a: sample(), b: sample() },
+        Intent::Mundane => QueryKind::Mundane { p_polity: sample() },
+        Intent::Locative => QueryKind::Locative { t_ask: ask_2026(), seed: 7, category: String::new() },
+        Intent::Onomancy => {
+            QueryKind::Onomancy { name: "Ada".into(), surname_strokes: None, given_strokes: None }
+        }
+    }
+}
+
+#[test]
+fn the_intent_catalogue_says_who_answers_each_class() {
+    // 端口层只说这一类问局是什么；「谁来答」由注册表里的叶自己认领，在编排层合成。
+    let cat = mingli_engine::intent_catalog(&registry());
+    assert_eq!(cat.len(), 8, "八类问局各一条");
+    for (spec, leaves) in &cat {
+        assert!(!leaves.is_empty(), "{} 一片叶都没有认领", spec.id.id());
+    }
+    let natal = cat.iter().find(|(s, _)| s.id == Intent::Natal).expect("应有「命」");
+    assert_eq!(natal.1.len(), registry().len(), "「命」应覆盖整个注册表");
 }
 
 #[test]

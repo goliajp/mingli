@@ -419,7 +419,7 @@ fn the_intent_ids_line_up_with_the_contract() {
     sorted.sort_unstable();
     sorted.dedup();
     assert_eq!(sorted.len(), ids.len(), "意图 id 不该重复");
-    let declared: Vec<&str> = mingli_contract::intents().iter().map(|s| s.id).collect();
+    let declared: Vec<&str> = mingli_contract::intents().iter().map(|s| s.id.id()).collect();
     for id in &ids {
         // team 是用例层的组合形态，不在 8 意图清单里；其余五个都该在
         if *id == "team" {

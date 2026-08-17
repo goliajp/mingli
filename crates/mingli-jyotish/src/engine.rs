@@ -1,13 +1,26 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 印度占星(Jyotish)叶（B 族）。仅 `jyotish` feature 开启时编译（依赖 astrology + ephemeris）。
 /// 9 行星（含 Rahu/Ketu）+ 27 nakshatra + 12 rasi + Lagna，4 ayanamsa 流派。
 #[derive(Debug, Default)]
 pub struct JyotishEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &JyotishEngine, m: &Moment, q: &Query) -> crate::JyotishChart {
+    let geo = match (q.latitude, q.longitude) {
+        (Some(latitude), Some(longitude)) => Some(mingli_ephemeris::GeoLocation { latitude, longitude }),
+        _ => None,
+    };
+    let mode = crate::Ayanamsa::from_id(q.school_of(e.id(), "lahiri"))
+        .unwrap_or_default();crate::compute_at(m, geo, mode)
+}
 
 impl CastingEngine for JyotishEngine {
     fn id(&self) -> &'static str {
@@ -20,13 +33,15 @@ impl CastingEngine for JyotishEngine {
         Family::Angular
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let geo = match (q.latitude, q.longitude) {
-            (Some(latitude), Some(longitude)) => Some(mingli_ephemeris::GeoLocation { latitude, longitude }),
-            _ => None,
-        };
-        let mode = crate::Ayanamsa::from_id(q.school_of(self.id(), "lahiri"))
-            .unwrap_or_default();
-        serde_json::to_value(crate::compute_at(m, geo, mode)).unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Fortune, Intent::Synastry]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 月亮所在宿——印度占星以月宿定本命。
+        let c = chart(self, m, q);
+        Some(Principal { label: "月宿(nakshatra)", value: c.grahas.get(1).map_or_else(String::new, |g| g.nakshatra_name.to_string()) })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};

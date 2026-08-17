@@ -1,12 +1,20 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Moment, Query};
+use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query};
 use serde_json::Value;
 
 /// 玛雅历叶（A 族·CRT）。Tzolkʼin 260 + Haab 365 + Long Count。
 #[derive(Debug, Default)]
 pub struct MayaEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(_e: &MayaEngine, m: &Moment, _q: &Query) -> crate::Cast {
+crate::compute_at(m)
+}
 
 impl CastingEngine for MayaEngine {
     fn id(&self) -> &'static str {
@@ -18,8 +26,16 @@ impl CastingEngine for MayaEngine {
     fn family(&self) -> Family {
         Family::Cyclic
     }
-    fn cast(&self, m: &Moment, _q: &Query) -> Value {
-        serde_json::to_value(crate::compute_at(m)).unwrap_or(Value::Null)
+    fn cast(&self, m: &Moment, q: &Query) -> Value {
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // Tzolkʼin 的 13 数。
+        let c = chart(self, m, q);
+        Some(Principal { label: "Tzolkʼin 数", value: c.tzolkin_number.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::Det;

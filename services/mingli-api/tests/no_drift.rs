@@ -174,7 +174,7 @@ async fn the_metadata_endpoints_report_the_registry_as_it_is() {
 
     let (s, intents) = get("/api/intents").await;
     assert_eq!(s, StatusCode::OK);
-    let declared: Vec<&str> = mingli_contract::intents().iter().map(|i| i.id).collect();
+    let declared: Vec<&str> = mingli_contract::intents().iter().map(|i| i.id.id()).collect();
     let served: Vec<String> = intents["intents"]
         .as_array()
         .expect("/api/intents 应有 intents 数组")

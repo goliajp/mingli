@@ -1,7 +1,7 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 契约层性别 → 本叶性别。
@@ -16,6 +16,15 @@ fn leaf_gender(g: Option<mingli_contract::Gender>) -> Option<crate::Gender> {
 #[derive(Debug, Default)]
 pub struct ZiweiEngine;
 
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &ZiweiEngine, m: &Moment, q: &Query) -> crate::ZiweiChart {
+    let school = crate::SihuaSchool::from_id(q.school_of(e.id(), "standard"))
+        .unwrap_or_default();crate::compute_at_with(m, leaf_gender(q.gender), school)
+}
+
 impl CastingEngine for ZiweiEngine {
     fn id(&self) -> &'static str {
         "ziwei"
@@ -27,10 +36,15 @@ impl CastingEngine for ZiweiEngine {
         Family::Cyclic
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let school = crate::SihuaSchool::from_id(q.school_of(self.id(), "standard"))
-            .unwrap_or_default();
-        serde_json::to_value(crate::compute_at_with(m, leaf_gender(q.gender), school))
-            .unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Fortune]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 命宫所落之支——紫微起盘的第一处落点。
+        let c = chart(self, m, q);
+        Some(Principal { label: "命宫支", value: c.ming_branch })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};

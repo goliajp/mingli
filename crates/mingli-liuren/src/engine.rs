@@ -1,12 +1,21 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, Bearing, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, Bearing, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 大六壬叶（⟂ 横切）。天地盘 + 四课 + 三传课式。
 #[derive(Debug, Default)]
 pub struct LiurenEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &LiurenEngine, m: &Moment, q: &Query) -> crate::Cast {
+    let school = crate::SheHaiSchool::from_id(q.school_of(e.id(), "classical"))
+        .unwrap_or_default();crate::compute_at_with(m, school)
+}
 
 impl CastingEngine for LiurenEngine {
     fn id(&self) -> &'static str {
@@ -19,9 +28,7 @@ impl CastingEngine for LiurenEngine {
         Family::CrossCutting
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let school = crate::SheHaiSchool::from_id(q.school_of(self.id(), "classical"))
-            .unwrap_or_default();
-        serde_json::to_value(crate::compute_at_with(m, school)).unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
     fn bearings(&self, m: &Moment, q: &Query) -> Vec<Bearing> {
         let school = crate::SheHaiSchool::from_id(q.school_of(self.id(), "classical")).unwrap_or_default();
@@ -34,6 +41,14 @@ impl CastingEngine for LiurenEngine {
         ] }
     }
 
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Event, Intent::Locative]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 日支——六壬布四课自日辰起。
+        let c = chart(self, m, q);
+        Some(Principal { label: "日支", value: c.day_branch.to_string() })
+    }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
         const { &[

@@ -1,12 +1,27 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 数字学叶（D 族·哈希环）。日期生命灵数 + 生日数；给出姓名时附表达/灵魂/人格数（两套字母表）。
 #[derive(Debug, Default)]
 pub struct NumerologyEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &NumerologyEngine, m: &Moment, q: &Query) -> crate::Cast {
+    let method = match q.school_of(e.id(), "component") {
+        "whole_sum" => crate::LifePathMethod::WholeSum,
+        _ => crate::LifePathMethod::Component,
+    };
+    match &q.name {
+        Some(name) => crate::compute_named_with(m, name, method),
+        None => crate::compute_at_with(m, method),
+    }
+}
 
 impl CastingEngine for NumerologyEngine {
     fn id(&self) -> &'static str {
@@ -19,15 +34,15 @@ impl CastingEngine for NumerologyEngine {
         Family::Hashing
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let method = match q.school_of(self.id(), "component") {
-            "whole_sum" => crate::LifePathMethod::WholeSum,
-            _ => crate::LifePathMethod::Component,
-        };
-        let cst = match &q.name {
-            Some(name) => crate::compute_named_with(m, name, method),
-            None => crate::compute_at_with(m, method),
-        };
-        serde_json::to_value(cst).unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Onomancy]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 生命灵数——由出生日期数字根得。
+        let c = chart(self, m, q);
+        Some(Principal { label: "生命灵数", value: c.life_path.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
