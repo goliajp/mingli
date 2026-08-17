@@ -22,10 +22,11 @@ impl CastingEngine for PawukonEngine {
         serde_json::to_value(crate::compute_at(m)).unwrap_or(Value::Null)
     }
     fn profile(&self) -> &'static [DetItem] {
-        use Determinism::{Det, Und};
+        use Determinism::Det;
         const { &[
             d("十週（简单/派生/卡日）", Det, "210=2·3·5·7，锚 day0=2020-07-05 校验 Galungan"),
-            d("Ekawara/Dwiwara 奇偶向", Und, "源间一处冲突，采信两个独立实现"),
+            d("Pancawara/Saptawara urip 权重表", Det, "5 独立源逐值一致：Babad Bali 本地权威表 / en.wikipedia Pawukon / Reingold-Dershowitz 参考实现 / sakacalendar / balinese-date-js-lib"),
+            d("Ekawara/Dwiwara 奇偶向", Det, "urip 之和为奇 → Luang + Pepet，为偶 → 无 Ekawara + Menga；6 独立源同向。唯一相反记载(sejarahharirayahindu)与 sastrabali 同文转载且自身 Eka/Dwi 互相矛盾，判为讹误"),
         ] }
     }
 }
