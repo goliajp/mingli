@@ -26,7 +26,12 @@ use mingli_contract::{CastingEngine, Family, Gender, Query};
 use mingli_engine::cast_all_detailed;
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+// 计数表用 BTreeMap 而非 HashMap：浮点加法不结合，`a + b + c` 换个次序就换个末位。
+// HashMap 的遍历次序由每进程随机播种的 hasher 决定，于是同一份输入换个进程跑出的
+// 熵与互信息在最低位上不一样——`/api/analysis` 的 NMI 矩阵因此两次运行不逐字节相同。
+// 按键有序遍历把求和次序钉死，结果才是「可复现」的。
 
 // ===================== 信息论（石头） =====================
 
@@ -37,7 +42,7 @@ pub fn entropy(xs: &[i64]) -> f64 {
     if n == 0.0 {
         return 0.0;
     }
-    let mut c: HashMap<i64, u64> = HashMap::new();
+    let mut c: BTreeMap<i64, u64> = BTreeMap::new();
     for &x in xs {
         *c.entry(x).or_insert(0) += 1;
     }
@@ -56,9 +61,9 @@ pub fn mutual_information(xs: &[i64], ys: &[i64]) -> f64 {
     if n == 0.0 || xs.len() != ys.len() {
         return 0.0;
     }
-    let mut px: HashMap<i64, u64> = HashMap::new();
-    let mut py: HashMap<i64, u64> = HashMap::new();
-    let mut pxy: HashMap<(i64, i64), u64> = HashMap::new();
+    let mut px: BTreeMap<i64, u64> = BTreeMap::new();
+    let mut py: BTreeMap<i64, u64> = BTreeMap::new();
+    let mut pxy: BTreeMap<(i64, i64), u64> = BTreeMap::new();
     for (&x, &y) in xs.iter().zip(ys) {
         *px.entry(x).or_insert(0) += 1;
         *py.entry(y).or_insert(0) += 1;
@@ -237,6 +242,24 @@ pub fn sample_grid(start_year: i32, end_year: i32) -> Vec<Query> {
 mod tests {
     use super::*;
     use mingli_registry::registry;
+
+    #[test]
+    fn a_count_over_the_same_data_lands_on_the_same_bits() {
+        // 这条不是「值对不对」，是「同一份输入换个进程跑还是不是同一个数」。
+        //
+        // 熵与互信息都是一串浮点相加，而浮点加法不结合：换个求和次序就换个末位。
+        // 计数表若用 HashMap，遍历次序随每进程的随机 hasher 变，于是同样的输入
+        // 每跑一次 NMI 矩阵就在末位上抖一下——`/api/analysis` 曾经就是这样，
+        // 同一个二进制连跑两遍 body 的 md5 都不同。
+        //
+        // 所以这里钉的是**位模式**：近似比较（`< 1e-9`）看不见这种抖动，
+        // 而正是这种抖动让「可复现」这句话不成立。数值本身由下面几条已有用例把关。
+        let xs = [3_i64, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3, 2, 3, 8, 4];
+        let ys = [1_i64, 1, 2, 3, 5, 8, 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7];
+        assert_eq!(entropy(&xs).to_bits(), 0x4008_5F1B_9754_E0A2);
+        assert_eq!(mutual_information(&xs, &ys).to_bits(), 0x4000_11CE_AB0F_4C06);
+        assert_eq!(nmi(&xs, &ys).to_bits(), 0x3FE5_5183_AEF9_199D);
+    }
 
     #[test]
     fn entropy_known() {
