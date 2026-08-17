@@ -16,9 +16,9 @@
 //! - **紫炁** = 🟡 **Und 不实现**。中文维基明文「找不著对应的天文现象」；五种互不兼容定义
 //!   （28 年闰余虚星/月近地点/月轨中点/木余气/天狼星）无任何来源给可代入时间的公式，
 //!   swisseph 等主流星历库均不提供。诚实标 Und。
-//! - **十二次落宫**（星纪/玄枵/娵訾...）： 🟡 **Und 不实现**。《尔雅》（标志宿） /
-//!   《汉书·律历志》（度数，多宿跨次） / 通行表（每宿整归一次） 三种性质不同，源间分歧实质
-//!   （尤其斗/牛/女归属、大火 = 房心尾 vs 氐房心），不强编。
+//! - **十二次**：名与顺序、次 ↔ 十二辰、整宿归次三层多源一致，见 [`erci`] — Det；
+//!   **具体度界** 🟡 **Und 不实现**（三统历 / 费直 / 蔡邕 / 大衍历 / 明历五系并存，
+//!   受岁差支配不可能统一）。因此本叶给出十二次的对照表，但**不由黄经推落次**。
 //! - **28 宿分黄道**（每宿不等长古制）： 🟡 **Und 不实现**。古制每宿距度由观测得，
 //!   有岁差需校正，涉大查表；本叶只做 28 宿**值日**（JDN 周期，无歧义）。
 
@@ -112,6 +112,67 @@ pub const SIGNS: [&str; 12] = [
     "白羊", "金牛", "双子", "巨蟹", "狮子", "处女", "天秤", "天蝎", "射手", "摩羯", "水瓶",
     "双鱼",
 ];
+
+/// 十二次：名、对应十二辰、整宿归属。
+///
+/// # 为什么只到这三层
+///
+/// 十二次在古籍里分「名与顺序」「对应辰」「整宿归属」「度界」四层，前三层多源一致、第四层
+/// 从来没统一过。度界至少五系并存——《汉书·律历志》三统历、费直《周易分野》、蔡邕
+/// 《月令章句》、两唐书的大衍历、《明史》另一套——《晋书·天文志》自己就把前三家并列，
+/// 这不是后人拼凑而是原典层面的公开分歧，且受岁差支配，本就不可能收敛。
+/// 所以本模块给对照表，**不由黄经推落次**：那一步必须先选一套度界。
+///
+/// 另有一条常见的坑：《汉书》「视其建而知其次」给的是次 ↔ **月建**，不是次 ↔ **辰位**，
+/// 两者互为镜像（星纪之中为冬至、冬至建子，而星纪於辰在丑）。照那句直接推表会全盘错位。
+pub mod erci {
+    /// 一个次的对照条目。
+    #[derive(Debug, Clone, Copy)]
+    pub struct Ci {
+        /// 次名。
+        pub name: &'static str,
+        /// 对应十二辰（地支序 0 = 子）。
+        pub branch: u8,
+        /// 整宿归属（通行表；每宿整归一次的近似，见模块说明）。
+        pub mansions: &'static [&'static str],
+    }
+
+    /// 十二次对照表，按传统顺序（星纪起）。
+    ///
+    /// **名与顺序**：《汉书·律历志》《晋书·天文志》《旧唐书》《新唐书》《明史》五处一致。
+    ///
+    /// **次 ↔ 辰**：两条互相独立的证据链。《晋书·天文志上》逐条「於辰在 X」（陈卓 / 班固传统），
+    /// 《旧唐书·天文志下》逐条「X 初起…」（一行《大衍历》传统）——两家的**度数彼此打架而地支全同**，
+    /// 恰说明这一层与度界方案无关。第三条旁证：《淮南子·天文训》的太阴辰 → 岁星舍宿，经镜像后逐条吻合。
+    ///
+    /// **整宿归属**：《淮南子·天文训》（前 2 世纪，经辰镜像还原）与《新唐书》一行表头（8 世纪）
+    /// 逐条一致，且等于今日通行表。这是**整宿近似**——四部原典的度界都让若干宿跨次
+    /// （女、胃、氐、张、毕、井、柳、轸、尾、斗、危、奎每一个都落在次界上），整宿归谁只能是约定。
+    ///
+    /// 🟡 未入码：各家度界（见模块说明）；《汉书》与《晋书》在鹑火 / 鹑尾分界另有一度之差
+    /// （张十七 / 十八 对 张十六 / 十七），两版求和都恰是 365 度，算术判不了，需点校本校勘记。
+    /// 中气对应只见《汉书·律历志》一处（且用汉代节气次序，立春→惊蛰→雨水→春分），单源不写。
+    pub const TWELVE_CI: [Ci; 12] = [
+        Ci { name: "星纪", branch: 1, mansions: &["斗", "牛"] },
+        Ci { name: "玄枵", branch: 0, mansions: &["女", "虚", "危"] },
+        Ci { name: "娵訾", branch: 11, mansions: &["室", "壁"] },
+        Ci { name: "降娄", branch: 10, mansions: &["奎", "娄"] },
+        Ci { name: "大梁", branch: 9, mansions: &["胃", "昴", "毕"] },
+        Ci { name: "实沈", branch: 8, mansions: &["觜", "参"] },
+        Ci { name: "鹑首", branch: 7, mansions: &["井", "鬼"] },
+        Ci { name: "鹑火", branch: 6, mansions: &["柳", "星", "张"] },
+        Ci { name: "鹑尾", branch: 5, mansions: &["翼", "轸"] },
+        Ci { name: "寿星", branch: 4, mansions: &["角", "亢"] },
+        Ci { name: "大火", branch: 3, mansions: &["氐", "房", "心"] },
+        Ci { name: "析木", branch: 2, mansions: &["尾", "箕"] },
+    ];
+
+    /// 某宿在整宿近似下属哪个次；宿名不在二十八宿内则 `None`。
+    #[must_use]
+    pub fn ci_of_mansion(mansion: &str) -> Option<&'static Ci> {
+        TWELVE_CI.iter().find(|c| c.mansions.contains(&mansion))
+    }
+}
 
 /// 二十八宿值日轮转有序名（角起、轸末；与 `mingli_zeri::mansion::MANSIONS` 同）。
 pub const MANSIONS: [&str; 28] = [
@@ -236,6 +297,61 @@ pub fn compute(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 十二次对照表的 oracle：三层各有各的来源，逐层钉。
+    #[test]
+    fn the_twelve_ci_table_holds_on_all_three_layers() {
+        use erci::{ci_of_mansion, TWELVE_CI};
+        // 一、名与顺序：五部正史一致，星纪起、析木末
+        let names: Vec<&str> = TWELVE_CI.iter().map(|c| c.name).collect();
+        assert_eq!(
+            names,
+            ["星纪", "玄枵", "娵訾", "降娄", "大梁", "实沈", "鹑首", "鹑火", "鹑尾", "寿星", "大火", "析木"]
+        );
+
+        // 二、次 ↔ 辰：星纪丑起，**次序与辰序逆行**（次往前一格、辰往后一格）
+        assert_eq!(TWELVE_CI[0].branch, 1, "星纪於辰在丑");
+        for pair in TWELVE_CI.windows(2) {
+            let (a, b) = (pair[0].branch, pair[1].branch);
+            assert_eq!(b, (a + 11) % 12, "{} → {} 的辰应逆行一格", pair[0].name, pair[1].name);
+        }
+        // 十二辰各用一次，无重无漏
+        let mut branches: Vec<u8> = TWELVE_CI.iter().map(|c| c.branch).collect();
+        branches.sort_unstable();
+        assert_eq!(branches, (0..12).collect::<Vec<u8>>());
+
+        // 三、整宿归属：二十八宿恰好被十二次瓜分，不重不漏
+        let mut all: Vec<&str> = TWELVE_CI.iter().flat_map(|c| c.mansions.iter().copied()).collect();
+        assert_eq!(all.len(), 28, "整宿归次应覆盖全部二十八宿");
+        all.sort_unstable();
+        let mut uniq = all.clone();
+        uniq.dedup();
+        assert_eq!(uniq.len(), 28, "不该有宿被归进两个次");
+        let mut canonical = MANSIONS.to_vec();
+        canonical.sort_unstable();
+        assert_eq!(all, canonical, "归次用的宿名应与本叶的二十八宿表一致");
+
+        // 反查
+        assert_eq!(ci_of_mansion("斗").map(|c| c.name), Some("星纪"));
+        assert_eq!(ci_of_mansion("柳").map(|c| c.name), Some("鹑火"));
+        assert_eq!(ci_of_mansion("觜").map(|c| c.name), Some("实沈"));
+        assert!(ci_of_mansion("不存在之宿").is_none());
+    }
+
+    /// 《尔雅·释天》给的是标志宿而非次界，且**连十二个都没给全**——
+    /// 实沈 / 鹑首 / 鹑尾三个次名在《尔雅》全书零出现，玄枵 / 大梁 / 鹑火只给单宿标志。
+    /// 这条测试把「不能拿《尔雅》补全十二次」这个判断固定下来，防止日后有人照它改表。
+    #[test]
+    fn the_erya_marker_stars_are_a_subset_and_cannot_fill_the_table() {
+        use erci::ci_of_mansion;
+        // 《尔雅》能对上的（标志宿落在通行整宿表的同一个次里）
+        for (mansion, ci) in [("角", "寿星"), ("斗", "星纪"), ("虚", "玄枵"), ("室", "娵訾"),
+                              ("奎", "降娄"), ("昴", "大梁"), ("柳", "鹑火"), ("箕", "析木")] {
+            assert_eq!(ci_of_mansion(mansion).map(|c| c.name), Some(ci), "《尔雅》{mansion} → {ci}");
+        }
+        // 《尔雅》「大辰 = 房心尾」与通行整宿表「大火 = 氐房心」不合：尾归析木
+        assert_eq!(ci_of_mansion("尾").map(|c| c.name), Some("析木"), "尾在通行表归析木，非大火");
+    }
 
     fn moment(y: i32, mo: u32, d: u32, h: u32, mi: u32, tz: f64) -> Moment {
         Moment::new(y, mo, d, h, mi, tz)
