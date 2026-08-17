@@ -311,3 +311,112 @@ proptest! {
         }
     }
 }
+
+
+/// 端口的**默认实现**本身也要跑一遍。
+///
+/// 二十一片叶把 `answers` / `principal` / `reading_notes` / `subject_notes` / `bearings` /
+/// `profile` / `schools` 全覆写了，于是默认分支一次也没执行过——覆盖率上看是 0，
+/// 而它们恰恰是「加一片新叶时先得到什么」的定义。这里用一个只实现必填项的最小叶把它们逐条钉住。
+mod defaults {
+    use super::*;
+
+    struct Minimal;
+
+    impl CastingEngine for Minimal {
+        fn id(&self) -> &'static str {
+            "minimal"
+        }
+        fn name(&self) -> &'static str {
+            "最小叶"
+        }
+        fn family(&self) -> Family {
+            Family::Cyclic
+        }
+        fn cast(&self, _m: &Moment, _q: &Query) -> Value {
+            Value::Null
+        }
+    }
+
+    #[test]
+    fn a_new_leaf_starts_out_answering_only_the_natal_intent() {
+        let e = Minimal;
+        assert_eq!(e.answers(), &[Intent::Natal], "缺省只答「命」");
+        assert!(e.profile().is_empty(), "缺省无确定性谱——每片叶都得自己声明");
+        assert!(e.schools().is_empty(), "缺省无流派");
+        let (m, q) = (Moment::new(1990, 6, 15, 14, 30, 8.0), Query::at(1990, 6, 15, 14, 30, 8.0));
+        assert!(e.bearings(&m, &q).is_empty(), "缺省不出方位候选");
+        assert!(e.principal(&m, &q).is_none(), "缺省无主判据");
+        assert!(e.reading_notes().is_none(), "缺省无读法");
+        for s in [Subject::Person, Subject::Company, Subject::Product, Subject::Event] {
+            assert!(e.subject_notes(s).is_none(), "缺省无主体重映射");
+        }
+    }
+
+    struct MinimalWord;
+
+    impl WordEngine for MinimalWord {
+        fn id(&self) -> &'static str {
+            "minimal-word"
+        }
+        fn name(&self) -> &'static str {
+            "最小字词叶"
+        }
+        fn compute(&self, _q: &WordQuery) -> Result<Value, String> {
+            Ok(Value::Null)
+        }
+    }
+
+    #[test]
+    fn the_word_port_has_the_same_empty_default() {
+        assert!(MinimalWord.profile().is_empty());
+    }
+}
+
+
+/// 枚举的每一条臂都要走到。
+///
+/// `Intent::id` / `Family::label` / `Determinism` / `IntentStatus::label` 这些 match，
+/// 平时只有常用的几条被执行，其余臂一次没跑——覆盖率照出来是空的，
+/// 而它们正是「这个枚举对外说什么」的全部内容。少一条就是少一个名字。
+#[test]
+fn every_arm_of_every_enum_says_something_distinct() {
+    let intents = [
+        Intent::Natal, Intent::Fortune, Intent::Event, Intent::Election,
+        Intent::Synastry, Intent::Mundane, Intent::Locative, Intent::Onomancy,
+    ];
+    let ids: Vec<&str> = intents.iter().map(|i| i.id()).collect();
+    assert_eq!(ids.len(), 8);
+    for id in &ids {
+        assert!(!id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase()));
+    }
+    let mut sorted = ids.clone();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(sorted.len(), 8, "八个 id 不该重复");
+
+    for f in [Family::Cyclic, Family::Angular, Family::Sampling, Family::Hashing, Family::CrossCutting] {
+        assert!(!f.label().is_empty(), "{f:?} 的中文标签不该空");
+    }
+    for d in [Determinism::Det, Determinism::Sto, Determinism::Und] {
+        assert!(!format!("{d:?}").is_empty());
+    }
+    for s in [IntentStatus::Live, IntentStatus::Pending] {
+        assert!(!s.label().is_empty());
+    }
+    // `cn()` 是展示名（「公司/组织」），`from_str_opt` 收的是键（「公司」）——
+    // 两者不是互逆的一对，故分开验，不假设往返。
+    for s in [Subject::Person, Subject::Company, Subject::Product, Subject::Event] {
+        assert!(!s.cn().is_empty(), "{s:?} 的展示名不该空");
+    }
+    for (key, want) in [
+        ("person", Subject::Person), ("人", Subject::Person),
+        ("company", Subject::Company), ("公司", Subject::Company),
+        ("product", Subject::Product), ("object", Subject::Product),
+        ("物", Subject::Product), ("产品", Subject::Product),
+        ("event", Subject::Event), ("事", Subject::Event),
+    ] {
+        assert_eq!(Subject::from_str_opt(key), Some(want), "`{key}` 应解为 {want:?}");
+    }
+    assert_eq!(Subject::from_str_opt("没有这种主体"), None);
+}

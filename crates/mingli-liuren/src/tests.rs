@@ -451,3 +451,80 @@ mod jing_lan {
         }
     }
 }
+
+
+/// 方位候选：本叶自己也要跑一遍，不能只靠用例层的寻方位测试带过。
+///
+/// 覆盖率上这个函数曾整条没执行——它只在 app 的 locative 里被调，本 crate 的测试碰不到。
+#[test]
+fn bearings_name_their_source_and_point_somewhere() {
+    let c = compute(1987, 9, 17, 15, 0, 8.0);
+    let bs = bearings_of(&c);
+    assert!(!bs.is_empty(), "六壬课应给得出方位候选");
+    for b in &bs {
+        assert_eq!(b.leaf, "liuren", "每条都要注明出自哪片叶");
+        assert!(!b.element.is_empty() && !b.at.is_empty(), "要素与落点都不该空");
+        assert!(
+            BRANCH_DIR.contains(&b.direction),
+            "方位 `{}` 不在十二支方位表里",
+            b.direction
+        );
+    }
+    // 三传各出一条，故至少三条
+    assert!(bs.len() >= 3, "三传应各出一条，实得 {}", bs.len());
+}
+
+/// 十二支方位全走一遍：扫多日，直到每个方位都出现过。
+///
+/// 上一条只走了一课，覆盖率上十二支的分支多半没走全——而方位表写错一格，
+/// 只在那一支落到时才显形。
+#[test]
+fn every_branch_direction_shows_up_across_many_castings() {
+    use std::collections::BTreeSet;
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut branches: BTreeSet<String> = BTreeSet::new();
+    for d in 1..=28 {
+        for h in [1_u32, 7, 13, 19] {
+            for b in bearings_of(&compute(1987, 9, d, h, 0, 8.0)) {
+                seen.insert(b.direction);
+                branches.insert(b.at.clone());
+            }
+        }
+    }
+    assert_eq!(seen.len(), BRANCH_DIR.iter().collect::<BTreeSet<_>>().len(),
+        "八方应全部出现过，实得 {seen:?}");
+    assert!(branches.len() >= 10, "十二支落点应大都出现过，实得 {}", branches.len());
+}
+
+
+/// 三传不出时改列四课上神——这条回退分支**当前不可达**，如实记下来。
+///
+/// `bearings_of` 里有一支：`transmission` 为 `None` 时改从四课上神取方位，
+/// 注里说的是「六壬三传遇流派分歧课式时不出」。覆盖率照出这一支从没执行过，
+/// 于是扫了 1980–1989 共 2880 课去找触发它的课式——**一课都没有**。
+///
+/// 所以它不是「没测到」，是取传九门总能给出三传，这一支实际到不了。
+/// 这条测试把那个事实钉住：哪天真出现无三传的课，它会红，届时该给回退分支配真算例。
+#[test]
+fn the_nine_gates_always_yield_a_transmission() {
+    let (mut none, mut total) = (0_u32, 0_u32);
+    for y in 1980..1990 {
+        for m in 1..=12_u32 {
+            for d in [3_u32, 11, 19, 27] {
+                for h in [1_u32, 5, 9, 13, 17, 21] {
+                    total += 1;
+                    if compute(y, m, d, h, 0, 8.0).transmission.is_none() {
+                        none += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert!(total >= 2880, "样本应够大，实得 {total}");
+    assert_eq!(
+        none, 0,
+        "{total} 课里出现了 {none} 课无三传——回退分支从不可达变为可达了，\
+         该给它配真算例，并把 scripts/coverage.sh 里那条判词改掉"
+    );
+}
+
