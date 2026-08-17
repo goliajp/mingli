@@ -502,6 +502,36 @@ mod tests {
         }
     }
 
+    /// 极区：Placidus 与 Koch 的分宫方程在 |φ| > 66.5° 附近无解，
+    /// 此时回落 Porphyry 并**如实记进 `cusp_system`**——盘照出，但不假装用的是 Placidus。
+    #[test]
+    fn beyond_the_polar_circle_the_house_system_falls_back_and_says_so() {
+        // 特罗姆瑟 69°39′N 18°57′E，极夜期。
+        let geo = GeoLocation { latitude: 69.65, longitude: 18.95 };
+        let m = Moment::new(2026, 12, 21, 12, 0, 1.0);
+        for requested in [HouseSystem::Placidus, HouseSystem::Koch] {
+            let chart = compute_at(&m, Some(geo), requested);
+            assert_eq!(
+                chart.cusp_system.as_deref(),
+                Some("porphyry"),
+                "{requested:?} 在极区应回落 Porphyry 并如实记录"
+            );
+            let cusps = chart.cusp_houses.as_ref().expect("回落后仍应出 12 宫");
+            assert_eq!(cusps.len(), 12);
+        }
+        // 同一坐标在中纬度不回落：Placidus 解得出来就该用 Placidus。
+        let mid = GeoLocation { latitude: 52.833, longitude: 0.500 };
+        let m2 = Moment::new(1961, 7, 1, 19, 45, 1.0);
+        assert_eq!(
+            compute_at(&m2, Some(mid), HouseSystem::Placidus).cusp_system.as_deref(),
+            Some("placidus")
+        );
+        assert_eq!(
+            compute_at(&m2, Some(mid), HouseSystem::Koch).cusp_system.as_deref(),
+            Some("koch")
+        );
+    }
+
     // —— Asc/MC 闭式：赤道(φ=0)上 MC 与 Asc 应正交于子午圈几何 ——
     #[test]
     fn asc_mc_closed_form_sanity() {

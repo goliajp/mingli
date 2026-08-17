@@ -1,7 +1,7 @@
 //! 本叶对 [`mingli_contract::WordEngine`] 的实现——字/词模态不吃出生时刻，
 //! 只吃文字或笔画，因此走与 `CastingEngine` 平行的第二条契约。
 
-use mingli_contract::{WordEngine, WordQuery};
+use mingli_contract::{d, DetItem, Determinism, WordEngine, WordQuery};
 use serde_json::Value;
 
 /// 姓名五格叶的字词入口。
@@ -23,6 +23,16 @@ impl WordEngine for WugeEngine {
         }
         Ok(serde_json::json!({ "system": "wuge", "surname": s, "given": g, "result": crate::five_grids(&s, &g) }))
     }
+    fn profile(&self) -> &'static [DetItem] {
+        use Determinism::{Det, Und};
+        const { &[
+            d("天 / 人 / 地 / 外 / 总五格公式", Det, "熊崎式：天格单姓加虚位一、人格取姓末加名首、地格单名加虚位一、外格总减人加一、总格全字和"),
+            d("三才五行（按个位定）", Det, "1·2 木、3·4 火、5·6 土、7·8 金、9·0 水，多源一致"),
+            d("81 数归一", Det, "mod-80 折回 1..=81，81 与 1 同位"),
+            d("康熙笔画", Und, "数千汉字的繁体笔画属大查表，错一字毒整枝；本叶不内置，笔画由调用方提供并自负来源"),
+            d("81 数吉凶判断", Und, "既是大查表又有流派分歧（熊崎本与各家改本出入不小）；本叶只给 81 数本身，不下吉凶断语"),
+        ] }
+    }
 }
 
 #[cfg(test)]
@@ -39,6 +49,7 @@ mod tests {
             surname: Some(vec![7]),
             given: Some(vec![16, 9]),
         };
+        assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let v = e.compute(&q).expect("输入齐备应能取值");
         assert_eq!(v["system"], e.id());
     }

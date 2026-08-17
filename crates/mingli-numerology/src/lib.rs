@@ -293,6 +293,22 @@ mod tests {
         assert!(('A'..='Z').all(|c| chaldean(c) != Some(9)));
     }
 
+    /// 两个流派互为对方的 alt：选谁，谁就是主值，另一个挂在 `life_path_alt` 上。
+    /// 这条同时钉住「本叶不替用户选边」——两说都在输出里。
+    #[test]
+    fn both_life_path_schools_are_reported_whichever_is_chosen() {
+        let m = Moment::new(1980, 6, 15, 12, 0, 8.0);
+        let comp = compute_at_with(&m, LifePathMethod::Component);
+        let whole = compute_at_with(&m, LifePathMethod::WholeSum);
+        assert_eq!(comp.life_path_method, "component");
+        assert_eq!(whole.life_path_method, "whole_sum");
+        // 互为主副：一边的主值就是另一边的备选
+        assert_eq!(comp.life_path, whole.life_path_alt);
+        assert_eq!(whole.life_path, comp.life_path_alt);
+        // 缺省入口走 Component
+        assert_eq!(compute_at(&m).life_path_method, comp.life_path_method);
+    }
+
     #[test]
     fn master_numbers_stop_the_reduction() {
         assert_eq!(reduce_with_master(29), 11); // 2+9=11，停

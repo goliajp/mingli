@@ -232,6 +232,87 @@ pub fn house_of(cusps: &PlacidusCusps, lambda: f64) -> u8 {
     12
 }
 
+/// 直接对着数值奇点做的单元测试。
+///
+/// Placidus 是从 `swehouse.c` 移植的迭代解，正常盘走的是主路径；这里几条分支只在
+/// 三角函数退化时才走到（`sin x = 0`、`ass = 0`、宫尖恰落 90° 倍数）。它们看不见摸不着，
+/// 却决定了极端时刻的盘面，所以按输入直接钉住。
+#[cfg(test)]
+mod singularities {
+    use super::*;
+
+    fn eps() -> (f64, f64) {
+        let e = 23.44_f64.to_radians();
+        (e.sin(), e.cos())
+    }
+
+    #[test]
+    fn asc2_handles_both_degenerate_directions() {
+        let (sine, cose) = eps();
+        // x = 0 → sin x = 0：结果吸到 ±VERY_SMALL（再由负值 +180° 归一）。
+        let at_zero = asc2(0.0, 10.0, sine, cose);
+        assert!(at_zero.abs() < 1e-9 || (at_zero - 180.0).abs() < 1e-9, "实得 {at_zero}");
+        // ass = 0 需要 tan f · sin ε = cos ε · cos x：取 x = 90° 使 cos x = 0，
+        // 再令 f = 0 使 tan f = 0，两边同为 0。此时 sin x = 1 > 0 → 90°。
+        assert!((asc2(90.0, 0.0, sine, cose) - 90.0).abs() < 1e-9);
+        // 对称一侧：x = 270°（sin x = −1）→ −90°，归一后 90°。
+        assert!((asc2(270.0, 0.0, sine, cose) - 90.0).abs() < 1e-9);
+        // ass < 0 的一侧：x = 180° 时 cos x = −1，两项同号相加为负。
+        let at_pi = asc2(180.0, 10.0, sine, cose);
+        assert!(at_pi.abs() < 1e-9 || (at_pi - 180.0).abs() < 1e-9, "实得 {at_pi}");
+        // 常规输入落在 [0,180)
+        for x in [10.0, 45.0, 123.0, 200.0, 355.0] {
+            let v = asc2(x, 12.0, sine, cose);
+            assert!((0.0..180.0).contains(&v), "asc2({x}) = {v} 出界");
+        }
+    }
+
+    #[test]
+    fn asc1_snaps_to_the_quadrant_boundaries() {
+        let (sine, cose) = eps();
+        // f 趋近 ±90°（极点）时有闭式出口，不进象限分发。
+        assert!((asc1(37.0, 90.0, sine, cose) - 180.0).abs() < 1e-12);
+        assert!(asc1(37.0, -90.0, sine, cose).abs() < 1e-12);
+        // 四个象限各取一点，结果都在 [0,360) 且随 x 单调推进。
+        let vs: Vec<f64> = [10.0, 100.0, 190.0, 280.0]
+            .iter()
+            .map(|&x| asc1(x, 20.0, sine, cose))
+            .collect();
+        for v in &vs {
+            assert!((0.0..360.0).contains(v), "asc1 出界 {v}");
+        }
+        assert!(vs.windows(2).all(|w| w[0] < w[1]), "四象限应递增：{vs:?}");
+        // 边界吸附：x1 使 ass 落在 90/180/270 的极小邻域内时吸到整值。
+        let boundary = asc1(90.0, 0.0, sine, cose);
+        assert!((boundary - 90.0).abs() < 1e-12, "实得 {boundary}");
+    }
+
+    /// `solve_cusp` 的两条早退：宫尖落在黄道交点上（tan t → 0，直接取赤经），
+    /// 以及高纬下 `asin` 的定义域越界（无解，交由上层回退）。
+    #[test]
+    fn solving_a_cusp_bails_out_on_a_flat_tangent_or_an_out_of_domain_arcsine() {
+        let (sine, cose) = eps();
+        // pole = 90° 让 asc1 走极点出口给出 180°，sin 180° = 0 → tan t = 0 → 原样返回赤经。
+        let flat = solve_cusp(37.0, 90.0, 3.0, 0.5, sine, cose);
+        assert_eq!(flat, Some(37.0), "tan t 为零时应原样返回赤经");
+        // φ = 80° 的 tan φ 乘上 tan t 越过 1，asin 无定义 → None。
+        let tanfi = 80.0_f64.to_radians().tan();
+        assert_eq!(solve_cusp(90.0, 0.0, 3.0, tanfi, sine, cose), None, "越界应返回 None");
+        // 中纬度正常解得出来。
+        let ok = solve_cusp(90.0, 0.0, 3.0, 45.0_f64.to_radians().tan(), sine, cose);
+        assert!(ok.is_some_and(|v| (0.0..360.0).contains(&v)), "中纬度应有解");
+    }
+
+    #[test]
+    fn the_polar_guard_fires_before_any_iteration() {
+        // |φ| ≥ 90° − ε ≈ 66.56°：绕极圈内 Placidus 无解，直接 None。
+        assert!(cusps(0.0, 23.44, 66.56, 90.0, 0.0).is_none(), "北极圈内应无解");
+        assert!(cusps(0.0, 23.44, -66.56, 90.0, 0.0).is_none(), "南极圈内应无解");
+        // 圈外一点点就该解得出来。
+        assert!(cusps(0.0, 23.44, 66.0, 90.0, 0.0).is_some());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
