@@ -1,7 +1,7 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, Bearing, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
 use serde_json::Value;
 
 /// 大六壬叶（⟂ 横切）。天地盘 + 四课 + 三传课式。
@@ -22,6 +22,10 @@ impl CastingEngine for LiurenEngine {
         let school = crate::SheHaiSchool::from_id(q.school_of(self.id(), "classical"))
             .unwrap_or_default();
         serde_json::to_value(crate::compute_at_with(m, school)).unwrap_or(Value::Null)
+    }
+    fn bearings(&self, m: &Moment, q: &Query) -> Vec<Bearing> {
+        let school = crate::SheHaiSchool::from_id(q.school_of(self.id(), "classical")).unwrap_or_default();
+        crate::bearings_of(&crate::compute_at_with(m, school))
     }
     fn schools(&self) -> &'static [SchoolItem] {
         const { &[

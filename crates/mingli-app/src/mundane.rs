@@ -53,45 +53,27 @@ const DEFAULT_SPAN: u32 = 24;
 /// 时间线上限：三期七十二年。
 const MAX_SPAN: u32 = 72;
 
-/// 某一年的太乙一步：经注册表取太乙叶在「奠基之日的年周年时刻」的盘。
+/// 某一年的太乙一步。
 ///
-/// 用例层不直连太乙 crate——叶经装配根注入，这里只读它的盘面 JSON。
-fn step_for(reg: &[Box<dyn CastingEngine>], year: i32, founded: &AskTime) -> Option<YearStep> {
-    let q = Query {
-        year,
-        month: founded.month,
-        day: founded.day,
-        hour: founded.hour,
-        minute: founded.minute,
-        tz: founded.tz,
-        gender: None,
-        latitude: None,
-        longitude: None,
-        seed: None,
-        name: None,
-        schools: BTreeMap::new(),
-    };
-    let leaf = mingli_engine::cast_one(reg, "taiyi", &q)?;
-    let c = &leaf.chart;
-    let t = &c["taiyi"];
-    let small = |v: &serde_json::Value| u8::try_from(v.as_u64()?).ok();
-    let (palace, year_in_palace) = (small(&t["palace"])?, small(&t["year_in_palace"])?);
-    Some(YearStep {
+/// 直连太乙叶取**强类型**的盘，不再从它的输出 JSON 里按字符串键抠字段。
+/// 从前这里读回 `gua` / `sancai` 的字符串后，要在一张硬编码表里按名找回 `'static` 引用，
+/// 查不到就静默返回空串——那张表抄的还是洛书的卦名，而太乙用的是自家的九宫配法。
+/// 用例层依赖具体领域实体是允许方向（同 bazi / ziwei / zeri），比抄一份叶的词汇表干净。
+fn step_for(year: i32, founded: &AskTime) -> YearStep {
+    let m = mingli_astro::Moment::new(
+        year, founded.month, founded.day, founded.hour, founded.minute, founded.tz,
+    );
+    let c = mingli_taiyi::compute_at(&m);
+    YearStep {
         year,
         age: year - founded.year,
-        palace,
-        gua: leak(t["gua"].as_str()?),
-        year_in_palace,
-        sancai: leak(t["sancai"].as_str()?),
-        yang_dun: c["yang_dun"].as_bool()?,
-        enters_palace: year_in_palace == 1,
-    })
-}
-
-/// 太乙的卦名与三才是固定的九个 / 三个字面；从 JSON 读回来时按名找回 `'static` 引用。
-fn leak(s: &str) -> &'static str {
-    const NAMES: [&str; 12] = ["坎", "坤", "震", "巽", "中", "乾", "兑", "艮", "离", "理天", "理地", "理人"];
-    NAMES.iter().copied().find(|n| *n == s).unwrap_or("")
+        palace: c.taiyi.palace,
+        gua: c.taiyi.gua,
+        year_in_palace: c.taiyi.year_in_palace,
+        sancai: c.taiyi.sancai,
+        yang_dun: c.yang_dun,
+        enters_palace: c.taiyi.year_in_palace == 1,
+    }
 }
 
 /// 国运：奠基时刻起立国盘，沿年份铺太乙行宫，给出目标年的年度盘。
@@ -141,13 +123,9 @@ pub fn cast(
     } else {
         founded.year
     };
-    let timeline: Vec<YearStep> = (0..span_i)
-        .filter_map(|k| step_for(reg, start + k, founded))
-        .collect();
-    if timeline.is_empty() {
-        return Err("太乙叶未装配，无法铺时间线".into());
-    }
-    let annual = if target_year >= founded.year { step_for(reg, target_year, founded) } else { None };
+    let timeline: Vec<YearStep> = (0..span_i).map(|k| step_for(start + k, founded)).collect();
+    debug_assert!(!timeline.is_empty(), "span 已经过下界校验，时间线不该为空");
+    let annual = (target_year >= founded.year).then(|| step_for(target_year, founded));
     Ok(Mundane { founded_at: founded.clone(), target_year, founding, annual, timeline, span })
 }
 

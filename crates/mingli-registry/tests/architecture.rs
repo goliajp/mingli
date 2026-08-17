@@ -129,6 +129,18 @@ fn the_port_layer_stays_thin() {
     assert_eq!(deps, ["mingli-astro"], "端口层只许依赖共享时刻所在的 L1");
 }
 
+/// 用例层允许直连的叶，以及每一片非在此不可的理由。
+///
+/// 点名而不是数个数：数字容易被悄悄加一，名单要动就得改这张表，改的人得说清为什么。
+/// 判据是「用例需要那片叶的**强类型产物**」，而不只是「一张能算的盘」——
+/// 后者应经装配根注入、走 `CastingEngine`。
+const APP_MAY_KNOW: [(&str, &str); 4] = [
+    ("mingli-bazi", "本命 / 岁运叠加 / 团队合盘要 BaziChart 的旺衰与用神，不是 JSON"),
+    ("mingli-ziwei", "本命用例要 ZiweiChart 的宫位与四化"),
+    ("mingli-zeri", "择吉用例要 DayGrade 的分档来排序"),
+    ("mingli-taiyi", "国运用例要沿年份取 TaiyiPalace 的宫 / 卦 / 三才；从前是解析它的输出 JSON 再按名找回字面量"),
+];
+
 #[test]
 fn the_composition_root_is_the_only_place_that_lists_leaves() {
     let layers = layers();
@@ -140,8 +152,29 @@ fn the_composition_root_is_the_only_place_that_lists_leaves() {
     };
     let root = workspace_root();
     assert!(leaf_count(&root.join("crates/mingli-registry/Cargo.toml")) >= 24, "装配根应列出全部叶");
-    // 用例层允许认识少数具体叶（四柱/紫微是它的领域），但不该变成第二个装配根。
-    assert!(leaf_count(&root.join("crates/mingli-app/Cargo.toml")) <= 3, "用例层不该退化成装配根");
+    // 用例层允许认识少数具体叶——用例依赖领域实体是允许方向——但不该变成第二个装配根。
+    //
+    // 这里点名而不是数个数：数字容易被悄悄加一，名单要动就得改这张表，改的人得说清为什么。
+    // 每一片都要有它非在这里不可的理由：用例需要那片叶的**强类型产物**，
+    // 而不只是「一张能算的盘」（后者应经装配根注入、走 `CastingEngine`）。
+    let app_leaves: Vec<String> = internal_deps(&root.join("crates/mingli-app/Cargo.toml"))
+        .into_iter()
+        .filter(|d| layers.get(d.as_str()) == Some(&3))
+        .collect();
+    let allowed: Vec<&str> = APP_MAY_KNOW.iter().map(|(n, _)| *n).collect();
+    for leaf in &app_leaves {
+        assert!(
+            allowed.contains(&leaf.as_str()),
+            "用例层多认识了一片叶 `{leaf}`——若它真的需要该叶的强类型产物，\n\
+             请把它连同理由加进本测试的 APP_MAY_KNOW；若只是要一张能算的盘，\n\
+             那应该经装配根注入、走 CastingEngine，而不是直连。",
+        );
+    }
+    assert_eq!(
+        app_leaves.len(),
+        APP_MAY_KNOW.len(),
+        "APP_MAY_KNOW 里有名单上的叶没被真正依赖——清单与现实要一致，否则它就成了摆设"
+    );
     for outer in ["services/mingli-api", "crates/mingli-wasm"] {
         assert_eq!(leaf_count(&root.join(outer).join("Cargo.toml")), 0, "{outer} 应经装配根取叶");
     }

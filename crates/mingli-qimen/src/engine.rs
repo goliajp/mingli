@@ -1,7 +1,7 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Moment, Query};
+use mingli_contract::{d, Bearing, CastingEngine, DetItem, Determinism, Family, Moment, Query};
 use serde_json::Value;
 
 /// 奇门遁甲叶（⟂ 横切）。定局（阴阳遁+三元）+ 地盘三奇六仪。
@@ -20,6 +20,9 @@ impl CastingEngine for QimenEngine {
     }
     fn cast(&self, m: &Moment, _q: &Query) -> Value {
         serde_json::to_value(crate::compute_at(m)).unwrap_or(Value::Null)
+    }
+    fn bearings(&self, m: &Moment, _q: &Query) -> Vec<Bearing> {
+        crate::bearings_of(&crate::compute_at(m))
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
