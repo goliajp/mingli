@@ -13,7 +13,6 @@
 //! （锚点 146 = Dershowitz & Reingold baliEpoch，经多源 + 实算校验）。
 //!
 //! 语域注：本 crate 只做历日週序换算（确定性），不涉巴厘占卜释义。
-//! 🟡 存疑标注见 [`Cast::ekawara`]/[`Cast::dwiwara`] 的奇偶方向（源间有一处冲突，采信两个独立实现）。
 
 #![allow(
 
@@ -128,9 +127,13 @@ pub struct Cast {
     pub saptawara: &'static str,
     /// Dasawara（urip 之和 mod 10）。
     pub dasawara: &'static str,
-    /// Dwiwara：urip 偶=Menga、奇=Pepet（🟡 奇偶方向采信两个独立实现，源间有冲突）。
+    /// Dwiwara：urip 之和为偶 = Menga（开），为奇 = Pepet（闭）。
     pub dwiwara: &'static str,
-    /// Ekawara：urip 奇日为 Luang，偶日无（`None`）（🟡 同上存疑）。
+    /// Ekawara：urip 之和为奇的日子是 Luang，为偶的日子**没有** Ekawara（`None`）。
+    ///
+    /// 一日週并非每天都有——这一点四源明言（en.wikipedia「is not a day of the one-day week」、
+    /// Hindu Alukta「Ekawaranya tidak ada」、balinese-date-js-lib 的 `EkaWara.VOID`、
+    /// sakacalendar 的 `bukan luang`），故用 `Option` 而不是必填枚举。
     pub ekawara: Option<&'static str>,
     /// Caturwara（卡日週）。
     pub caturwara: &'static str,
@@ -270,6 +273,41 @@ mod tests {
         assert_eq!(c_wrap.caturwara, a.caturwara);
         // 组合简单週周期 = lcm(3，5，6，7) = 210。
         assert_eq!(mingli_core::cyclic::cycle_period(&[3, 5, 6, 7]), 210);
+    }
+
+    /// urip 权重表的 oracle：5 个独立源逐值一致。
+    ///
+    /// Babad Bali（巴厘本地 wewaran 大表）· en.wikipedia「Pawukon calendar」·
+    /// Reingold–Dershowitz《Calendrical Calculations》参考实现的 `i_values`/`j_values` ·
+    /// sakacalendar（Java）· balinese-date-js-lib（TypeScript）。
+    #[test]
+    fn urip_weights_match_five_independent_sources() {
+        // Pancawara 按本 crate 的排序（Paing 起）：Paing 9、Pon 7、Wage 4、Kliwon 8、Umanis 5
+        assert_eq!(PANCAWARA_URIP, [9, 7, 4, 8, 5]);
+        // 换成 Umanis 起的通行列法应得 5, 9, 7, 4, 8（R&D 参考实现的 i_values）
+        let umanis_first: Vec<u32> = (0..5).map(|k| PANCAWARA_URIP[(k + 4) % 5]).collect();
+        assert_eq!(umanis_first, vec![5, 9, 7, 4, 8]);
+        // Saptawara Redite 起：5, 4, 3, 7, 8, 6, 9（R&D 的 j_values，与 Babad Bali 同）
+        assert_eq!(SAPTAWARA_URIP, [5, 4, 3, 7, 8, 6, 9]);
+    }
+
+    /// 派生週的奇偶向：urip 之和为奇 → Luang + Pepet，为偶 → 无 Ekawara + Menga。
+    ///
+    /// 六个独立源同向：en.wikipedia（以 `urip+1` 写，等价）· Reingold–Dershowitz 参考实现
+    /// （`luang ⇔ (1+S) mod 10 为偶 ⇔ S 为奇`）· sakacalendar · balinese-date-js-lib ·
+    /// Sastra Bali · Hindu Alukta。仅见一处相反记载，与 Sastra Bali 同文转载且自身
+    /// Eka / Dwi 两栏互相矛盾，判为转载讹误，不建流派。
+    #[test]
+    fn ekawara_dwiwara_parity_matches_six_independent_sources() {
+        // Buda(urip 7) + Kliwon(urip 8) = 15，奇 → Luang / Pepet
+        let odd = compute_from_day((0..210).find(|&d| compute_from_day(d).urip == 15).expect("应有 urip=15 的日"));
+        assert_eq!((odd.ekawara, odd.dwiwara), (Some("Luang"), "Pepet"));
+        // Soma(4) + Wage(4) = 8，偶 → 无 Ekawara / Menga
+        let even = compute_from_day((0..210).find(|&d| compute_from_day(d).urip == 8).expect("应有 urip=8 的日"));
+        assert_eq!((even.ekawara, even.dwiwara), (None, "Menga"));
+        // 210 天里两种都得出现，否则上面两条是空转
+        let luang = (0..210).filter(|&d| compute_from_day(d).ekawara.is_some()).count();
+        assert!(luang > 0 && luang < 210, "Luang 日应既非零也非全部，实得 {luang}/210");
     }
 
     #[test]
