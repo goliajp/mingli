@@ -1,6 +1,6 @@
 [package]
 name = "mingli-numerology"
-description = "L3 叶(D 族/确定性)：西洋数字学——生命灵数(出生日期数字根) + 表达/灵魂/人格数(姓名字母值)。两套字母表 Pythagorean(A=1..I=9 循环) 与 Chaldean(1..8,9 留空)。建于 core::ringhash。"
+description = "L3 叶(D 族/确定性)：西洋数字学——生命灵数(出生日期数字根) + 表达/灵魂/人格数(姓名字母值)。两套字母表 Pythagorean(A=1..I=9 循环) 与 Chaldean(1..8,9 留空)，主数 11/22/33 不再约化。"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "mingli-wuge"
-description = "L3 叶(D 族/确定性)：姓名五格剖象(熊崎式)——由康熙笔画算天/人/地/外/总格 + 三才五行 + 81 数归一。笔画为输入(康熙笔画表与 81 数吉凶判断属🟡大查表，不内置)。建于 core::ringhash::fold_81。"
+description = "L3 叶(D 族/确定性)：姓名五格剖象(熊崎式)——由康熙笔画算天/人/地/外/总格 + 三才五行 + 81 数归一。笔画为输入(康熙笔画表与 81 数吉凶判断属🟡大查表，不内置)。81 数按 mod-80 归一。"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

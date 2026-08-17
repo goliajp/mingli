@@ -565,11 +565,14 @@ name = "mingli-app"
 version = "0.1.0"
 dependencies = [
  "mingli-analysis",
+ "mingli-astro",
  "mingli-bazi",
  "mingli-contract",
  "mingli-engine",
  "mingli-interpret",
+ "mingli-luoshu",
  "mingli-registry",
+ "mingli-zeri",
  "mingli-ziwei",
  "serde",
  "serde_json",
@@ -625,6 +628,7 @@ name = "mingli-contract"
 version = "0.1.0"
 dependencies = [
  "mingli-astro",
+ "proptest",
  "serde",
  "serde_json",
 ]

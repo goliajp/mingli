@@ -600,6 +600,26 @@ mod tests {
         assert!(!Dressed.profile().is_empty());
     }
 
+    /// 端口层对「最小一片叶」的要求：四个必填项能经 trait object 拿到，
+    /// 两个默认项在不覆盖时给出空声明。这条同时钉住 `CastingEngine` 的对象安全。
+    #[test]
+    fn a_leaf_is_usable_through_the_trait_object() {
+        let m = Moment::new(2000, 1, 1, 0, 0, 8.0);
+        let q = q();
+        for (e, want_id, want_family) in [
+            (&Bare as &dyn CastingEngine, "bare", Family::Cyclic),
+            (&Dressed, "dressed", Family::Sampling),
+        ] {
+            assert_eq!(e.id(), want_id);
+            assert!(!e.name().is_empty(), "{want_id} 的显示名不许为空");
+            assert_eq!(e.family(), want_family);
+            assert_eq!(e.cast(&m, &q), Value::Null, "假叶排盘返回空值");
+        }
+        // 每片声明了流派的叶必须恰有一个 default。
+        let defaults = Dressed.schools().iter().filter(|s| s.default).count();
+        assert_eq!(defaults, 1, "有流派的叶应恰有一个 default");
+    }
+
     #[test]
     fn every_label_is_populated() {
         for f in [Family::Cyclic, Family::Angular, Family::Sampling, Family::Hashing, Family::CrossCutting] {
@@ -669,5 +689,126 @@ mod tests {
         // 8 意图全部 Live。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
         assert_eq!(live_count, 8, "8 意图全部 Live");
+    }
+
+    // ── 性质测试：端口层的契约要对**任意**载荷成立，不只对手写的那几个样本 ──
+    //
+    // 端口层是全树最内的公共形状，一处漂移会同时打到 24 片叶与全部承接层，
+    // 所以这里不满足于举例，直接对随机输入验性质。
+
+    use proptest::prelude::*;
+
+    /// 生成一个字段全随机（但数值有限）的 [`Query`]。
+    fn arb_query() -> impl Strategy<Value = Query> {
+        (
+            (-9999i32..9999, 1u32..13, 1u32..32, 0u32..24, 0u32..60, -12.0f64..14.0),
+            (
+                prop::option::of(prop_oneof![Just(Gender::Male), Just(Gender::Female)]),
+                prop::option::of(-90.0f64..90.0),
+                prop::option::of(-180.0f64..180.0),
+                prop::option::of(any::<u64>()),
+                prop::option::of("[a-zA-Z一-龥]{0,12}"),
+                prop::collection::btree_map("[a-z]{1,8}", "[a-z]{1,8}", 0..4),
+            ),
+        )
+            .prop_map(|((year, month, day, hour, minute, tz), (gender, latitude, longitude, seed, name, schools))| Query {
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                tz,
+                gender,
+                latitude,
+                longitude,
+                seed,
+                name,
+                schools,
+            })
+    }
+
+    fn arb_asktime() -> impl Strategy<Value = AskTime> {
+        (-9999i32..9999, 1u32..13, 1u32..32, 0u32..24, 0u32..60, -12.0f64..14.0)
+            .prop_map(|(year, month, day, hour, minute, tz)| AskTime { year, month, day, hour, minute, tz })
+    }
+
+    fn arb_kind() -> impl Strategy<Value = QueryKind> {
+        prop_oneof![
+            arb_query().prop_map(QueryKind::Natal),
+            (arb_query(), arb_asktime()).prop_map(|(natal, t_target)| QueryKind::Fortune { natal, t_target }),
+            (arb_asktime(), any::<u64>(), prop::option::of(".{0,20}"))
+                .prop_map(|(t_ask, seed, q_text)| QueryKind::Event { t_ask, seed, q_text }),
+            (arb_asktime(), arb_asktime(), "[a-z]{0,8}").prop_map(|(window_start, window_end, category)| {
+                QueryKind::Election { window_start, window_end, category }
+            }),
+            (arb_query(), arb_query()).prop_map(|(a, b)| QueryKind::Synastry { a, b }),
+            arb_query().prop_map(|p_polity| QueryKind::Mundane { p_polity }),
+            (arb_asktime(), any::<u64>(), "[a-z]{0,8}")
+                .prop_map(|(t_ask, seed, category)| QueryKind::Locative { t_ask, seed, category }),
+            (".{0,16}", prop::option::of(1u32..40), prop::option::of(1u32..40))
+                .prop_map(|(name, surname_strokes, given_strokes)| QueryKind::Onomancy {
+                    name,
+                    surname_strokes,
+                    given_strokes,
+                }),
+        ]
+    }
+
+    proptest! {
+        /// `Query` 过一趟 JSON 必须原样回来——承接层与 wasm 两侧靠这条对齐。
+        #[test]
+        fn prop_query_survives_json(q in arb_query()) {
+            let once = serde_json::to_value(&q).expect("Query 应可序列化");
+            let back: Query = serde_json::from_value(once.clone()).expect("Query 应可反序列化");
+            prop_assert_eq!(once, serde_json::to_value(&back).expect("再序列化应成功"));
+        }
+
+        /// 8 个变体都要能带着任意载荷过 JSON，且 `kind` tag 与 `id()` 始终一致。
+        #[test]
+        fn prop_querykind_survives_json_and_keeps_its_tag(k in arb_kind()) {
+            let once = serde_json::to_value(&k).expect("QueryKind 应可序列化");
+            prop_assert_eq!(once["kind"].as_str(), Some(k.id()), "tag 必须等于 id()");
+            let back: QueryKind = serde_json::from_value(once.clone()).expect("QueryKind 应可反序列化");
+            prop_assert_eq!(back.id(), k.id());
+            prop_assert_eq!(once, serde_json::to_value(&back).expect("再序列化应成功"));
+        }
+
+        /// 流派选择只有两种结果：查询里点名的那个，或本叶自己的 default。
+        #[test]
+        fn prop_effective_school_is_pick_or_default(
+            schools in prop::collection::btree_map("[a-z]{1,8}", "[a-z]{1,8}", 0..6),
+        ) {
+            let mut q = Query::at(2000, 1, 1, 0, 0, 0.0);
+            q.schools = schools.clone();
+            for e in [&Dressed as &dyn CastingEngine, &Bare] {
+                let got = effective_school_id(e, &q);
+                if let Some(pick) = schools.get(e.id()) {
+                    prop_assert_eq!(&got, pick, "点名了就该用点名的");
+                } else {
+                    let default = e.schools().iter().find(|s| s.default).map_or("", |s| s.id);
+                    prop_assert_eq!(got, default, "没点名就该落 default（无流派则空串）");
+                }
+            }
+        }
+
+        /// 种子：给了用给的，没给则由时刻唯一决定（同一时刻两次调用必同值）。
+        #[test]
+        fn prop_seed_is_explicit_or_a_function_of_the_moment(
+            seed in prop::option::of(any::<u64>()),
+            (year, month, day) in (1900i32..2100, 1u32..13, 1u32..29),
+        ) {
+            let m = Moment::new(year, month, day, 12, 0, 8.0);
+            let mut q = Query::at(2000, 1, 1, 0, 0, 8.0);
+            q.seed = seed;
+            let got = effective_seed(&m, &q);
+            if let Some(s) = seed {
+                prop_assert_eq!(got, s);
+            } else {
+                // 没给种子时由时刻唯一决定：同一时刻可复现，不同时刻不相撞
+                prop_assert_eq!(got, effective_seed(&m, &q));
+                let other = Moment::new(year, month, day, 13, 0, 8.0);
+                prop_assert_ne!(got, effective_seed(&other, &q));
+            }
+        }
     }
 }

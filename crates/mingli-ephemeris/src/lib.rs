@@ -74,7 +74,7 @@ fn to_rect(s: vsop87::SphericalCoordinates) -> Rect {
     }
 }
 
-/// 行星的日心球面坐标（仅 5 颗大行星走此路径；太阳/月亮在上层特判）。
+/// 天体的日心球面坐标（7 颗行星各取自家 VSOP87D 级数；太阳取地球，月亮不走此路）。
 fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
     match body {
         Body::Mercury => vsop87d::mercury(jde),
@@ -84,7 +84,8 @@ fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
         Body::Saturn => vsop87d::saturn(jde),
         Body::Uranus => vsop87d::uranus(jde),
         Body::Neptune => vsop87d::neptune(jde),
-        // guarded：Sun/Moon 已在上层特判，永不到此。回退地球本身，永不被取值。
+        // 太阳走地球的日心位置——地心太阳 = 地球日心 + 180°，见下方 `Body::Sun` 分支。
+        // 月亮不用日心坐标（ELP-2000 直接给地心位置），上层已特判，不到此。
         Body::Sun | Body::Moon => vsop87d::earth(jde),
     }
 }
@@ -159,7 +160,7 @@ pub fn geocentric_ecliptic_longitude(body: Body, jde: f64) -> f64 {
     match body {
         Body::Sun => {
             // 太阳地心经度 = 地球日心经度 + 180°。
-            let e = vsop87d::earth(jde);
+            let e = heliocentric(Body::Sun, jde);
             (e.longitude().to_degrees() + 180.0).rem_euclid(360.0)
         }
         Body::Moon => moon_geocentric(jde).longitude,

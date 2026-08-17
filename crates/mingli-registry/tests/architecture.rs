@@ -146,3 +146,36 @@ fn the_composition_root_is_the_only_place_that_lists_leaves() {
         assert_eq!(leaf_count(&root.join(outer).join("Cargo.toml")), 0, "{outer} 应经装配根取叶");
     }
 }
+
+#[test]
+fn the_roots_never_reach_up_into_a_leaf() {
+    // 规则 1 已蕴含这一条，但根被叶污染是最贵的一种回退（放大半径 = 全树），
+    // 值得一条点名到底的断言：说清是哪个根、伸手够了哪片叶。
+    let layers = layers();
+    let root = workspace_root();
+    let mut violations = Vec::new();
+    for (name, level) in [
+        ("mingli-core", 0u8),
+        ("mingli-astro", 1),
+        ("mingli-ephemeris", 1),
+        ("mingli-contract", 2),
+        ("mingli-ganzhi", 2),
+        ("mingli-gua", 2),
+        ("mingli-luoshu", 2),
+    ] {
+        let manifest = root.join("crates").join(name).join("Cargo.toml");
+        assert!(manifest.is_file(), "根 crate `{name}` 不见了——是改名还是被删了？");
+        assert_eq!(layers.get(name), Some(&level), "根 crate `{name}` 的层级登记与本测试不符");
+        for dep in internal_deps(&manifest) {
+            if layers.get(dep.as_str()).is_some_and(|&l| l >= 3) {
+                violations.push(format!("根 {name}(L{level}) 伸手够到了 {dep}"));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "L0–L2 是全树的地基，只许被依赖、不许依赖上层：\n  {}\n\
+         若某个根真的需要叶的知识，那说明这块知识本来就属于叶——把它下沉，别把根拉高。",
+        violations.join("\n  ")
+    );
+}

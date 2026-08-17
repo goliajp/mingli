@@ -3,13 +3,14 @@
 //! 数字学是「符号 → 数值（查表 φ）→ 求和（幺半群同态）→ 数字根约化」的最纯范例，骨架全在
 //! [`mingli_core::ringhash`]。本 crate 提供两套字母表与四个常见数：
 //!
-//! - **字母表**：Pythagorean（A=1…I=9 循环，复用 [`mingli_core::ringhash::pythagorean`]）与
+//! - **字母表**：Pythagorean（A=1…I=9 循环，见 [`pythagorean`]）与
 //!   Chaldean（1..8，9 为神圣不配字母；按振动而非顺序，见 [`chaldean`]）。
 //! - **生命灵数（Life Path）**：出生年月日各自约化后求和再约化（保留主数 11/22/33）。
 //! - **生日数（Birthday）**：出生「日」约化。
 //! - **表达数 / 灵魂数 / 人格数**：姓名全字母 / 元音 / 辅音之和约化。
 //!
-//! 约化用 [`mingli_core::ringhash::reduce_with_master`]（遇 11/22/33 停）。
+//! 约化用 [`reduce_with_master`]（遇 11/22/33 停）——主数例外是数字学自家的教义，
+//! 不是通用数论，所以住在本 crate 而非 `mingli-core`。
 //!
 //! 语域注：数本身是确定计算；其「含义」属释义层，本 crate 不下断言。
 //! 🟡 欠定项：生命灵数有「分量约化」与「全数字相加」两法（本 crate 用分量约化，多数教材主数法）；
@@ -20,7 +21,7 @@ mod engine;
 pub use engine::NumerologyEngine;
 
 use mingli_astro::Moment;
-use mingli_core::ringhash::{pythagorean, reduce_with_master, string_sum};
+use mingli_core::ringhash::{string_sum, sum_digits};
 use serde::Serialize;
 
 /// 字母表系统。
@@ -30,6 +31,34 @@ pub enum System {
     Pythagorean,
     /// Chaldean：1..8（9 不配字母）。
     Chaldean,
+}
+
+/// Pythagorean 字母值：A=1…I=9，J 起再循环（仅 A-Z / a-z，其余 `None`）。
+#[must_use]
+pub fn pythagorean(c: char) -> Option<u64> {
+    let u = c.to_ascii_uppercase();
+    if u.is_ascii_uppercase() {
+        Some(((u as u64 - 'A' as u64) % 9) + 1)
+    } else {
+        None
+    }
+}
+
+/// 带主数例外的数字根约化：反复取各位之和，遇 11 / 22 / 33 即停。
+///
+/// 主数（master numbers）不再约化是西洋数字学的通行教义，多源一致。
+#[must_use]
+pub fn reduce_with_master(n: u64) -> u64 {
+    let mut x = n;
+    loop {
+        if matches!(x, 11 | 22 | 33) {
+            return x;
+        }
+        if x < 10 {
+            return x;
+        }
+        x = sum_digits(x);
+    }
 }
 
 /// Chaldean 字母值（A..Z，索引 0..26）。1：AIJQY 2：BKR 3：CGLS 4：DMT 5：EHNX 6：UVW 7：OZ 8：FP。
@@ -262,6 +291,25 @@ mod tests {
         assert_eq!(chaldean('a'), Some(1)); // 大小写一致
         // Chaldean 永不产出 9。
         assert!(('A'..='Z').all(|c| chaldean(c) != Some(9)));
+    }
+
+    #[test]
+    fn master_numbers_stop_the_reduction() {
+        assert_eq!(reduce_with_master(29), 11); // 2+9=11，停
+        assert_eq!(reduce_with_master(38), 11); // 3+8=11
+        assert_eq!(reduce_with_master(40), 4);
+        assert_eq!(reduce_with_master(33), 33);
+        assert_eq!(reduce_with_master(0), 0);
+    }
+
+    #[test]
+    fn pythagorean_letters() {
+        assert_eq!(pythagorean('A'), Some(1));
+        assert_eq!(pythagorean('I'), Some(9));
+        assert_eq!(pythagorean('J'), Some(1));
+        assert_eq!(pythagorean('Z'), Some(8)); // (25%9)+1=8
+        assert_eq!(pythagorean('5'), None);
+        assert_eq!(mingli_core::ringhash::string_sum("ABC", pythagorean), 6);
     }
 
     #[test]
