@@ -38,12 +38,20 @@ pub(crate) fn word_leaves() -> &'static [Box<dyn WordEngine>] {
     REG.get_or_init(mingli_registry::word_registry)
 }
 
-/// 组装全部路由。
+/// 组装全部路由，用 claude CLI 做主释义后端。
 ///
 /// 单独拿出来是为了让测试能**在进程内**打端点——承接层最要紧的性质是
 /// 「它没有在用例层之外多做事」，那得把两侧摆在一起比才看得见，
 /// 而不是起一个真服务再 curl。见 `tests/no_drift.rs`。
 pub fn router() -> Router {
+    router_with(backend::Interpret::Cli)
+}
+
+/// 组装全部路由，并指定主释义后端。
+///
+/// 「找谁来说」是交付层的选择，所以由这里注入而不是写死在 handler 里。测试传
+/// [`backend::Interpret::Offline`]，测的才是这条路本身。
+pub fn router_with(interpret: backend::Interpret) -> Router {
     Router::new()
         .route("/api/health", get(routes::meta::health))
         .route("/api/intents", get(routes::meta::intents_handler))
@@ -69,4 +77,5 @@ pub fn router() -> Router {
         .route("/api/mundane", post(routes::mundane::handler))
         .route("/api/mundane/interpret", post(routes::mundane::interpret_handler))
         .layer(CorsLayer::permissive())
+        .with_state(interpret)
 }

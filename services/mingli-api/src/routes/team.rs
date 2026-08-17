@@ -1,8 +1,9 @@
 //! 团队合盘与其释义。
 
-use crate::backend::{cast_then_interpret, ClaudeCli};
+use crate::backend::{cast_then_interpret, Interpret};
 use crate::dto::{team_members, TeamRequest};
 use crate::error::bad_request;
+use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 
@@ -17,10 +18,10 @@ pub(crate) async fn team_handler(Json(req): Json<TeamRequest>) -> Response {
 /// 团队释义：接受 `/api/team` 同形 body → 算团队结果 → 让释义后端解读结构。
 ///
 /// 与 `/api/team` 分开，因释义是阻塞慢 I/O，不该污染纯计算端点。
-pub(crate) async fn team_interpret_handler(Json(req): Json<TeamRequest>) -> Response {
+pub(crate) async fn team_interpret_handler(State(backend): State<Interpret>, Json(req): Json<TeamRequest>) -> Response {
     cast_then_interpret(
         || mingli_app::team::compute(&team_members(&req)).map(|r| r.to_summary_json()),
-        |json| mingli_app::interpret::team(&ClaudeCli, &json),
+        move |json| mingli_app::interpret::team(&backend, &json),
     )
     .await
 }

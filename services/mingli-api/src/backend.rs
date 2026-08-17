@@ -35,6 +35,36 @@ impl mingli_interpret::Interpreter for ClaudeCli {
     }
 }
 
+/// 用哪个释义后端。由装配根注入，[`crate::router_with`] 决定。
+///
+/// 这个选择属于承接层：算什么是领域的事，「找谁来说」是交付的事。做成注入而不是写死，
+/// 测试才测得动——释义端点可测的性质是「这条路走得通、出来的东西标着 INT」，
+/// 而不是「LLM 今天怎么说」。让测试去起一个外部进程，既慢又不确定，还依赖机器上装没装。
+///
+/// 回退链不受影响：主后端起不来照样落到离线模板，那时 `backend` 字段会诚实地写着模板。
+#[derive(Debug, Clone, Copy)]
+pub enum Interpret {
+    /// 外部 claude CLI。
+    Cli,
+    /// 离线模板，不出进程。
+    Offline,
+}
+
+impl mingli_interpret::Interpreter for Interpret {
+    fn interpret(&self, prompt: &str) -> std::io::Result<String> {
+        match self {
+            Self::Cli => ClaudeCli.interpret(prompt),
+            Self::Offline => mingli_interpret::Template.interpret(prompt),
+        }
+    }
+    fn backend(&self) -> &'static str {
+        match self {
+            Self::Cli => ClaudeCli.backend(),
+            Self::Offline => mingli_interpret::Template.backend(),
+        }
+    }
+}
+
 /// 把一次释义跑完并映射成响应。
 ///
 /// 五个意图释义 handler 从前各写了一遍这二十来行，逐对相似度 86–94%——
