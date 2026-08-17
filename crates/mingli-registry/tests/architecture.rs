@@ -379,3 +379,41 @@ fn rust_files(dir: &Path) -> Vec<PathBuf> {
     }
     out
 }
+
+#[test]
+fn the_inner_layers_do_not_mention_the_delivery_layer() {
+    // 「每一层都要是可用的」——只用其中一层的人，读到的说明不该预设外面有个 HTTP 服务或前端。
+    //
+    // 依赖方向拦得住代码，拦不住文字：端口层的问局清单曾在注释里写着「/api/fortune 给本命+t 切片」
+    // 「当前 webapp 唯一已实现形态」，跨叶分析层曾拿 `/api/analysis` 举例。
+    // 这些话在仓库内读着顺，单独发布这一层时就成了指向不存在之物的引用。
+    let layers = layers();
+    let root = workspace_root();
+    let mut violations = Vec::new();
+    for (name, manifest) in manifests() {
+        if !matches!(layers.get(name.as_str()), Some(0..=5)) {
+            continue;
+        }
+        let src_dir = manifest.parent().expect("manifest 应有目录").join("src");
+        for file in rust_files(&src_dir) {
+            let text = std::fs::read_to_string(&file).expect("源文件应可读");
+            let rel = file.strip_prefix(&root).unwrap_or(&file).to_string_lossy().replace('\\', "/");
+            for (line_no, line) in text.lines().enumerate() {
+                let doc = line.trim_start();
+                if !(doc.starts_with("//") || doc.starts_with("///") || doc.starts_with("//!")) {
+                    continue;
+                }
+                for probe in ["/api/", "webapp"] {
+                    if line.contains(probe) {
+                        violations.push(format!("{rel}:{} 提到了 {probe}", line_no + 1));
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "内层的说明不该引用交付层——这一层单独拿出去用时，那些话指向不存在的东西：\n  {}",
+        violations.join("\n  ")
+    );
+}
