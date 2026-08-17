@@ -536,10 +536,8 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mingli-contract",
- "mingli-engine",
  "mingli-registry",
  "serde",
- "serde_json",
 ]
 
 [[package]]
