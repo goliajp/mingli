@@ -417,3 +417,48 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
         violations.join("\n  ")
     );
 }
+
+#[test]
+fn the_package_metadata_is_complete_and_not_redundant() {
+    // 发布物的元数据是给「还不知道这个仓库存在的人」看的，仓库内部读不出它对不对。
+    // 这条按 crates.io 的规矩机械核一遍，顺便挡住两种浪费：
+    // keyword 与自己的 category 重名（搜索面没变宽），以及 keyword 位没用满。
+    let mut problems = Vec::new();
+    for (name, manifest) in manifests() {
+        let text = std::fs::read_to_string(&manifest).expect("manifest 应可读");
+        let field = |key: &str| -> Vec<String> {
+            text.lines()
+                .find(|l| l.starts_with(&format!("{key} = [")))
+                .map(|l| {
+                    l.split('"')
+                        .skip(1)
+                        .step_by(2)
+                        .map(std::string::ToString::to_string)
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let (kw, cat) = (field("keywords"), field("categories"));
+        if kw.is_empty() {
+            problems.push(format!("{name} 没有 keywords"));
+        }
+        if cat.is_empty() {
+            problems.push(format!("{name} 没有 categories"));
+        }
+        if !text.contains("repository.workspace = true") {
+            problems.push(format!("{name} 没有 repository"));
+        }
+        if kw.len() > 5 {
+            problems.push(format!("{name} 的 keywords 超过 5 个"));
+        }
+        for k in &kw {
+            if k.len() > 20 {
+                problems.push(format!("{name} 的 keyword `{k}` 超过 20 字符"));
+            }
+            if cat.iter().any(|c| c == k) {
+                problems.push(format!("{name} 的 keyword `{k}` 与它自己的 category 重名，等于白占一个位"));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "发布元数据有问题：\n  {}", problems.join("\n  "));
+}
