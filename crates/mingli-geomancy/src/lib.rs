@@ -20,7 +20,7 @@ use serde::Serialize;
 /// **位序**：bit0 = 第一行 = 火，bit3 = 第四行 = 土；**置位 = 单点**（奇 / active），清位 = 双点。
 /// 这个位序不是随手定的——[`mingli_core::gf2::transpose4`] 让「女图 d 的第 i 位 = 母图 i 的第 d 位」，
 /// 正是古法「女一由四母的火行依次组成」，所以第一行必须落在 bit0。
-/// 位序搞反会让 Fortuna Major 与 Fortuna Minor 互换（两者互为上下翻转），故 [`tests`] 里逐图钉死。
+/// 位序搞反会让 Fortuna Major 与 Fortuna Minor 互换（两者互为上下翻转），故本 crate 的测试里逐图钉死。
 ///
 /// 三源一致：Unicode 提案 L2/23-218（2023，已入 Unicode 17.0，给出编码规则原句
 /// 「two dots is treated as 0 and one as 1, assuming the least-significant bit at the bottom」）·
