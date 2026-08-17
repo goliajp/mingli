@@ -7,7 +7,7 @@
 //! 本层**不认识任何具体叶**——注册表由调用方注入（见 `mingli-registry`）。
 //! 加一片新叶不需要改动这里的任何一行。
 
-use mingli_contract::{effective_school_id, intents, CastingEngine, LeafOutput, Moment, Query, QueryKind};
+use mingli_contract::{effective_school_id, intents, CastingEngine, IntentSpec, LeafOutput, Moment, Query, QueryKind};
 use rayon::prelude::*;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -38,26 +38,32 @@ pub fn cast_all_detailed(reg: &Leaves, q: &Query) -> Vec<LeafOutput> {
     reg.par_iter().map(|e| leaf_output(e.as_ref(), &m, q)).collect()
 }
 
-/// 把一个问局意图路由到具体的叶 id 列表（过滤注册表里实际启用的叶）。
+/// 把一个问局意图路由到具体的叶 id 列表。
 ///
-/// `Natal` 走全注册表（顺序与注册表一致）；其余意图按 [`intents`] 的 `default_leaves`
-/// 与注册表取交集（feature flag 关掉的叶自动剔除）。
+/// 问的是每片叶自己：谁在 [`CastingEngine::answers`] 里认领了这一类，谁就入选。
+/// 从前这里读的是端口层写死的一张「意图 → 叶 id」表，那张表让端口层知道了树上有哪些叶，
+/// 也让「加一片叶只动装配根」在字符串层面不成立——漏改那张表，新叶不入任何路由且不报错。
 ///
-/// # Panics
-///
-/// 不会发生：[`QueryKind::id`] 的 8 个返回值与 [`intents`] 清单 8 项 id 一一对应，
-/// 测试 `intents_well_formed_and_aligned_with_querykind` 守卫此不变量。
+/// 次序即注册表次序。feature flag 关掉的叶不在注册表里，自然也不在结果里。
 #[must_use]
 pub fn route(reg: &Leaves, kind: &QueryKind) -> Vec<&'static str> {
-    if matches!(kind, QueryKind::Natal(_)) {
-        return reg.iter().map(|e| e.id()).collect();
-    }
-    let available: std::collections::HashSet<&'static str> = reg.iter().map(|e| e.id()).collect();
-    let spec = intents()
+    let want = kind.intent();
+    reg.iter().filter(|e| e.answers().contains(&want)).map(|e| e.id()).collect()
+}
+
+/// 意图清单与各意图当前实际路由到的叶。
+///
+/// [`intents`] 只说这一类问局是什么、要哪些输入原子；「谁来答」要问注册表里的叶。
+/// 两者在这里合成一份，供承接层直接展示。
+#[must_use]
+pub fn intent_catalog(reg: &Leaves) -> Vec<(&'static IntentSpec, Vec<&'static str>)> {
+    intents()
         .iter()
-        .find(|s| s.id == kind.id())
-        .expect("QueryKind::id 必须在 intents() 清单内");
-    spec.default_leaves.iter().copied().filter(|id| available.contains(id)).collect()
+        .map(|spec| {
+            let leaves = reg.iter().filter(|e| e.answers().contains(&spec.id)).map(|e| e.id()).collect();
+            (spec, leaves)
+        })
+        .collect()
 }
 
 /// 共享上下文：一次输入只构造一个 [`Moment`]，全叶复用（记忆化的落点）。

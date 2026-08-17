@@ -205,7 +205,23 @@ pub struct Bearing {
     pub note: String,
 }
 
-/// 一片叶：在共享上下文上排盘并产出统一 JSON。
+/// 一片叶的**主判据**：这套系统据以起论的那个低基数分类量。
+///
+/// 四柱取日支（12 值）、紫微取命宫支（12）、西洋占星取太阳所在星座（12）、
+/// 印度占星取月宿（27）、择日取建除（12）——每套系统都有这么一个「先看哪里」的量，
+/// 它是该系统自己的领域概念，不是为了给谁做统计才有的。
+///
+/// 跨叶做信息论比较时正好用得上它（见 `mingli-analysis`），但那只是一个消费者：
+/// 即使没有任何统计，「这套系统起论看哪一个量」仍然是这片叶该回答的问题。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Principal {
+    /// 这个量叫什么（如「日支」「命宫支」「太阳星座」）。
+    pub label: &'static str,
+    /// 本次取值。取值域应当是低基数的有限集合。
+    pub value: String,
+}
+
+/// 一片叶：在共享上下文上排盘并产出统一 JSON，并声明自己答什么、据什么起论。
 pub trait CastingEngine: Send + Sync {
     /// 稳定标识（作为输出 map 的 key）。
     fn id(&self) -> &'static str;
@@ -229,6 +245,27 @@ pub trait CastingEngine: Send + Sync {
     /// 本叶支持的流派集合（空=无流派分歧）；每叶应恰有一个 `default=true`。
     fn schools(&self) -> &'static [SchoolItem] {
         &[]
+    }
+    /// 本叶答哪几类问局。缺省只答[`Intent::Natal`]——每片时刻叶都能给出生切片。
+    ///
+    /// 编排层据此路由（见 `mingli_engine::route`）：加一片叶时，它答什么由它自己说，
+    /// 不需要回头改端口层或编排层的任何清单。
+    ///
+    /// **判定标准是「当下算得出」，不是「传统上该答」。** 这条声明直接决定运行时路由，
+    /// 声明了却产不出东西就是空跑，比少声明糟得多；而「算不算得出」看本叶的实现即可判定，
+    /// 「传统上该不该答」则要考据，按本项目的规矩需要 ≥2 个独立来源。
+    ///
+    /// 某类问局这套系统传统上确实用得着、只是本叶还没实现，那是 [`profile`](CastingEngine::profile)
+    /// 里一条 🟡 [`Determinism::Und`] 该说的话——并且要按规矩分清是「查过定不下」还是「还没查」。
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal]
+    }
+    /// 本叶的[主判据][`Principal`]；本叶没有这样一个量则返回 `None`（默认）。
+    ///
+    /// 实现应当从自己的**强类型盘面**取，不要去解自己输出的那份 JSON——
+    /// 改个字段名时，前者编译报错，后者只会静默失灵。
+    fn principal(&self, _m: &Moment, _q: &Query) -> Option<Principal> {
+        None
     }
 }
 /// 一片叶的带元数据输出（承接层展示用：id / 显示名 / 家族 / 盘）。
@@ -358,18 +395,67 @@ pub enum QueryKind {
 }
 
 impl QueryKind {
+    /// 取本问局属于哪一类意图。
+    #[must_use]
+    pub fn intent(&self) -> Intent {
+        match self {
+            Self::Natal(_) => Intent::Natal,
+            Self::Fortune { .. } => Intent::Fortune,
+            Self::Event { .. } => Intent::Event,
+            Self::Election { .. } => Intent::Election,
+            Self::Synastry { .. } => Intent::Synastry,
+            Self::Mundane { .. } => Intent::Mundane,
+            Self::Locative { .. } => Intent::Locative,
+            Self::Onomancy { .. } => Intent::Onomancy,
+        }
+    }
+
     /// 取意图稳定 id。
     #[must_use]
     pub fn id(&self) -> &'static str {
+        self.intent().id()
+    }
+}
+
+/// 八类问局。
+///
+/// 与 [`QueryKind`] 的关系：`QueryKind` 携带该问局**要哪些输入原子**，`Intent` 只是它的标签，
+/// 用来回答「哪片叶答这一类」。做成枚举而不是字符串，是为了让「一片叶声明它答什么」这件事
+/// 由类型系统盯着——写错一个字符串，那片叶会静默地什么都不答。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Intent {
+    /// 命：本命盘（出生切片）。
+    Natal,
+    /// 运：运势 / 流年 / 大运。
+    Fortune,
+    /// 事：占事。
+    Event,
+    /// 择：择吉。
+    Election,
+    /// 合：合盘。
+    Synastry,
+    /// 群/国：国运。
+    Mundane,
+    /// 寻：寻方位。
+    Locative,
+    /// 号：字 / 词（与时刻无关）。
+    Onomancy,
+}
+
+impl Intent {
+    /// 稳定 id（snake_case），与线上字面量一致。
+    #[must_use]
+    pub fn id(self) -> &'static str {
         match self {
-            Self::Natal(_) => "natal",
-            Self::Fortune { .. } => "fortune",
-            Self::Event { .. } => "event",
-            Self::Election { .. } => "election",
-            Self::Synastry { .. } => "synastry",
-            Self::Mundane { .. } => "mundane",
-            Self::Locative { .. } => "locative",
-            Self::Onomancy { .. } => "onomancy",
+            Self::Natal => "natal",
+            Self::Fortune => "fortune",
+            Self::Event => "event",
+            Self::Election => "election",
+            Self::Synastry => "synastry",
+            Self::Mundane => "mundane",
+            Self::Locative => "locative",
+            Self::Onomancy => "onomancy",
         }
     }
 }
@@ -400,33 +486,30 @@ impl IntentStatus {
 /// intents 声明「被谁调用」（需求侧）。
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct IntentSpec {
-    /// 稳定 id(snake_case)。
-    pub id: &'static str,
+    /// 这一类问局。
+    pub id: Intent,
     /// 中文显示名。
     pub name_zh: &'static str,
     /// 所需输入原子(instant/geo/sex/seed/text/category/window…)，用于 web 表单生成。
     pub atoms: &'static [&'static str],
-    /// 默认路由叶（声明式；运行时实际可用以编排层 `route` 的输出 ∩ 当前注册表为准）。
-    pub default_leaves: &'static [&'static str],
     /// 输出形态（盘/势/断/期/序/配/位）。
     pub output_shape: &'static str,
     /// 实现状态。
     pub status: IntentStatus,
-    /// 一句说明（算力在哪、还差什么）。
+    /// 一句说明。
     pub note: &'static str,
 }
 
 /// 构造 [`IntentSpec`] 的简写（crate 私有）。
 const fn i(
-    id: &'static str,
+    id: Intent,
     name_zh: &'static str,
     atoms: &'static [&'static str],
-    default_leaves: &'static [&'static str],
     output_shape: &'static str,
     status: IntentStatus,
     note: &'static str,
 ) -> IntentSpec {
-    IntentSpec { id, name_zh, atoms, default_leaves, output_shape, status, note }
+    IntentSpec { id, name_zh, atoms, output_shape, status, note }
 }
 
 /// 8 类问事意图的清单（声明式，与编排层的 `route` 同构对偶）。
@@ -438,68 +521,53 @@ pub fn intents() -> &'static [IntentSpec] {
     use IntentStatus::Live;
     const { &[
         i(
-            "natal", "命（本命盘）",
+            Intent::Natal, "命（本命盘）",
             &["instant", "geo", "sex", "text(name)"],
-            // 全 21 叶。守卫见 tests::intents_natal_covers_registry。
-            &[
-                "bazi", "ziwei", "astrology", "jyotish", "qizhengsiyu",
-                "yijing", "geomancy", "sikidy", "ifa", "tarot", "meihua",
-                "xiaoliuren", "zeri", "maya", "pawukon", "mahabote",
-                "liuren", "qimen", "taiyi", "tibetan", "numerology",
-            ],
             "盘（静态切片，全树并行 fan-out）", Live,
-            "出生切片；webapp 唯一已实现意图，/api/cast 全 21 叶",
+            "一个时刻的静态切片。全部时刻叶都答这一类，故它也是一片叶不作声明时的缺省",
         ),
         i(
-            "fortune", "运（运势/流年/大运）",
+            Intent::Fortune, "运（运势/流年/大运）",
             &["instant(birth)", "instant(target)", "sex"],
-            &["bazi", "ziwei", "jyotish", "astrology"],
             "势（时间序列，playhead 切片）", Live,
-            "/api/fortune 给本命+t切片+大运段定位+运层旺衰+用神供给度+100年时序；算力底层走 bazi.fortune_at + fortune_supply_timeline",
+            "本命固定、目标时刻在动：同一张底盘上取某一刻的切片，并沿时间轴铺成序列",
         ),
         i(
-            "event", "事（占事）",
+            Intent::Event, "事（占事）",
             &["instant(ask)", "seed(draw)", "text(question)"],
-            &["yijing", "meihua", "liuren", "qimen", "tarot", "geomancy", "ifa", "sikidy"],
             "断（成败/吉凶/宜忌）", Live,
-            "/api/event 按问事此刻 + 取机种子路由到 8 片卜筮叶各出一盘；释义走「断」模板，判词交 LLM",
+            "问事此刻加一次取机；取机的种子入盘，故同一次占问可复现",
         ),
         i(
-            "election", "择（择吉）",
+            Intent::Election, "择（择吉）",
             &["window(start, end, grain)", "category（婚/葬/动土/行/开业…）"],
-            &["zeri", "xiaoliuren"],
             "期/序（候选日按吉凶排名）", Live,
-            "/api/election 扫时窗逐日出择日要素，按建除通行分档（黄道/可用/黑道/不可当）排序；事类宜忌各家出入大，不合成总分，交释义层",
+            "在一段时窗上逐日取要素并分档。事类宜忌各家出入大，不合成总分",
         ),
         i(
-            "synastry", "合（合盘）",
+            Intent::Synastry, "合（合盘）",
             &["instant(a)", "instant(b)", "sex(a,b)"],
-            &["bazi", "astrology", "jyotish"],
             "配（契合度/互补结构）", Live,
-            "/api/synastry 两人本命互供用神（甲供乙 / 乙供甲）+ 团队五行画像；「配」模板要求两个方向分说、识别不对称互补；🟡 占星合盘几何相位待加",
+            "两张本命之间的互供关系，两个方向分别成立，不对称是常态",
         ),
         i(
-            "mundane", "群/国（国运）",
+            Intent::Mundane, "群/国（国运）",
             &["instant(polity)", "geo"],
-            &["taiyi", "qimen", "astrology"],
             "势（国运势卜/年度盘）", Live,
-            "/api/mundane 以奠基时刻起立国盘（taiyi/qimen/astrology），沿年份铺太乙行宫时间线（三年一宫、廿四年一周），给目标年年度盘；「势」模板要求只描述周期结构、不点评现实政治",
+            "以政体奠基时刻为起点的周期结构，沿年份展开；描述的是周期位置，不是对现实的断言",
         ),
         i(
-            "locative", "寻（寻方位）",
+            Intent::Locative, "寻（寻方位）",
             &["instant(ask)", "seed(draw)", "category（寻人/物/向）"],
-            &["liuren", "qimen", "xiaoliuren"],
             "位（方位/卦象）", Live,
-            "/api/locative 于问事此刻起六壬/奇门课，抽方位候选（值符/值使/三吉门/三奇落宫 → 后天八卦方位；六壬三传或四课上神 → 十二支方位）；取用之法各家不同，交释义层",
+            "于问事此刻起课，从盘上抽方位候选（奇门取值符 / 值使 / 三吉门 / 三奇落宫 → 后天八卦方位，六壬取三传或四课上神 → 十二支方位）；取用之法各家不同，不合成排名",
         ),
         i(
-            "onomancy", "号（字/词）",
+            Intent::Onomancy, "号（字/词）",
             &["text(name)", "strokes（姓笔画， 名笔画）"],
-            // numerology 已在 registry；gematria/abjad/wuge 是 D 族字词库 crate，
-            // /api/word 端点不在 cast registry 内。
-            &["numerology"],
             "号（数字学生命灵数/姓名值/五格）", Live,
-            "/api/word 端点已实现 gematria/abjad/wuge，numerology 在 cast registry。本意图已部分上线",
+            "唯一不吃时刻的一类：入参是字与笔画，故走 WordEngine 而非 CastingEngine；\
+             数字学同时吃出生日期，因此它两边都在",
         ),
     ] }
 }
@@ -700,13 +768,14 @@ mod tests {
     fn intents_well_formed_and_aligned_with_querykind() {
         let specs = intents();
         assert_eq!(specs.len(), 8, "应有 8 类问事意图");
-        // id 唯一 + 非空字段 + atoms/leaves 非空。
-        let mut seen = std::collections::HashSet::new();
+        // 每类恰出现一次 + 各字段非空。
+        //
+        // 「哪几片叶答这一类」不在这里查——那不是端口层知道的事，见 `CastingEngine::answers`。
+        let mut seen = std::collections::BTreeSet::new();
         for s in specs {
-            assert!(seen.insert(s.id), "意图 id 应唯一： {}", s.id);
+            assert!(seen.insert(s.id), "意图应各出现一次，重了：{}", s.id.id());
             assert!(!s.name_zh.is_empty());
-            assert!(!s.atoms.is_empty(), "{} atoms 应非空", s.id);
-            assert!(!s.default_leaves.is_empty(), "{} default_leaves 应非空", s.id);
+            assert!(!s.atoms.is_empty(), "{} atoms 应非空", s.id.id());
             assert!(!s.output_shape.is_empty());
             assert!(!s.note.is_empty());
         }
@@ -721,7 +790,7 @@ mod tests {
             QueryKind::Locative { t_ask: t(), seed: 0, category: String::new() }.id(),
             QueryKind::Onomancy { name: String::new(), surname_strokes: None, given_strokes: None }.id(),
         ];
-        let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id).collect();
+        let spec_ids: Vec<&'static str> = specs.iter().map(|s| s.id.id()).collect();
         assert_eq!(kind_ids.to_vec(), spec_ids);
         // 8 意图全部 Live。
         let live_count = specs.iter().filter(|s| s.status == IntentStatus::Live).count();
