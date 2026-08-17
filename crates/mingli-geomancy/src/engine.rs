@@ -29,6 +29,18 @@ impl CastingEngine for GeomancyEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（地占 ʿilm al-raml）】\n\
+            - 十六图形各由四行点数组成，每行一点或两点，故 `*_marks` 是四个布尔（true = 单点）。\n\
+            - 盾牌四层：`mothers[4]` 四母（种子所生）→ `daughters[4]` 四女（母之转置）\
+              → `nieces[4]` 四侄（两两 XOR）→ `witnesses[2]` 两证 → `judge` 法官。\
+              **整套是 GF(2) 上的逐层异或**，故结构完全确定，随机只在四母。\n\
+            - `judge` 恒为偶图形（四行点数之和为偶）——这是异或的奇偶守恒定理，不是巧合，\
+              可作盘面自检：法官若为奇，必是算错。\n\
+            - `*_name` 各图形的拉丁名。🟡 阿拉伯名同一图常有多个并行名，本盘不强选，见确定性谱。\n\
+            - `seed`：取机种子，可复现。\n\
+            - **读法**：法官为结论、两证为左右势，四母交代起因；说这三层即可，不必列全十六图。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event]
     }

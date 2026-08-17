@@ -29,6 +29,22 @@ impl CastingEngine for TaiyiEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（太乙神数，读懂后给出有据的周期位置判读）】\n\
+            - `jinian`：太乙积年，自历元累计的年数，一切起算之本。`ju` 是本年入第几局。\n\
+            - `yang_dun`：阳遁主升发外向、阴遁主收敛内守，是全盘基调。\n\
+            - `taiyi`：太乙本身。`palace` 落宫（1..9，**不入中五**）、`gua` 该宫之卦、\
+              `sancai` 三才（理天 / 理地 / 理人）、`step` 与 `year_in_palace` 是行宫进度——\
+              太乙三年一宫、廿四年一周，看它走到哪一段，就知道所处周期位置。\n\
+            - `wenchang` / `shiji`：二目。文昌属主、始击属客，「因主而生客」。\
+              各带 `position`（目位）、`name`（所临神名）、`direction`（方位）、\
+              `da_jiang`（大将宫）、`can_jiang`（参将宫）。主客两造的强弱由此看。\n\
+            - `jishen`：计神，与太乙同为起算之枢。\n\
+            - 🟡 本盘只出二目一系；君臣民基 / 大游小游 / 四神 / 十精等其余诸神未收（见确定性谱），\
+              留白不是算不出而是未查，别当漏算。\n\
+            - **读法**：先看太乙落宫与三才定基调，再看二目主客强弱，最后以行宫进度收束——\
+              说的是周期结构与所处位置，不是对现实的预言。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Mundane]
     }

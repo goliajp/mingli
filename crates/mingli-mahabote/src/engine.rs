@@ -29,6 +29,17 @@ impl CastingEngine for MahaboteEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（缅甸 Mahabote）】\n\
+            - `core`：本命核心数 =（缅历年 − 星期）mod 7，落七宫之一。\n\
+            - `house`：核心数所落之宫（Binga / Atun / Yaza / Adipati / Marana / Thike / Puti）。\n\
+            - `planet` / `weekday` / `weekday_index`：出生星期及其对应行星。\
+              缅历用八天週（周三按午前午后分 Mercury / Rahu），`weekday_index` 已按八天週编号。\n\
+            - `myanmar_year`：缅历年，由儒略日折算。\n\
+            - 🟡 七宫的含义两系互证的只有三宫，其余各家说法不一（Thike 一宫更是两说相反），\
+              宫间几何关系（Grand Trine 等）真单源，均见确定性谱。**故此处只给宫名不给宫义**。\n\
+            - **读法**：说清核心数、所落之宫与出生行星即可；宫义的部分要明说依据薄。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }

@@ -29,6 +29,19 @@ impl CastingEngine for TibetanEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（藏历循环要素）】\n\
+            - `animal` / `element` / `male`：年的生肖、五行与阴阳。**五行每个用两年**（阳年阴年各一），\
+              故六十年一轮 = 12 生肖 × 5 元素。\n\
+            - `sexagenary` / `rabjung` / `year_in_rabjung`：六十周期位次、第几个 rab byung 及其内序。\
+              rab byung 历元 1027 年（时轮金刚译入之年）。\n\
+            - `mewa` / `mewa_color`：年 mewa（九宫数），**随年逆行**（…4, 3, 2, 1, 9, 8…），\
+              与汉地九星同源而行向相反。\n\
+            - `day_parkha` / `day_parkha_name`：本历日之卦，由儒略日八日一轮得。\n\
+            - 🟡 主流藏历**不给年份配卦**（苯教一系另说），故不出年 parkha；\
+              阴历日之卦的公式已备但需阴历推步，本叶不做。均见确定性谱。\n\
+            - **读法**：年的四要素（生肖 / 五行 / 阴阳 / mewa）说清，再带一句历日之卦。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }

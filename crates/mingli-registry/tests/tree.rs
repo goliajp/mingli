@@ -507,3 +507,35 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
         );
     }
 }
+
+
+/// 每片叶都要有读法提示，且要与该叶盘面的字段数相称——写一句话搪塞等于没写。
+///
+/// 门槛按盘面的字段数定，不是拍一个绝对数：字段少的叶（如小六壬三个字段）两三句就够，
+/// 字段多的叶（四柱、奇门）少于这个量就一定漏讲了。
+/// 判据取「每个顶层字段至少 12 个字」，这是照已有三条样板反推出来的下界，留了余量。
+#[test]
+fn a_leaf_that_offers_reading_notes_offers_enough_of_them() {
+    let reg = registry();
+    let m = mingli_contract::Moment::new(1990, 6, 15, 14, 30, 8.0);
+    let q = sample();
+    for e in &reg {
+        let notes = e.reading_notes().unwrap_or_else(|| {
+            panic!(
+                "叶 `{}` 没有读法提示。读的人手上只有那份 JSON，认得字但不认得这套系统——\n\
+                 缺什么补什么，缺的是字段与领域概念之间那一层。写法见 CastingEngine::reading_notes 的文档",
+                e.id()
+            )
+        });
+        let chart = e.cast(&m, &q);
+        let fields = chart.as_object().map_or(1, serde_json::Map::len);
+        let written = notes.chars().count();
+        assert!(
+            written >= fields * 12,
+            "叶 `{}` 的盘面有 {fields} 个顶层字段，读法只有 {written} 字——\n\
+             读的人手上只有那份 JSON，字段与领域概念之间那一层得由这里补上",
+            e.id()
+        );
+        assert!(notes.contains('`'), "叶 `{}` 的读法要用反引号写出真实的 JSON 路径", e.id());
+    }
+}

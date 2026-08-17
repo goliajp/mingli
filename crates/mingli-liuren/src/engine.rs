@@ -41,6 +41,23 @@ impl CastingEngine for LiurenEngine {
         ] }
     }
 
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（大六壬起课，读懂后给出有据的成败 / 宜忌判读）】\n\
+            - `month_general` / `month_general_name`：月将（太阳过宫之支）。`offset` = 月将加占时的平移量，\
+              天地盘一切由它而来；`heaven[i]` 是地盘第 i 宫之上的天盘支（0=子 … 11=亥）。\n\
+            - `courses[4]`：四课，每课 `down` 为下神（地盘）、`up` 为上神（天盘）。\
+              一课取日干寄宫、二课取一课上神之上、三课取日支、四课取三课上神之上。\
+              四课有克无克、克在上在下，是判课式的全部依据。\n\
+            - `pattern` / `pattern_label`：九宗门课式。贼克（下贼上）主下犯上、比用主同类相择、\
+              涉害主取深、遥克主远隔相干、昴星主闭塞待时、别责主借用、八专主同类混杂、\
+              伏吟主停滞守成、返吟主反复颠倒。课式定了，事的性质就定了大半。\n\
+            - `transmission[3]`：三传（初 / 中 / 末），事的起、中、结。初传定事之所起，末传定归宿。\n\
+            - `day_stem` / `day_branch` / `hour_branch`：日干、日支、占时支（皆 0 起）。\
+              日干为人、日支为宅为事，四课的上下两层就架在这两个之上。\n\
+            - 🟡 涉害课的取用两派（数不数受克深浅），本盘按所选流派出，见确定性谱。\n\
+            - **读法**：先看课式（`pattern_label`）定性质，再看三传走向，四课回头印证；\
+              挑最值得一说的 1-2 处，不必逐课铺陈。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event, Intent::Locative]
     }

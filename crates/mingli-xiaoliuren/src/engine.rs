@@ -29,6 +29,16 @@ impl CastingEngine for XiaoliurenEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（小六壬，掐指三步）】\n\
+            - 三步连掐：`lunar_month` → `month_pos` / `month_deity`，接着 `lunar_day` → `day_pos` / `day_deity`，\
+              再 `hour_branch` → `hour_pos` / `hour_deity`。**位次自上一步的落点续数**，不是各自独立起算。\n\
+            - 六神各义：大安主安稳不动、留连主迟滞反复、速喜主快得好音、赤口主口舌争执、\
+              小吉主小有所得、空亡主落空无着。\n\
+            - `hour_deity` 是末位，通行以它为断；`month_deity` / `day_deity` 是过程。\n\
+            - 🟡 六神配方位之说本叶未收（见确定性谱），故不出方位。\n\
+            - **读法**：直接说末位所落之神，再以前两位补一句过程即可，篇幅宜短。")
+    }
     fn answers(&self) -> &'static [Intent] {
         // 只答「命」。「择」要的是按吉凶分档的候选日，本叶给的是某一时辰落在六神的哪一位，
         // 不是那个形态；「寻」要方位候选，而本叶没有实现 `bearings`——路由到它只会排一张盘、

@@ -29,6 +29,17 @@ impl CastingEngine for IfaEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（西非约鲁巴 Ifá）】\n\
+            - 一次占问出两个 figure，各四位：`right` / `right_name` / `right_marks` 与\
+              `left` / `left_name` / `left_marks`。**约鲁巴传统先读右后读左**，\
+              两者合成 256 odù 之一（`index` / `name`）。左右颠倒会得到另一个同样像样的 odù，故次序要紧。\n\
+            - `*_marks[4]`：四行的单双画（true = 单画），自顶行起。\n\
+            - `meji`：左右两 figure 相同时为真，即十六「主 odù」之一，传统上视为分量最重的一类。\n\
+            - 🟡 十六主 odù 的排序无定本（Bascom 自列两套、另记二十一套在案）、\
+              256 复合 odù 的名与经文三系拼写不同，故本盘按数值索引而非名次，且不发经文。见确定性谱。\n\
+            - **读法**：说 odù 名与左右两 figure 即可；经文与断辞本盘不出，不要代拟。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event]
     }

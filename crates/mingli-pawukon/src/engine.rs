@@ -29,6 +29,18 @@ impl CastingEngine for PawukonEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（巴厘 Pawukon 历，十週并行）】\n\
+            - `wuku`：三十个七日週之一，210 日一轮，是本历的骨架。`day` 是週期内第几日。\n\
+            - 十个并行週：`ekawara`(1) `dwiwara`(2) `triwara`(3) `caturwara`(4) `pancawara`(5)\
+              `sadwara`(6) `saptawara`(7) `astawara`(8) `sangawara`(9) `dasawara`(10)。\
+              **210 = 2·3·5·7**，故各週在 210 日上同时归位，这是它能并行的数理由来。\n\
+            - `urip`：各週的数值权重之和，`dasawara` 等派生週由它推出。\n\
+            - `ekawara` 可为 null：一日週不是每日都有，取决于 urip 的奇偶。\n\
+            - 巴厘的节庆与择日主要看 wuku 与 pancawara / saptawara 的组合；\
+              但具体宜忌属查表，本叶只出历日结构。\n\
+            - **读法**：先说 wuku，再挑五日週与七日週，其余各週点到为止。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }
