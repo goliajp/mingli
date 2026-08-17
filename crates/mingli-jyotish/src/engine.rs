@@ -36,7 +36,9 @@ impl CastingEngine for JyotishEngine {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
     fn answers(&self) -> &'static [Intent] {
-        &[Intent::Natal, Intent::Fortune, Intent::Synastry]
+        // 「运」答得起：本叶算 Vimshottari 大运时间线（dasha.rs 的 `vimshottari_timeline`），
+        // 那正是「势」要的时间序列。「合」不答——kuta / porutham 一类的合婚计算本叶没有。
+        &[Intent::Natal, Intent::Fortune]
     }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 月亮所在宿——印度占星以月宿定本命。

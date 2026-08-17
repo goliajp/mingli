@@ -80,11 +80,13 @@ mod tests {
     }
 
     #[test]
-    fn routes_to_liuren_qimen_xiaoliuren_only() {
+    fn routes_only_to_leaves_that_actually_give_bearings() {
         let l = cast(&registry(), &t(), None, None).expect("应可寻");
         let ids: Vec<&str> = l.leaves.iter().map(|x| x.id).collect();
-        // 次序即注册表次序（从前是端口层手写表的次序）
-        assert_eq!(ids, ["xiaoliuren", "liuren", "qimen"]);
+        // 次序即注册表次序。小六壬曾在这张名单里，但它没有实现 bearings——
+        // 路由到它只是多排一张盘，一个方位候选都不出。
+        assert_eq!(ids, ["liuren", "qimen"]);
+        assert!(!l.bearings.is_empty(), "寻方位总得有候选");
     }
 
     #[test]

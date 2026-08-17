@@ -30,7 +30,10 @@ impl CastingEngine for XiaoliurenEngine {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
     fn answers(&self) -> &'static [Intent] {
-        &[Intent::Natal, Intent::Election, Intent::Locative]
+        // 只答「命」。「择」要的是按吉凶分档的候选日，本叶给的是某一时辰落在六神的哪一位，
+        // 不是那个形态；「寻」要方位候选，而本叶没有实现 `bearings`——路由到它只会排一张盘、
+        // 一个候选都不出。六神传统上确有方位之说，但那是「还没做」。
+        &[Intent::Natal]
     }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 时辰落在六神的哪一位。

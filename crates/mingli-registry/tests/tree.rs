@@ -355,6 +355,27 @@ fn a_leaf_that_claims_an_intent_can_actually_answer_it() {
     }
 }
 
+#[test]
+fn claiming_the_locative_intent_means_actually_producing_bearings() {
+    // 「算得出」要落到那一类的形态上，不是沾边。「位」的形态就是方位候选，
+    // 而这一条恰好机械可查：认领了「寻」，`bearings` 就不能是空的。
+    //
+    // 这条守卫的由来：小六壬曾认领「寻」而没有实现 `bearings`，于是路由到它、排一张盘、
+    // 一个候选都不出——测试全绿，界面上只是少一列，没人会发现。
+    let m = mingli_contract::Moment::new(2026, 6, 16, 10, 0, 8.0);
+    let q = sample();
+    for e in &registry() {
+        if !e.answers().contains(&Intent::Locative) {
+            continue;
+        }
+        assert!(
+            !e.bearings(&m, &q).is_empty(),
+            "叶 `{}` 认领了「寻」，却一个方位候选都给不出",
+            e.id()
+        );
+    }
+}
+
 /// 每类意图的一个最小载荷，用来验证路由。
 fn kind_of(intent: Intent) -> QueryKind {
     match intent {
@@ -394,10 +415,12 @@ fn route_natal_returns_full_registry_in_order() {
 
 #[test]
 fn route_non_natal_dispatches_to_declared_leaves() {
-    // Fortune → 时间序列叶 （bazi/ziwei/jyotish/astrology 等）。
+    // Fortune → 真有时间序列的叶：四柱的大运/流年，印度占星的 Vimshottari。
+    // 紫微与西洋占星曾在这张名单上，但它们的大限/流年与行运都还没实现。
     let r = route(&registry(), &QueryKind::Fortune { natal: sample(), t_target: ask_2026() });
     assert!(r.contains(&"bazi"));
-    assert!(r.contains(&"ziwei"));
+    assert!(r.contains(&"jyotish"));
+    assert!(!r.contains(&"ziwei"), "紫微没有大限/流年，不该被路由到「运」");
     // Event → 卜筮叶。
     let r = route(&registry(), &QueryKind::Event { t_ask: ask_2026(), seed: 42, q_text: None });
     assert!(r.contains(&"yijing"));
@@ -409,9 +432,10 @@ fn route_non_natal_dispatches_to_declared_leaves() {
     // Mundane → 太乙等。
     let r = route(&registry(), &QueryKind::Mundane { p_polity: sample() });
     assert!(r.contains(&"taiyi"));
-    // Locative → 六壬等。
+    // Locative → 真给得出方位候选的叶。
     let r = route(&registry(), &QueryKind::Locative { t_ask: ask_2026(), seed: 7, category: "寻物".into() });
-    assert!(r.contains(&"liuren"));
+    assert!(r.contains(&"liuren") && r.contains(&"qimen"));
+    assert!(!r.contains(&"xiaoliuren"), "小六壬没有实现 bearings，不该被路由到「寻」");
     // Onomancy → numerology（在 registry）；gematria/abjad/wuge 是 /api/word 字词库不在 cast registry。
     let r = route(&registry(), &QueryKind::Onomancy { name: "Ada".into(), surname_strokes: None, given_strokes: None });
     assert!(r.contains(&"numerology"));
