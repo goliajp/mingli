@@ -175,6 +175,28 @@ pub const fn s(id: &'static str, name: &'static str, default: bool, note: &'stat
 pub fn effective_seed(m: &Moment, q: &Query) -> u64 {
     q.seed.unwrap_or_else(|| m.jd_ut.to_bits())
 }
+/// 一个方位候选：盘上的某个要素落在哪一方。
+///
+/// 「寻方位」这个意图（[`QueryKind::Locative`]）要的是**结构**——哪个要素落在哪一宫、
+/// 那一宫朝哪个方向——至于所寻之事该取哪一宫为用，各家不同，属判读，不在本层。
+///
+/// 这是端口层的词汇而不是某片叶的：奇门读值符值使与门奇、六壬读三传之支、小六壬读所落之宫，
+/// 三者的**盘**毫无共同之处，但产出的**候选**是同一种东西。用例层只认这个形状，
+/// 不必知道候选是从哪种盘上怎么读出来的。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Bearing {
+    /// 来源叶的稳定 id。
+    pub leaf: &'static str,
+    /// 要素名（值符 / 值使 / 开门 / 乙奇 / 初传 …）。
+    pub element: String,
+    /// 落点的字面（奇门的「坎1」、六壬的「子」）。
+    pub at: String,
+    /// 方位。
+    pub direction: &'static str,
+    /// 附注：同宫的门 / 星 / 神 / 旺衰等结构事实，供判读。
+    pub note: String,
+}
+
 /// 一片叶：在共享上下文上排盘并产出统一 JSON。
 pub trait CastingEngine: Send + Sync {
     /// 稳定标识（作为输出 map 的 key）。
@@ -188,6 +210,13 @@ pub trait CastingEngine: Send + Sync {
     /// 确定性谱：本叶各方面是确定/随机/欠定。默认空，每叶覆盖以显式声明 DET/STO/UND 边界。
     fn profile(&self) -> &'static [DetItem] {
         &[]
+    }
+    /// 从本叶的盘上读出方位候选；本叶与方位无关则返回空（默认）。
+    ///
+    /// 用例层的「寻方位」靠这个方法而不是去解析各叶的输出 JSON——叶改个字段名，
+    /// 解析 JSON 的写法**不会编译报错**，只会静默少出候选；走这里则由类型系统盯着。
+    fn bearings(&self, _m: &Moment, _q: &Query) -> Vec<Bearing> {
+        Vec::new()
     }
     /// 本叶支持的流派集合（空=无流派分歧）；每叶应恰有一个 `default=true`。
     fn schools(&self) -> &'static [SchoolItem] {

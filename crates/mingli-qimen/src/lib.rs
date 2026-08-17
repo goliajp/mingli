@@ -44,6 +44,7 @@ use mingli_astro::Moment;
 use mingli_ganzhi::Element;
 use serde::Serialize;
 
+pub mod bearings;
 pub mod cast;
 pub mod earth;
 pub mod gates;
@@ -56,6 +57,7 @@ pub mod vigor;
 mod tests;
 
 // 全部出口在 crate 根平铺——拆成多文件是内部组织，对外仍是一片叶。
+pub use bearings::*;
 pub use cast::*;
 pub use earth::*;
 pub use gates::*;

@@ -16,11 +16,14 @@ mingli-interpret = { workspace = true }
 mingli-bazi = { workspace = true }
 mingli-ziwei = { workspace = true }
 mingli-zeri = { workspace = true }
+mingli-taiyi = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 mingli-registry = { workspace = true }
+# 测试里核对方位表归属；生产代码不依赖六壬。
+mingli-liuren = { workspace = true }
 
 [lints]
 workspace = true
