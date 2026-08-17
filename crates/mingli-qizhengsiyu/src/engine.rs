@@ -30,6 +30,20 @@ impl CastingEngine for QizhengsiyuEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（七政四余，中国本土星占）】\n\
+            - `stars[]`：日月五星 + 四余（罗㬋 / 计都 / 月孛 / 紫炁）。每颗带 `longitude` 黄经、\
+              `sign` 所落十二宫、`degree_in_sign` 宫内度数、`mansion` 所值之宿、\
+              `is_qizheng` 标它是七政（真天体）还是四余（算点）。\
+              **七政是实测天体、四余是推算的虚星**，两者性质不同，判读时要分开说。\n\
+            - `mansion` / `mansion_name`：当日值宿（二十八宿之一）。宿是本系统的基本刻度，\
+              与西洋的黄道十二宫是两套并行的分法。\n\
+            - `day_ganzhi`：当日干支，接的是历法一路。\n\
+            - 🟡 紫炁的定义各家不一、沈括古版四余未收、宿度用的是古度制（明清 360 度制不可逐行对齐），\
+              均见确定性谱。\n\
+            - **读法**：先看七政各自落宿落宫，再看四余所临，最后以值宿收束；\
+              四余的判读依据比七政薄，说的时候要留分寸。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }

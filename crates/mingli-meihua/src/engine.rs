@@ -32,6 +32,18 @@ impl CastingEngine for MeihuaEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（梅花易数，时间起卦）】\n\
+            - 起卦三数：`year_branch` / `month` / `day` 相加取上卦、再加 `hour_branch` 取下卦与动爻。\
+              `method_id` 是所用起卦法（时间 / 数字等），`numbers` 为数字起卦时的输入。\n\
+            - 四卦一套：`primary_*` 本卦（事之现状）、`mutual_*` 互卦（事中之情）、\
+              `changed_*` 之卦（事之归宿）。每套各带 `_name` 卦名、`_full_name` 全名、\
+              `_king_wen` 通行序号、`_upper` / `_lower` 上下卦。\n\
+            - `moving_line`：动爻（1..6，自下起）。动爻是本卦变之卦的那一爻，也是断事的着眼处。\n\
+            - 体用之分不在盘面上：动爻所在之卦为用、另一卦为体，体用生克才是梅花的判据；\
+              这一层要由读的人依上下卦自行判定。\n\
+            - **读法**：先看本卦与动爻，再以互卦看中间过程，之卦收尾；三卦一线说完即可。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event]
     }

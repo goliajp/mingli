@@ -33,6 +33,19 @@ impl CastingEngine for YijingEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（易经起卦）】\n\
+            - `method` / `method_id`：起卦法（三钱 / 蓍草）。两法的爻值概率分布不同——\
+              三钱四值等概、蓍草老阴老阳偏少——故变爻多寡的期望不同，这是体系差异不是误差。\n\
+            - `lines[6]`：六爻，自下（初爻）至上。值为 6 老阴、7 少阳、8 少阴、9 老阳；\
+              **老阴老阳为变爻**，少阴少阳不变。\n\
+            - `primary_*` 本卦、`changed_*` 之卦：`_upper` / `_lower` 上下卦、`_name` 卦名、\
+              `_king_wen` 通行序号。无变爻时之卦同本卦。\n\
+            - `moving_lines`：变爻位次列表。变爻的多寡决定取何断辞（一爻变看该爻、多爻变另有取法），\
+              取法各家不一，本盘只出结构不代为选择。\n\
+            - `seed`：取机种子，同一时刻同一种子可完整复现。\n\
+            - **读法**：先说本卦与变爻，再说之卦；卦爻辞属经文，本盘不出，要引须自行注明出处。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event]
     }

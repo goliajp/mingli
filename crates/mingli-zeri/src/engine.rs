@@ -29,6 +29,18 @@ impl CastingEngine for ZeriEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（择日要素）】\n\
+            - `jianchu` / `jianchu_pos`：建除十二神（建除满平定执破危成收开闭），由日支与月建相减得。\
+              这是分档的依据：除危定执为黄道、成开可用、建满平收为黑道、破闭不可当。\n\
+            - `grade` / `grade_label`：本日所属档次，即上面那条的结论。\n\
+            - `mansion` / `mansion_index`：二十八宿值日，与建除是两套并行的分法。\n\
+            - `tianyi_branches` / `tianyi_names`：天乙贵人所临之支（两支）。\n\
+            - `pengzu_gan` / `pengzu_zhi`：彭祖百忌，按日干与日支各出一句忌事。\
+              **这是逐条忌讳不是总评**，与建除分档互不统属。\n\
+            - 🟡 事类宜忌各家出入大，本盘不合成总分；天乙贵人「庚辛逢虎马」一系单源未取，见确定性谱。\n\
+            - **读法**：先说档次与建除，再挑百忌里与所问之事相干的一两条；不必把四套都铺开。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Election]
     }

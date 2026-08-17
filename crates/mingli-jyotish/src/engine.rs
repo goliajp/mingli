@@ -35,6 +35,25 @@ impl CastingEngine for JyotishEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（印度占星，恒星黄道，读懂后给出有据的判读）】\n\
+            - `ayanamsa_id` / `ayanamsa_deg`：所用的岁差修正与其度数。**印度占星走恒星黄道**，\
+              与西洋占星的回归黄道差约 24°，同一时刻两套的星座落点会差近一个宫，这是体系差异不是矛盾。\n\
+            - `grahas[]`：九曜。`rasi` / `rasi_name` 所落宫、`nakshatra` / `nakshatra_name` 所落宿（27 宿）、\
+              `nakshatra_lord` 该宿主星、`navamsa` D-9 分盘落宫、`vargas` 其余十二个分盘落宫。\
+              Rahu / Ketu 是月亮交点，恒相对 180°，主业力主题。\n\
+            - `lagna_rasi` / `lagna_rasi_name` / `lagna_navamsa`：上升宫与其九分盘落宫，需出生坐标。\n\
+            - `mahadashas[]`：Vimshottari 大运序列，`lord` 主星、`start_age_years` / `end_age_years` 起讫年龄，\
+              内含 `antardashas` 子运。**这是本系统看时间的主路**——某段时期的主题由当时的大运主星定。\n\
+            - `birth_dasha_lord`：出生时所处大运的主星，由月宿定。\n\
+            - `vargas` 十二个分盘各主一事：`d3` 兄弟、`d4` 田宅、`d7` 子嗣、`d10` 事功、`d12` 父母、\
+              `d16` 车乘、`d20` 修行、`d24` 学问、`d27` 体质、`d40` 母系、`d45` 父系、`d60` 总述。\
+              **看某一事就看对应分盘上的落宫**，不是看本命盘。\n\
+            - 🟡 D-2 与 D-30 未出（原典未指定落宫 / 梵文两可），分盘的其余诸法（Parivritti / Somanatha 等）\
+              本盘不取，见确定性谱。\n\
+            - **读法**：先看月宿与上升，再看当前所处大运，最后按所问之事取对应分盘；\
+              挑最值得一说的 2-3 处。")
+    }
     fn answers(&self) -> &'static [Intent] {
         // 「运」答得起：本叶算 Vimshottari 大运时间线（dasha.rs 的 `vimshottari_timeline`），
         // 那正是「势」要的时间序列。「合」不答——kuta / porutham 一类的合婚计算本叶没有。

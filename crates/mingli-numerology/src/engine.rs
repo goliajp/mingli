@@ -36,6 +36,20 @@ impl CastingEngine for NumerologyEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（西洋数字学）】\n\
+            - `life_path` / `life_path_method` / `life_path_alt`：生命灵数，由出生日期数字根得。\
+              **两种算法**：component 逐段约化后再加、whole_sum 全部数字一次加总，\
+              少数日期两法结果不同，故两个都给。\n\
+            - `birthday`：生日数（出生日当天的数字）。\n\
+            - `pythagorean` / `chaldean`：两套字母表各出一组姓名数——\
+              `expression` 表达数（全名）、`soul_urge` 灵魂数（元音）、`personality` 人格数（辅音）。\
+              两表的字母取值不同（Pythagorean A=1..I=9 循环；Chaldean 1..8，9 留空），故结果不同是正常的。\n\
+            - `by_y_rule`：Y 作元音还是辅音，各家不一，故按不同处理并出多组。\n\
+            - 主数 11 / 22 / 33 不再约化。\n\
+            - 🟡 W 是否可作元音证据不足，本叶一律作辅音，见确定性谱。\n\
+            - **读法**：先说生命灵数，再挑一套字母表说姓名三数；两套并说容易乱，选一套并注明。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Onomancy]
     }

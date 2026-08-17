@@ -29,6 +29,16 @@ impl CastingEngine for SikidyEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（马达加斯加 Sikidy）】\n\
+            - `mothers[4]`：四母列（种子所生），其余十二列由它们逐层异或推出，共十六列。\n\
+            - `columns[16]`：全部十六列。与地占同构——都是 GF(2) 上的转置与异或，\
+              故 `seer`（创世者列，第 15）恒为偶，与地占法官同一条奇偶守恒定理。\n\
+            - `seer`：创世者列，本盘的结论位。\n\
+            - 🟡 第 6 与第 14 列的语义三源三说（恶意 / 奴隶 / Marìna；人 / saily / 发问者），\
+              本盘两处留空不硬选，见确定性谱。\n\
+            - **读法**：说创世者列与四母即可；列义部分依据薄，要留分寸。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event]
     }

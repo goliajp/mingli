@@ -29,6 +29,17 @@ impl CastingEngine for MayaEngine {
     fn cast(&self, m: &Moment, q: &Query) -> Value {
         serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（玛雅三套历法）】\n\
+            - `tzolkin_number` / `tzolkin_name`：卓尔金历，13 数 × 20 名 = 260 日一轮。\
+              数与名各自独立推进，这是中美洲历法的核心结构。`tzolkin_round` 是第几轮。\n\
+            - `haab_day` / `haab_month`：哈布历，18 月 × 20 日 + 5 日（Wayeb）= 365 日。\n\
+            - `long_count[5]`：长纪历，自 baktun 至 kin 五级（20 进制，唯 winal 取 18）。\n\
+            - `jdn`：儒略日数，三套历法都由它折算，故彼此严格同步。\n\
+            - 卓尔金与哈布合起来 52 年一循环（历法轮）；本盘只出日期，不出日名的吉凶象义——\
+              那属查表且各地传统不一，本叶不收。\n\
+            - **读法**：三套并列说清即可，重点在卓尔金的数与名。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }

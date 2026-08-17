@@ -51,6 +51,17 @@ impl CastingEngine for TarotEngine {
             ]
         }
     }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（抽牌）】\n\
+            - `deck_id` / `deck_size`：所用牌副与张数（塔罗 78 / 大阿卡纳 22 / Lenormand 36 /\
+              Elder Futhark 24 / Younger Futhark 16）。\n\
+            - `cards[]`：三张一阵，按抽出次序。每张带 `index` 牌内序号、`name` / `name_zh` 牌名、\
+              `reversed` 是否逆位、`glyph` 符号（如有）。\n\
+            - `reversible`：本副是否计逆位。卢恩的部分符号左右对称，无逆位可言。\n\
+            - **无放回抽取**，故三张必不重复；`seed` 决定整个洗牌，同种子完整复现。\n\
+            - 🟡 牌义属查表且各流派出入大，本盘只出抽取结果（哪几张、正逆），不附牌义。\n\
+            - **读法**：按位次说三张牌与其正逆；牌义要讲须自行注明所依流派。")
+    }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal, Intent::Event]
     }

@@ -100,19 +100,27 @@ assert!(p.contains("仅供研究与娱乐"));
 }
 
 #[test]
-fn only_the_semantically_rich_leaves_carry_hints() {
-// 结构复杂、需要读法引导的叶才给提示；纯循环叶不给，免得徒增噪音。
-//
-// 读法归叶自己声明后，这条问的是各叶的声明，而不是释义层的一张表——
-// 释义层已经不知道有哪些叶了。
+fn a_leaf_with_reading_notes_gets_them_into_the_prompt() {
+// 哪些叶有读法，是各叶自己的事——释义层不维护名单（它已经不知道有哪些叶了）。
+// 这条问的是行为：声明了读法的叶，提示词里就该有；没声明的，提示词里不该凭空多出东西。
 for e in &registry() {
-    let rich = matches!(e.id(), "bazi" | "ziwei" | "qimen");
-    assert_eq!(
-        e.reading_notes().is_some(),
-        rich,
-        "叶 `{}` 的读法提示有无与预期不符",
-        e.id()
-    );
+    let leaf = cast_all_detailed(&registry(), &sample_query())
+        .into_iter()
+        .find(|l| l.id == e.id())
+        .expect("每片注册的叶都应出盘");
+    let p = build_prompt(e.as_ref(), &leaf);
+    match e.reading_notes() {
+        Some(notes) => {
+            let head: String = notes.chars().filter(|c| !c.is_whitespace()).take(24).collect();
+            let flat: String = p.chars().filter(|c| !c.is_whitespace()).collect();
+            assert!(flat.contains(&head), "叶 `{}` 声明了读法，提示词里却没有", e.id());
+        }
+        None => assert!(
+            !p.contains("【字段语义提示"),
+            "叶 `{}` 没声明读法，提示词里不该有字段语义段",
+            e.id()
+        ),
+    }
 }
 }
 
