@@ -7,7 +7,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 456 个测试全绿
+> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 661 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -91,9 +91,9 @@ crates/
   L4 编排      mingli-engine       共享上下文记忆化 + 并行 fan-out；注册表由外部注入，本层不认识任何叶
                mingli-interpret    释义层——组装带护栏的提示词，与「算」严格分离
   L5 分析      mingli-analysis     跨叶信息论统计
-  L6 用例      mingli-app          本命 / 岁运叠加 / 运势 / 合盘 / 字词 / 释义的编排
+  L6 用例      mingli-app          八类问局各一个用例——命 · 运 · 事 · 择 · 寻 · 合 · 群国 · 号——以及两条交付路共用的入参形状
   L7 装配      mingli-registry     唯一知道「树上有哪些叶」的地方——加新叶在此登记一行
-  L8 交付      mingli-wasm         整库的 wasm 绑定
+  L8 交付      mingli-wasm         wasm 绑定——八类问局全接，入参与 HTTP 端点同形
 services/
   mingli-api/   axum 承接层，:6027
 web/            React 19 + Vite 前端，:6026（dev 期 /api 代理到 :6027）
@@ -115,15 +115,19 @@ cd web && bun install && bun run dev
 ## 看一眼
 
 ```bash
-cd web && bun run shots     # headless Chromium 走一遍界面，逐屏截图
+cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走一遍界面
 ```
 
-　　产物在 `web/e2e/shots/`，同时汇总 console 报错、页面异常与失败请求。类型检查证明代码编得过，这个证明画面还对。
+　　29 屏（21 片叶 + 横切页 + 各意图页）× 两个视口（1440 与 1024），产物在 `web/e2e/shots/<宽度>/`。
+除汇总 console 报错、页面异常与失败请求外，五屏带断言：九宫恰 9 格、分档标题自报的天数等于表里行数、
+罗盘 pin 数等于列表行数。任一条不过即非零退出。跑之前先对一遍 CSS 变量——用到的有没有来源、定义的有没有人读。
+
+　　类型检查证明代码编得过，这个证明画面还自洽。
 
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 456 个测试
+cargo test --workspace     # 661 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ```
@@ -156,9 +160,14 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/team` · `/api/team/interpret` | 多主体（团队）盘 |
 | `GET  /api/analysis` | 跨叶信息论统计 |
 | `GET  /api/intents` · `POST /api/route` | 问局模型——按意图路由到叶 |
+| `POST /api/event` · `/api/event/interpret` | 占事——问事此刻 + 取机 |
+| `POST /api/election` · `/api/election/interpret` | 择吉——扫时窗、逐日分档 |
+| `POST /api/locative` · `/api/locative/interpret` | 寻方位 |
+| `POST /api/synastry` · `/api/synastry/interpret` | 合盘——两人各给对方什么 |
+| `POST /api/mundane` · `/api/mundane/interpret` | 国运——奠基时刻与年度盘 |
 | `POST /api/interpret` | 释义层（🔮 INT，非计算产物） |
 
-　　请求字段：`year month day hour`（必填）、`minute`（默认 0）、`tz`（默认 +8）、`gender`（`male` / `female`，缺省不算大运）。支持 1900–2100。
+　　请求字段：`year month day hour`（必填）、`minute`（默认 0）、`tz`（默认 +8）、`gender`（`male` / `female`，也收 `男` / `女`；缺省不算大运，写别的会被拒而不是默默忽略）。支持 1900–2100。
 端口可用 `MINGLI_API_BIND` 覆盖。
 
 ---
