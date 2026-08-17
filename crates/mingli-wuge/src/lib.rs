@@ -129,11 +129,12 @@ pub fn five_grids(surname: &[u32], given: &[u32]) -> Cast {
     let human = surname[surname.len() - 1] + given[0];
     let earth = if single_given { given_sum + 1 } else { given_sum };
     let total = surname_sum + given_sum;
-    let outer = if single_surname && single_given {
-        2
-    } else {
-        total - human + 1
-    };
+    // 外格 = 天 + 地 − 人。
+    //
+    // 等价写法是「総 − 人 + 霊数个数」——而**霊数不是公式的一部分**：单姓给天格补一、
+    // 单名给地格补一，复姓双名两处都不补。从前这里写作 `総 − 人 + 1`，把补一当成了通式，
+    // 于是复姓双名一路多出 1（姓[4,8] 名[6,9] 得 14，实为姓首 4 + 名末 9 = 13）。
+    let outer = heaven + earth - human;
 
     Cast {
         heaven: grid(heaven),
@@ -221,13 +222,15 @@ mod tests {
 
     #[test]
     fn compound_surname_double_given() {
-        // 复姓双名：全用通式。姓[4,8] 名[6,9]。天12 人=8+6=14 地=15 总=27 外=27−14+1=14。
+        // 复姓双名：两处都无霊数，故外格不补一。
+        // 姓[4,8] 名[6,9]。天12 人=8+6=14 地=15 总=27 外=天12+地15−人14=13=姓首4+名末9。
         let c = five_grids(&[4, 8], &[6, 9]);
         assert_eq!(c.heaven.value, 12);
         assert_eq!(c.human.value, 14);
         assert_eq!(c.earth.value, 15);
         assert_eq!(c.total.value, 27);
-        assert_eq!(c.outer.value, 14);
+        assert_eq!(c.outer.value, 13);
+        assert_eq!(c.outer.value, 4 + 9, "复姓双名的外格即姓首 + 名末");
     }
 
     #[test]
@@ -239,6 +242,57 @@ mod tests {
         assert!((1..=81).contains(&c.total.number));
         assert_eq!(c.total.element, Element::Water); // 个位0
         assert_eq!(c.total.element_name, "水");
+    }
+
+    /// 外格与另一份独立实现逐点相同。
+    ///
+    /// 第二源：`Getabako/SeimeiHandan`（日文，熊崎式五格，`js/gokaku.js`）。
+    /// 它把规矩写作「霊数：一字姓は天格に+1、一字名は地格に+1。総格には含めない。外格の計算には含める」，
+    /// 外格取 `天 + 地 − 人`。本仓从前写作 `総 − 人 + 1`，把霊数当成了通式的一部分，
+    /// 于是复姓双名一路多出 1——这条比对就是那个 bug 的来处。
+    #[test]
+    fn the_outer_grid_agrees_with_an_independent_implementation() {
+        let reference = |sur: &[u32], giv: &[u32]| -> u32 {
+            let (ss, gs): (u32, u32) = (sur.iter().sum(), giv.iter().sum());
+            let ten = ss + u32::from(sur.len() == 1);
+            let chi = gs + u32::from(giv.len() == 1);
+            let jin = sur[sur.len() - 1] + giv[0];
+            ten + chi - jin
+        };
+        let mut checked = 0;
+        for a in 1..=20 {
+            for b in 1..=20 {
+                for shape in 0..4 {
+                    let (sur, giv): (Vec<u32>, Vec<u32>) = match shape {
+                        0 => (vec![a], vec![b]),
+                        1 => (vec![a], vec![b, a]),
+                        2 => (vec![a, b], vec![b]),
+                        _ => (vec![a, b], vec![b, a]),
+                    };
+                    assert_eq!(
+                        five_grids(&sur, &giv).outer.value,
+                        reference(&sur, &giv),
+                        "姓{sur:?} 名{giv:?} 的外格与第二源不合"
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert_eq!(checked, 1600);
+    }
+
+    /// 各种姓名长度下外格的封闭式，逐条写明——公式对了，这四条才都对得上。
+    #[test]
+    fn the_outer_grid_has_a_closed_form_for_each_shape() {
+        // 单姓单名：天(a+1) + 地(b+1) − 人(a+b) = 2，与笔画无关
+        assert_eq!(five_grids(&[7], &[3]).outer.value, 2);
+        assert_eq!(five_grids(&[19], &[11]).outer.value, 2);
+        // 单姓双名：= 名末 + 1
+        assert_eq!(five_grids(&[5], &[6, 9]).outer.value, 9 + 1);
+        // 复姓单名：= 姓首 + 1
+        assert_eq!(five_grids(&[4, 8], &[10]).outer.value, 4 + 1);
+        // 复姓双名：= 姓首 + 名末（两处都无霊数）
+        assert_eq!(five_grids(&[4, 8], &[6, 9]).outer.value, 4 + 9);
     }
 
     #[test]
