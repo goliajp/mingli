@@ -48,6 +48,12 @@ impl CastingEngine for JyotishEngine {
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
         const { &[
+            d(
+                "合婚（kuta / porutham，未实现）",
+                Und,
+                "🟡 这不是定不下，是还没做——南北两系判据不同（北印 Ashtakuta 八项、南印 Porutham 十项），\
+                 各项取值表须逐项找 ≥2 源。本叶目前不出任何两盘比对，故不认领「合」这一类问局",
+            ),
             d("9 行星 navagraha 恒星黄经", Det, "7 真行星走 VSOP87/ELP-2000/82（Lahiri J2000 容差<0.005°）；Rahu/Ketu 走 Meeus 22.4 月升交点公式"),
             d("27 nakshatra + Vimshottari 主星", Det, "Wikipedia/GrahaGuru/Vedicka 3 源完全一致"),
             d("12 rasi（白羊..双鱼）", Det, "与西洋 12 sign 一一对应，恒星黄道下"),

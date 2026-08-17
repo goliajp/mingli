@@ -41,8 +41,18 @@ impl CastingEngine for XiaoliurenEngine {
         Some(Principal { label: "时神位", value: c.hour_pos.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
-        use Determinism::Det;
-        const { &[d("六神掐指（月→日→时）", Det, "Z₆ 连续位移，六神为定义性有序环")] }
+        use Determinism::{Det, Und};
+        const {
+            &[
+                d("六神掐指（月→日→时）", Det, "Z₆ 连续位移，六神为定义性有序环"),
+                d(
+                    "六神配方位（未实现）",
+                    Und,
+                    "🟡 这不是定不下，是还没做——六神各配方位之说传统上有，但本叶尚未查证其多源一致性，\
+                     也未实现 `bearings`。故不认领「寻」这一类问局；查证之后再决定落 Det 还是留 Und",
+                ),
+            ]
+        }
     }
 }
 
