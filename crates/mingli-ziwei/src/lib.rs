@@ -40,7 +40,11 @@ pub enum SihuaSchool {
     /// 庚=太阴化科、壬=左辅化科。
     #[default]
     Standard,
-    /// 全书本（王亭之传授版）：庚=天府化科（王亭之亲文）、壬=天府化科（《全书》古本）。其余 8 干同通行版。
+    /// 中州派（王亭之传授版）：主张左辅右弼属辅曜、**不入四化**，于是戊 = 太阳化科、
+    /// 庚 = 天府化科、壬 = 天府化科；其余 7 干同通行版。
+    ///
+    /// 三干互为一体，不可只开其一（见 [`sihua_for`] 与本 crate 的 `SIHUA_ZHONGZHOU`）。
+    /// 稳定 id 仍作 `"quanshu"`（历史沿用，不改以免破坏对外契约）。
     Quanshu,
 }
 
@@ -93,17 +97,22 @@ const SIHUA_STANDARD: [SihuaStars; 10] = [
     SihuaStars { lu: "破军", quan: "巨门", ke: "太阴", ji: "贪狼" }, // 癸
 ];
 
-/// 全书本四化表（王亭之版）：庚 = 天府化科；壬 = 天府化科；其余 8 干同通行版。
-const SIHUA_QUANSHU: [SihuaStars; 10] = [
+/// 中州派（王亭之）四化表：戊 = 太阳化科、庚 = 天府化科、壬 = 天府化科；其余 7 干同通行版。
+///
+/// 这三处不是三条孤立的异文，而是**同一条学理的三个后果**——该派主张左辅右弼属辅曜、
+/// 不入四化，于是通行表里由右弼化科的戊、由左辅化科的壬都要换星，庚随之一并调整。
+/// 王亭之原话：「戊干，通行作［右弼化科］；壬干，通行作［左弼化科］，然而［中州派］所传，
+/// 左辅右弼却不化科」。因此**三干必须一起开**，只改其中一两处会让这个流派自相矛盾。
+const SIHUA_ZHONGZHOU: [SihuaStars; 10] = [
     SIHUA_STANDARD[0],
     SIHUA_STANDARD[1],
     SIHUA_STANDARD[2],
     SIHUA_STANDARD[3],
-    SIHUA_STANDARD[4],
+    SihuaStars { lu: "贪狼", quan: "太阴", ke: "太阳", ji: "天机" }, // 戊（中州派：右弼 → 太阳）
     SIHUA_STANDARD[5],
-    SihuaStars { lu: "太阳", quan: "武曲", ke: "天府", ji: "天同" }, // 庚（全书本）
+    SihuaStars { lu: "太阳", quan: "武曲", ke: "天府", ji: "天同" }, // 庚（中州派）
     SIHUA_STANDARD[7],
-    SihuaStars { lu: "天梁", quan: "紫微", ke: "天府", ji: "武曲" }, // 壬（全书本）
+    SihuaStars { lu: "天梁", quan: "紫微", ke: "天府", ji: "武曲" }, // 壬（中州派：左辅 → 天府）
     SIHUA_STANDARD[9],
 ];
 
@@ -113,7 +122,7 @@ pub fn sihua_for(stem_id: u8, school: SihuaSchool) -> SihuaStars {
     let idx = (stem_id % 10) as usize;
     match school {
         SihuaSchool::Standard => SIHUA_STANDARD[idx],
-        SihuaSchool::Quanshu => SIHUA_QUANSHU[idx],
+        SihuaSchool::Quanshu => SIHUA_ZHONGZHOU[idx],
     }
 }
 
@@ -522,7 +531,7 @@ mod tests {
 
     #[test]
     fn sihua_1990_geng_quanshu_school_oracle() {
-        // 同 1990 庚午，全书本（王亭之版）：太阳禄/武曲权/天府科/天同忌。
+        // 同 1990 庚午，中州派（王亭之版）：太阳禄 / 武曲权 / 天府科 / 天同忌。
         // 天府=申 → 化科分歧。其余三化同通行。
         let chart = compute_with(
             BirthInput { year: 1990, month: 6, day: 15, hour: 14, minute: 30, tz: 8.0, gender: Some(Gender::Male) },
@@ -539,20 +548,39 @@ mod tests {
         assert_eq!(chart.sihua.ji_branch.as_deref(), Some("卯"));
     }
 
+    /// 两派只在化科上分岔，且恰好分在受「辅弼不入四化」影响的三干：戊(4)、庚(6)、壬(8)。
+    ///
+    /// 戊与壬在通行表里正是由右弼、左辅化科的两干；庚随该派学理一并调整。禄 / 权 / 忌 十干全等。
     #[test]
-    fn sihua_table_only_diverges_at_geng_and_ren() {
-        // 两派表只在庚(6)与壬(8)的化科上不同；其余 8 干两派全等。
+    fn the_two_schools_diverge_exactly_where_the_helper_stars_would_have_transformed() {
+        const DIVERGENT: [u8; 3] = [4, 6, 8];
         for stem_id in 0..10u8 {
             let s = sihua_for(stem_id, SihuaSchool::Standard);
             let q = sihua_for(stem_id, SihuaSchool::Quanshu);
-            assert_eq!(s.lu, q.lu, "stem {stem_id}");
-            assert_eq!(s.quan, q.quan, "stem {stem_id}");
-            assert_eq!(s.ji, q.ji, "stem {stem_id}");
-            if stem_id == 6 || stem_id == 8 {
+            assert_eq!((s.lu, s.quan, s.ji), (q.lu, q.quan, q.ji), "stem {stem_id} 只该在化科上分歧");
+            if DIVERGENT.contains(&stem_id) {
                 assert_ne!(s.ke, q.ke, "stem {stem_id} 科应分歧");
             } else {
                 assert_eq!(s.ke, q.ke, "stem {stem_id} 科应一致");
             }
+        }
+        // 该派的立论是辅弼不化科——通行表里凡由左辅 / 右弼化科的干，此派必换掉
+        for stem_id in 0..10u8 {
+            let s = sihua_for(stem_id, SihuaSchool::Standard);
+            if matches!(s.ke, "左辅" | "右弼") {
+                let q = sihua_for(stem_id, SihuaSchool::Quanshu);
+                assert!(!matches!(q.ke, "左辅" | "右弼"), "stem {stem_id}：辅弼不该出现在此派的化科位");
+            }
+        }
+    }
+
+    /// 癸干十家一致：查过《紫微斗数全书》原诀「癸破巨阴贪狼停」、全集栏、闽派、北派 / 河洛、
+    /// 占验门、钦天门、梁若瑜飞星派、中州派陆斌兆、中州派王亭之，癸行逐字相同。
+    #[test]
+    fn the_gui_stem_is_the_same_in_every_school() {
+        for school in [SihuaSchool::Standard, SihuaSchool::Quanshu] {
+            let g = sihua_for(9, school);
+            assert_eq!((g.lu, g.quan, g.ke, g.ji), ("破军", "巨门", "太阴", "贪狼"));
         }
     }
 

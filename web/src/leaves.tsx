@@ -163,7 +163,7 @@ export function ZiweiView({ c }: { c: ZiweiChart }) {
           <div className="legend"><span><i className="lg zi" />紫微系</span><span><i className="lg fu" />天府系</span><span><i className="lg aux" />辅星</span></div>
         </div>
       </div>
-      <Section title={c.sihua.school_id === 'quanshu' ? '四化 · 全书本（王亭之版）' : '四化 · 通行版（中州/三合派）'}>
+      <Section title={c.sihua.school_id === 'quanshu' ? '四化 · 中州派（王亭之版）' : '四化 · 通行版（中州/三合派）'}>
         <div className="kv-grid">
           <Stat k="化禄" v={`${c.sihua.lu_star}${c.sihua.lu_branch ? ` · ${c.sihua.lu_branch}宫` : ''}`} hi />
           <Stat k="化权" v={`${c.sihua.quan_star}${c.sihua.quan_branch ? ` · ${c.sihua.quan_branch}宫` : ''}`} />
