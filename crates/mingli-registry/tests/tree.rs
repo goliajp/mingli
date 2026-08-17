@@ -63,19 +63,27 @@ fn cast_all_has_all_leaves() {
     assert_eq!(out.len(), registry().len());
     assert!(out.contains_key("bazi"));
     assert!(out.contains_key("ziwei"));
-    assert!(out.contains_key("astrology"));
     // 跨叶一瞥：同一输入下，八字双子月与西洋太阳双子座并存可对齐比较
-    assert_eq!(out["astrology"]["planets"][0]["sign"], "双子"); // 1990-06-15 太阳
+    #[cfg(feature = "astrology")]
+    {
+        assert!(out.contains_key("astrology"));
+        assert_eq!(out["astrology"]["planets"][0]["sign"], "双子"); // 1990-06-15 太阳
+    }
 }
 
 #[test]
 fn all_registered_leaves_well_formed() {
     // 遍历注册表，逐叶检查 id/name/family 元数据齐备、cast 产出非空。
+    // 三片星历叶随 feature 开关进出，故预期表也按 feature 裁——
+    // 关掉它们的轻量构建同样要能过这条测试，否则「可裁剪」就只是说说。
     let expected = [
         ("bazi", "四柱八字", Family::Cyclic),
         ("ziwei", "紫微斗数", Family::Cyclic),
+        #[cfg(feature = "astrology")]
         ("astrology", "西洋占星", Family::Angular),
+        #[cfg(feature = "jyotish")]
         ("jyotish", "印度占星", Family::Angular),
+        #[cfg(feature = "qizhengsiyu")]
         ("qizhengsiyu", "七政四余", Family::Angular),
         ("yijing", "易经起卦", Family::Sampling),
         ("geomancy", "地占", Family::Sampling),
@@ -158,9 +166,12 @@ fn engine_metadata() {
     assert_eq!(r[1].id(), "ziwei");
     assert_eq!(r[1].name(), "紫微斗数");
     assert_eq!(r[1].family(), Family::Cyclic);
-    assert_eq!(r[2].id(), "astrology");
-    assert_eq!(r[2].name(), "西洋占星");
-    assert_eq!(r[2].family(), Family::Angular);
+    #[cfg(feature = "astrology")]
+    {
+        assert_eq!(r[2].id(), "astrology");
+        assert_eq!(r[2].name(), "西洋占星");
+        assert_eq!(r[2].family(), Family::Angular);
+    }
 }
 
 #[test]
@@ -176,6 +187,7 @@ fn female_and_no_gender() {
 }
 
 #[test]
+#[cfg(feature = "astrology")]
 fn astrology_angles_when_geo_given() {
     // 无坐标 → 占星只出落座，无 Asc/MC。
     let out = cast_all(&registry(), &sample());
@@ -231,12 +243,18 @@ fn cast_one_matches_full_and_handles_unknown() {
     let q = sample();
     let full = cast_all_detailed(&registry(), &q);
     // cast_one 与 cast_all_detailed 的对应叶逐项一致（只是少算其余叶）。
-    for id in ["bazi", "astrology", "liuren", "numerology"] {
+    for id in ["bazi", "liuren", "numerology"] {
         let one = cast_one(&registry(), id, &q).unwrap();
         let from_full = full.iter().find(|l| l.id == id).unwrap();
         assert_eq!(one.id, from_full.id);
         assert_eq!(one.chart, from_full.chart);
         assert_eq!(one.profile.len(), from_full.profile.len());
+    }
+    #[cfg(feature = "astrology")]
+    {
+        let one = cast_one(&registry(), "astrology", &q).expect("占星叶已装配");
+        let from_full = full.iter().find(|l| l.id == "astrology").expect("全量里应有占星");
+        assert_eq!(one.chart, from_full.chart);
     }
     assert!(cast_one(&registry(), "nope", &q).is_none());
 }
@@ -254,11 +272,13 @@ fn cast_all_detailed_preserves_order_and_meta() {
         assert_eq!(leaf.family_label, eng.family().label());
         assert!(!leaf.chart.is_null(), "{} 盘不应为空", leaf.id);
     }
-    // 五家族都出现。
+    // 家族齐备。Angular（角度家族）三片全是星历叶，关掉 feature 后整族消失，属设计如此。
     let fams: std::collections::HashSet<Family> = out.iter().map(|l| l.family).collect();
-    for f in [Family::Cyclic, Family::Angular, Family::Sampling, Family::Hashing, Family::CrossCutting] {
+    for f in [Family::Cyclic, Family::Sampling, Family::Hashing, Family::CrossCutting] {
         assert!(fams.contains(&f), "缺家族 {f:?}");
     }
+    #[cfg(any(feature = "astrology", feature = "jyotish", feature = "qizhengsiyu"))]
+    assert!(fams.contains(&Family::Angular), "开着星历 feature 就该有 Angular 家族");
 }
 
 #[test]
@@ -295,23 +315,36 @@ fn ask_2026() -> AskTime {
 
 #[test]
 fn intents_natal_covers_registry() {
-    // natal 意图的 default_leaves 应恰为 registry 全集（声明式守卫：加新叶必须同步）。
-    let natal = intents().iter().find(|s| s.id == "natal").unwrap();
+    // 契约层不知道 feature 的存在——`intents()` 声明的永远是全部二十一片。
+    // 所以恒成立的是「注册表 ⊆ natal.default_leaves」；两者相等只在全 feature 下成立。
+    let natal = intents().iter().find(|s| s.id == "natal").expect("应有 natal 意图");
     let reg_ids: std::collections::HashSet<&'static str> =
         registry().iter().map(|e| e.id()).collect();
     let intent_ids: std::collections::HashSet<&'static str> =
         natal.default_leaves.iter().copied().collect();
-    assert_eq!(intent_ids, reg_ids, "natal.default_leaves 应与 registry 一致");
+    for id in &reg_ids {
+        assert!(intent_ids.contains(id), "注册了却没在 natal.default_leaves 里声明的叶：{id}");
+    }
+    #[cfg(all(feature = "astrology", feature = "jyotish", feature = "qizhengsiyu"))]
+    assert_eq!(intent_ids, reg_ids, "全 feature 下 natal.default_leaves 应与 registry 相等");
 }
 
 #[test]
-fn intents_non_natal_leaves_subset_of_registry() {
-    // 非 Natal 意图的 default_leaves 全部在 registry 内（否则 route 会过滤掉）。
-    let reg_ids: std::collections::HashSet<&'static str> =
-        registry().iter().map(|e| e.id()).collect();
+fn intents_non_natal_leaves_are_declared_leaves() {
+    // 参照系是**契约声明的全集**（natal.default_leaves），不是当前注册表——
+    // feature 关掉某片叶时 `route` 会把它过滤掉，那是设计如此，不该让测试红。
+    // 这条要抓的是「意图引用了一个根本不存在的叶 id」。
+    let declared: std::collections::HashSet<&'static str> = intents()
+        .iter()
+        .find(|s| s.id == "natal")
+        .expect("应有 natal 意图")
+        .default_leaves
+        .iter()
+        .copied()
+        .collect();
     for s in intents().iter().filter(|s| s.id != "natal") {
         for leaf in s.default_leaves {
-            assert!(reg_ids.contains(leaf), "{} 意图引用未注册叶 {}", s.id, leaf);
+            assert!(declared.contains(leaf), "{} 意图引用了不存在的叶 {}", s.id, leaf);
         }
     }
 }

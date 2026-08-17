@@ -244,3 +244,36 @@ fn the_use_case_layer_never_reaches_for_the_composition_root() {
         "装配根只列叶，不认识用例"
     );
 }
+
+#[test]
+fn the_layer_table_and_the_workspace_agree_in_both_directions() {
+    // `every_dependency_points_strictly_inward` 会在遇到未登记的 crate 时 panic，
+    // 但那只覆盖「被依赖到的」那些。一个新 crate 若谁都不依赖它（比如刚建好还没接上），
+    // 就会从那条测试的视野里整个漏掉。这里两个方向都查：
+    //   workspace 有而表里没有 → 有人加了 crate 忘了定位它的层
+    //   表里有而 workspace 没有 → 表成了摆设，指着一个已经改名或删掉的 crate
+    let layers = layers();
+    let on_disk: Vec<String> = manifests().into_iter().map(|(name, _)| name).collect();
+
+    let missing: Vec<&String> = on_disk.iter().filter(|n| !layers.contains_key(n.as_str())).collect();
+    assert!(
+        missing.is_empty(),
+        "workspace 里有这些 crate，layers() 表却没登记它们的层：{missing:?}\n\
+         新增 crate 时请在 layers() 里给它定位——定不下来通常说明它的职责还没想清楚。"
+    );
+
+    let stale: Vec<&&str> = layers.keys().filter(|n| !on_disk.contains(&(**n).to_string())).collect();
+    assert!(
+        stale.is_empty(),
+        "layers() 表里有这些 crate，workspace 里却找不到：{stale:?}\n\
+         多半是改名或删除后忘了同步——表与现实不一致，它就守不住任何东西。"
+    );
+
+    // 顺带确认层号连续：中间空一层通常意味着某一层被整个删掉却没重编
+    let mut used: Vec<u8> = layers.values().copied().collect();
+    used.sort_unstable();
+    used.dedup();
+    for pair in used.windows(2) {
+        assert_eq!(pair[1], pair[0] + 1, "层号应连续，L{} 与 L{} 之间空了", pair[0], pair[1]);
+    }
+}
