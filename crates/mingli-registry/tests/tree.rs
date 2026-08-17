@@ -469,3 +469,41 @@ fn natal_cast_path_unchanged_regression_guard() {
     assert_eq!(out["ziwei"]["ming_branch"], "亥");
     assert_eq!(route(&registry(), &QueryKind::Natal(q)).len(), registry().len());
 }
+
+/// 传统上用这套系统答某一类，而本叶还没实现——这件事必须在 profile 里有交代。
+///
+/// [`CastingEngine::answers`] 的判定标准是「当下算得出」，于是「传统上该答但没做」
+/// 会从声明里消失。它不该就这么消失：本项目的规矩是留白要说明白，
+/// 而说明白的位置是该叶的确定性谱。
+///
+/// 这里点名的四片，是把那张沿用已久的路由表按事实核对后撤下来的。
+const REVOKED: [(&str, &str); 4] = [
+    ("ziwei", "大限 / 流年"),
+    ("astrology", "行运"),
+    ("jyotish", "合婚"),
+    ("xiaoliuren", "六神配方位"),
+];
+
+#[test]
+fn a_capability_that_was_taken_away_is_still_accounted_for() {
+    let reg = registry();
+    for (id, topic) in REVOKED {
+        let Some(e) = reg.iter().find(|e| e.id() == id) else {
+            continue; // feature 关掉的叶不在注册表里
+        };
+        let hit = e.profile().iter().find(|it| it.aspect.contains(topic));
+        let it = hit.unwrap_or_else(|| {
+            panic!("叶 `{id}` 不再认领与「{topic}」相关的问局，profile 里却没有对应条目——\n\
+                    「传统上该答而未实现」要写下来，否则这件事只留在 answers() 的注释里，读 profile 的人看不见")
+        });
+        assert_eq!(
+            it.status,
+            mingli_contract::Determinism::Und,
+            "叶 `{id}` 的「{topic}」条目应标 Und",
+        );
+        assert!(
+            it.note.contains("还没做"),
+            "叶 `{id}` 的「{topic}」要分清是「查过定不下」还是「还没做」，本条属后者",
+        );
+    }
+}

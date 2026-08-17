@@ -48,8 +48,20 @@ impl CastingEngine for AstrologyEngine {
         Some(Principal { label: "太阳星座", value: c.planets.first().map_or_else(String::new, |p| p.sign.clone()) })
     }
     fn profile(&self) -> &'static [DetItem] {
-        use Determinism::Det;
+        use Determinism::{Det, Und};
         const { &[
+            d(
+                "行运（transit / 推运 / 太阳返照，未实现）",
+                Und,
+                "🟡 这不是定不下，是还没做——星历层已能给任意时刻的行星位置，缺的是「与本命盘比对」\
+                 这一步及各法的容许度约定。本叶只出本命盘与盘内相位，故不认领「运」这一类问局",
+            ),
+            d(
+                "两盘比对（合盘几何相位，未实现）",
+                Und,
+                "🟡 同上，是还没做——两盘之间的相位算法与盘内相同，缺的是双盘接口与各家对\
+                 「哪些相位入合盘」的取舍。故本叶不认领「合」这一类问局",
+            ),
             d("行星落座·相位", Det, "VSOP87 视黄经，太阳校验 Meeus 0.02°"),
             d("月亮落座", Det, "ELP-2000/82 (astro crate)，校验 Meeus 47.a < 5″ 与 Diana(AA) < 0.2°"),
             d("Asc/MC", Det, "平恒星时+平交角，校验 Diana(AA) < 0.5°"),
