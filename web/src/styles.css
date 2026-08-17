@@ -709,6 +709,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .odu-mark { width: 10px; height: 10px; border-radius: 2px; background: var(--washi); }
 .odu.big .odu-mark { width: 13px; height: 13px; }
 .odu-lbl { font-family: var(--mono); font-size: 14px; color: var(--washi-faint); }
+.odu-name { font-family: var(--mono); font-size: 13px; color: var(--washi-dim); margin-top: 2px; }
 
 /* 塔罗 */
 .tarot { display: flex; gap: 14px; flex-wrap: wrap; }
