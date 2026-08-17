@@ -78,16 +78,18 @@ function Hexagram({ lines, moving, label, sub, big }: { lines: boolean[]; moving
     </div>
   )
 }
-function GeoFigure({ value, hi, label }: { value: number; hi?: boolean; label?: string }) {
+function GeoFigure({ value, hi, label, name }: { value: number; hi?: boolean; label?: string; name?: string }) {
+  // 第 0 位是第一行（火），画在最上面——位序反了会把 Fortuna Major 画成 Minor
   return (
     <div className="geo-fig-wrap">
-      <div className={`geofig${hi ? ' hi' : ''}`}>
-        {[3, 2, 1, 0].map((i) => {
+      <div className={`geofig${hi ? ' hi' : ''}`} title={name}>
+        {[0, 1, 2, 3].map((i) => {
           const single = ((value >> i) & 1) === 1
           return <div className="geo-row" key={i}>{single ? <span className="pip" /> : <><span className="pip" /><span className="pip" /></>}</div>
         })}
       </div>
       {label && <div className="geo-lbl">{label}</div>}
+      {name && <div className="geo-name">{name}</div>}
     </div>
   )
 }
@@ -685,16 +687,17 @@ function Yijing({ c }: { c: YijingChart }) {
   )
 }
 
-interface GeomancyChart { mothers: number[]; daughters: number[]; nieces: number[]; witnesses: number[]; judge: number; judge_even: boolean }
+interface GeomancyNames { mothers: string[]; daughters: string[]; nieces: string[]; witnesses: string[]; judge: string }
+interface GeomancyChart { mothers: number[]; daughters: number[]; nieces: number[]; witnesses: number[]; judge: number; judge_even: boolean; names: GeomancyNames }
 function Geomancy({ c }: { c: GeomancyChart }) {
   return (
     <div className="lp">
       <Section title="盾牌图（Shield Chart）">
         <div className="shield-pyramid">
-          <div className="sp-row">{[...c.daughters].reverse().map((v, i) => <GeoFigure key={'d' + i} value={v} label={`女${4 - i}`} />)}{[...c.mothers].reverse().map((v, i) => <GeoFigure key={'m' + i} value={v} label={`母${4 - i}`} hi />)}</div>
-          <div className="sp-row">{[...c.nieces].reverse().map((v, i) => <GeoFigure key={'n' + i} value={v} label={`侄${4 - i}`} />)}</div>
-          <div className="sp-row">{[...c.witnesses].reverse().map((v, i) => <GeoFigure key={'w' + i} value={v} label={i === 0 ? '左证' : '右证'} />)}</div>
-          <div className="sp-row"><GeoFigure value={c.judge} label={`法官 ${c.judge_even ? '✓偶' : '!奇'}`} hi /></div>
+          <div className="sp-row">{[...c.daughters].reverse().map((v, i) => <GeoFigure key={'d' + i} value={v} label={`女${4 - i}`} name={c.names.daughters[3 - i]} />)}{[...c.mothers].reverse().map((v, i) => <GeoFigure key={'m' + i} value={v} label={`母${4 - i}`} name={c.names.mothers[3 - i]} hi />)}</div>
+          <div className="sp-row">{[...c.nieces].reverse().map((v, i) => <GeoFigure key={'n' + i} value={v} label={`侄${4 - i}`} name={c.names.nieces[3 - i]} />)}</div>
+          <div className="sp-row">{[...c.witnesses].reverse().map((v, i) => <GeoFigure key={'w' + i} value={v} label={i === 0 ? '左证' : '右证'} name={c.names.witnesses[1 - i]} />)}</div>
+          <div className="sp-row"><GeoFigure value={c.judge} label={`法官 ${c.judge_even ? '✓偶' : '!奇'}`} name={c.names.judge} hi /></div>
         </div>
       </Section>
     </div>
