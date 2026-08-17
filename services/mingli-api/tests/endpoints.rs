@@ -388,3 +388,37 @@ async fn the_old_spelling_of_gender_still_works() {
     let (s, v) = post("/api/route", body).await;
     assert_eq!(s, StatusCode::OK, "{v}");
 }
+
+
+/// 500 那条路也要走一遍。
+///
+/// 覆盖率上 `error::server_error` 从没被执行过——端点测试用的是离线模板后端，
+/// 它不会失败，于是「释义后端不可用」这条分支一次都没跑。
+///
+/// 不去起真后端来制造失败：这台机器上恰好装着那个外部进程，测试会真的把它跑起来，
+/// 一次六十秒且结果不确定。直接验错误响应本身即可——要钉的是**形状**，
+/// 而形状与它由哪条路径触发无关。
+#[tokio::test]
+async fn the_five_hundred_shape_matches_the_four_hundred_shape() {
+    use axum::response::IntoResponse;
+    use http_body_util::BodyExt;
+
+    let read = |r: axum::response::Response| async {
+        let status = r.status();
+        let b = r.into_body().collect().await.expect("body 应可读").to_bytes();
+        (status, serde_json::from_slice::<Value>(&b).expect("body 应是 JSON"))
+    };
+
+    let (s4, v4) = read(mingli_api::error::bad_request("时窗终点早于起点").into_response()).await;
+    let (s5, v5) = read(mingli_api::error::server_error("释义后端不可用").into_response()).await;
+
+    assert_eq!(s4, StatusCode::BAD_REQUEST);
+    assert_eq!(s5, StatusCode::INTERNAL_SERVER_ERROR);
+    for v in [&v4, &v5] {
+        let o = v.as_object().expect("应是对象");
+        assert_eq!(o.len(), 1, "错误响应只有一个字段");
+        assert!(o["error"].is_string(), "那个字段叫 error 且是字符串");
+    }
+    assert_eq!(v4["error"], "时窗终点早于起点");
+    assert_eq!(v5["error"], "释义后端不可用");
+}

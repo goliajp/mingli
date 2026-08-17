@@ -14,8 +14,9 @@
 #   (cd /tmp/base && cargo build -p mingli-api)
 #   MINGLI_SNAPSHOT_BIN=/tmp/base/target/debug/mingli-api ./scripts/api-snapshot.sh save base.txt
 #
-# 释义端点只打它们的 400 路径：LLM 的话每次都不一样，逐字节比没有意义；
-# 「算不出来的时候怎么答」倒是确定的，那一段必须比。
+# 释义端点走**离线模板**后端（MINGLI_INTERPRET_BACKEND=template）：模板的输出是确定的，
+# 于是它们的 200 路径也能逐字节比。走 LLM 则每次不同，那只能比 400 路径——
+# 而「算不出来的时候怎么答」同样是确定的，两条都收。
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -44,7 +45,7 @@ out=$(mktemp)
 body=$(mktemp)
 trap 'rm -f "$out" "$body"; [ -n "${pid:-}" ] && kill "$pid" 2>/dev/null' EXIT
 
-MINGLI_API_BIND="127.0.0.1:$PORT" "$BIN" >/dev/null 2>&1 &
+MINGLI_API_BIND="127.0.0.1:$PORT" MINGLI_INTERPRET_BACKEND=template "$BIN" >/dev/null 2>&1 &
 pid=$!
 # 服务刚起时端口还没开，连不上要重试——不重试的话抓回来的会是一整版 000，
 # 而一整版 000 长得跟「所有端点都变了」一模一样。
@@ -79,6 +80,15 @@ p /api/event "{\"t_ask\":$T,\"seed\":7,\"question\":\"能成吗\"}"
 p /api/election "{\"window_start\":$T,\"window_end\":$T2,\"category\":\"婚\"}"
 p /api/election "{\"window_start\":$T2,\"window_end\":$T}"
 p /api/election/interpret "{\"window_start\":$T2,\"window_end\":$T}"
+
+# 释义的 200 路径：离线模板输出确定，故可逐字节比
+p /api/event/interpret "{\"t_ask\":$T,\"seed\":7}"
+p /api/election/interpret "{\"window_start\":$T,\"window_end\":$T2,\"category\":\"婚\"}"
+p /api/locative/interpret "{\"t_ask\":$T,\"seed\":7,\"category\":\"财\"}"
+p /api/mundane/interpret '{"founded_at":{"year":1949,"month":10,"day":1,"hour":15,"minute":0,"tz":8},"latitude":39.9,"longitude":116.4,"target_year":2026,"span":3}'
+p /api/synastry/interpret '{"a":{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"gender":"male","name":"A"},"b":{"year":1987,"month":3,"day":2,"hour":9,"tz":8,"gender":"female","name":"B"}}'
+p /api/team/interpret '{"members":[{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"gender":"male","name":"A"},{"year":1987,"month":3,"day":2,"hour":9,"tz":8,"gender":"female","name":"B"}]}'
+p /api/interpret "$(printf '%s' "$N" | sed 's/}$/,"leaf":"bazi"}/')"
 p /api/locative "{\"t_ask\":$T,\"seed\":7,\"category\":\"财\"}"
 p /api/synastry "{\"a\":{\"year\":1990,\"month\":6,\"day\":15,\"hour\":14,\"tz\":8,\"gender\":\"male\",\"name\":\"A\"},\"b\":{\"year\":1987,\"month\":3,\"day\":2,\"hour\":9,\"tz\":8,\"gender\":\"female\",\"name\":\"B\"}}"
 p /api/mundane '{"founded_at":{"year":1949,"month":10,"day":1,"hour":15,"minute":0,"tz":8},"latitude":39.9,"longitude":116.4,"target_year":2026,"span":3}'
@@ -89,8 +99,8 @@ if grep -qE '^000$' "$out"; then
   exit 1
 fi
 n=$(grep -c '^### ' "$out")
-if [ "$n" != 25 ]; then
-  echo "✗ 只抓到 $n 个请求，应是 25" >&2
+if [ "$n" != 32 ]; then
+  echo "✗ 只抓到 $n 个请求，应是 32" >&2
   exit 1
 fi
 

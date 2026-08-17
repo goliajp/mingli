@@ -7,7 +7,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 661 个测试全绿
+> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 691 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -67,8 +67,8 @@ crates/
                mingli-zeri         择日学的循环要素
                mingli-xiaoliuren   小六壬（诸葛马前课）
   L3 叶（B 族 · 角度量化）
-               mingli-astrology    西洋占星本命盘（Placidus / Koch / WholeSign / Equal / Porphyry）
-               mingli-jyotish      印度占星（4 派 ayanamsa · 27 nakshatra · Vimshottari · D-9）
+               mingli-astrology    西洋占星本命盘（Placidus / Koch / WholeSign / Equal / Porphyry）· 两盘相位
+               mingli-jyotish      印度占星（4 派 ayanamsa · 27 nakshatra · Vimshottari · 十六分盘取十四）
                mingli-qizhengsiyu  七政四余——中国本土星占
   L3 叶（C 族 · 抽样 / 二进制）
                mingli-yijing       易经起卦
@@ -127,7 +127,7 @@ cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走�
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 661 个测试
+cargo test --workspace     # 691 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ```

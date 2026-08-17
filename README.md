@@ -6,7 +6,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 37 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 661 tests green
+> 37 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 691 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -68,8 +68,8 @@ crates/
                  mingli-zeri         cyclic elements of date selection
                  mingli-xiaoliuren   Xiao Liu Ren (Zhuge's roadside divination)
   L3 leaves — family B (angle quantization)
-                 mingli-astrology    Western natal charts (Placidus / Koch / Whole Sign / Equal / Porphyry)
-                 mingli-jyotish      Vedic astrology (4 ayanamsas · 27 nakshatras · Vimshottari · D-9)
+                 mingli-astrology    Western natal charts (Placidus / Koch / Whole Sign / Equal / Porphyry) · cross-chart aspects
+                 mingli-jyotish      Vedic astrology (4 ayanamsas · 27 nakshatras · Vimshottari · 14 of the 16 divisional charts)
                  mingli-qizhengsiyu  Qizheng Siyu — indigenous Chinese astrology
   L3 leaves — family C (sampling / binary)
                  mingli-yijing       I Ching casting
@@ -131,9 +131,11 @@ A type check proves the code compiles. This proves the page still agrees with it
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 661 tests
+cargo test --workspace     # 691 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
+./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
+./scripts/api-snapshot.sh check snap.txt   # 32 requests, byte for byte
 ```
 
 Every authoritative reference value is **confirmed against multiple independent sources** and lives in a `#[test]` in the relevant crate. For example:
