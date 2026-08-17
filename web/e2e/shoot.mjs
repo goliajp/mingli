@@ -1,7 +1,8 @@
-// 视觉自查：用 headless Chromium 跑一遍界面，逐屏截图并收集运行时报错。
+// 视觉自查：用 headless Chromium 跑一遍界面，逐屏截图、断言、收集运行时报错。
 //
 // 编译通过不等于画面对：类型检查看不到布局塌陷、配色失效、渲染时抛错。
-// 这个脚本把「看一眼」变成可重复的一条命令。
+// 而截图也只是「有东西」——图存下来没人逐张看，就等于没看。所以每屏另带断言：
+// 该有几格就是几格、该对上的两个数就得对上。断言不过 → 非零退出。
 //
 //   bun run shots            # 需先起好 :6027 后端与 :6026 前端
 //   bun run shots -- 奇门     # 只拍某几屏
@@ -13,6 +14,46 @@ import { mkdir, rm } from 'node:fs/promises'
 
 const BASE = process.env.MINGLI_WEB ?? 'http://127.0.0.1:6026'
 const OUT = new URL('./shots/', import.meta.url).pathname
+
+/** 每屏的断言。拿到 page，抛异常即为不过。 */
+const CHECKS = {
+  '02-奇门': async (page) => {
+    const n = await page.locator('.qm-cell').count()
+    if (n !== 9) throw new Error(`九宫应有 9 格，实有 ${n}`)
+    // 中五宫不寄星，寄在坤 2；这条写错过一次，格子会空着而不报错
+    const mid = await page.locator('.qm-cell').nth(4).innerText()
+    if (!mid.includes('天禽寄坤 2')) throw new Error(`中宫应写「天禽寄坤 2」，实为「${mid.replace(/\n/g, ' ')}」`)
+  },
+  '11-择吉': async (page) => {
+    const heads = await page.locator('.el-group-h b').allInnerTexts()
+    for (const g of ['黄道', '可用', '黑道', '不可当']) {
+      if (!heads.includes(g)) throw new Error(`择吉四档缺「${g}」，实有 ${heads.join(' / ')}`)
+    }
+    // 每档自报的天数要等于它表里的行数
+    for (const [i, g] of heads.entries()) {
+      const said = Number((await page.locator('.el-group-n').nth(i).innerText()).replace(/\D/g, ''))
+      const rows = await page.locator('.el-group').nth(i).locator('tbody tr').count()
+      if (said !== rows) throw new Error(`「${g}」自报 ${said} 天，表里 ${rows} 行`)
+    }
+  },
+  '12-寻方位': async (page) => {
+    const pins = await page.locator('.lc-pin').count()
+    const rows = await page.locator('.lc-list tbody tr').count()
+    if (pins !== rows) throw new Error(`罗盘 ${pins} 个点，表格 ${rows} 行——盘上少一个就是漏画一个候选`)
+    if (pins === 0) throw new Error('一个方位候选都没有')
+  },
+  '13-合盘': async (page) => {
+    const bars = await page.locator('.sy-give-n').allInnerTexts()
+    if (bars.length !== 2) throw new Error(`应有两条供给数，实有 ${bars.length}`)
+    const [a, b] = bars.map((t) => Number(t.replace(/\D/g, '')))
+    const gap = Number((await page.locator('.sy-mid-note').innerText()).replace(/\D/g, ''))
+    if (Math.abs(a - b) !== gap) throw new Error(`两边 ${a}% / ${b}%，中间却写差 ${gap} 个百分点`)
+  },
+  '14-国运': async (page) => {
+    const n = await page.locator('.mu-tl-year').count()
+    if (n === 0) throw new Error('时间线一年都没画')
+  },
+}
 
 /** 每屏：名字 + 怎么切过去 + 切完等什么出现。 */
 const SCREENS = [
@@ -81,7 +122,18 @@ for (const s of SCREENS) {
   }
   await page.waitForTimeout(400) // 让过渡动画落定
   await page.screenshot({ path: `${OUT}${s.name}.png`, fullPage: true })
-  console.log(`拍下 ${s.name}`)
+  const check = CHECKS[s.name]
+  if (check) {
+    try {
+      await check(page)
+      console.log(`拍下 ${s.name} ✓`)
+    } catch (e) {
+      problems.push(`${s.name}：${e.message}`)
+      console.log(`拍下 ${s.name} ✗ ${e.message}`)
+    }
+  } else {
+    console.log(`拍下 ${s.name}`)
+  }
 }
 
 await browser.close()
