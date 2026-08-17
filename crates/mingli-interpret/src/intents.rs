@@ -79,6 +79,7 @@ intent! {
     /// 组装合盘释义提示词。
     "synastry", build_synastry_prompt, interpret_synastry,
     guardrail = synastry::SYNASTRY_GUARDRAIL,
+    hints = synastry::synastry_hints(),
     json = "\n合盘结果 JSON：\n"
 }
 
