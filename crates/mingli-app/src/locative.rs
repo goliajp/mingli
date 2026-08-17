@@ -83,7 +83,8 @@ mod tests {
     fn routes_to_liuren_qimen_xiaoliuren_only() {
         let l = cast(&registry(), &t(), None, None).expect("应可寻");
         let ids: Vec<&str> = l.leaves.iter().map(|x| x.id).collect();
-        assert_eq!(ids, ["liuren", "qimen", "xiaoliuren"]);
+        // 次序即注册表次序（从前是端口层手写表的次序）
+        assert_eq!(ids, ["xiaoliuren", "liuren", "qimen"]);
     }
 
     #[test]

@@ -1,12 +1,20 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, effective_seed, CastingEngine, DetItem, Determinism, Family, Moment, Query};
+use mingli_contract::{d, effective_seed, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query};
 use serde_json::Value;
 
 /// Ifá 叶（C 族）。双 figure→256 odu，种子可复现。
 #[derive(Debug, Default)]
 pub struct IfaEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(_e: &IfaEngine, m: &Moment, q: &Query) -> crate::Odu {
+crate::cast(effective_seed(m, q))
+}
 
 impl CastingEngine for IfaEngine {
     fn id(&self) -> &'static str {
@@ -19,7 +27,15 @@ impl CastingEngine for IfaEngine {
         Family::Sampling
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        serde_json::to_value(crate::cast(effective_seed(m, q))).unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal, Intent::Event]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 左半 figure——Ifá 先读右后读左，左为二。
+        let c = chart(self, m, q);
+        Some(Principal { label: "左 figure", value: c.left.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Sto, Und};

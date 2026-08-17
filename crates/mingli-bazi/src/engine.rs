@@ -1,7 +1,7 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 契约层性别 → 本叶性别。
@@ -10,6 +10,21 @@ fn leaf_gender(g: Option<mingli_contract::Gender>) -> Option<crate::Gender> {
         mingli_contract::Gender::Male => crate::Gender::Male,
         mingli_contract::Gender::Female => crate::Gender::Female,
     })
+}
+
+/// 本次查询下的四柱盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &BaziEngine, m: &Moment, q: &Query) -> crate::BaziChart {
+    use crate::{BaziSchool, YearBreakMethod, ZiHourMethod};
+    let school = match q.school_of(e.id(), "late_lichun") {
+        "late_sf" => BaziSchool { zi_hour: ZiHourMethod::Late, year_break: YearBreakMethod::SpringFestival },
+        "early_lichun" => BaziSchool { zi_hour: ZiHourMethod::Early, year_break: YearBreakMethod::LiChun },
+        "early_sf" => BaziSchool { zi_hour: ZiHourMethod::Early, year_break: YearBreakMethod::SpringFestival },
+        _ => BaziSchool::default(),
+    };
+    crate::compute_at_school(m, leaf_gender(q.gender), school)
 }
 
 /// 四柱八字叶。
@@ -27,15 +42,16 @@ impl CastingEngine for BaziEngine {
         Family::Cyclic
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        use crate::{BaziSchool, YearBreakMethod, ZiHourMethod};
-        let school = match q.school_of(self.id(), "late_lichun") {
-            "late_sf" => BaziSchool { zi_hour: ZiHourMethod::Late, year_break: YearBreakMethod::SpringFestival },
-            "early_lichun" => BaziSchool { zi_hour: ZiHourMethod::Early, year_break: YearBreakMethod::LiChun },
-            "early_sf" => BaziSchool { zi_hour: ZiHourMethod::Early, year_break: YearBreakMethod::SpringFestival },
-            _ => BaziSchool::default(),
-        };
-        serde_json::to_value(crate::compute_at_school(m, leaf_gender(q.gender), school))
-            .unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        // 运：本命固定、目标时刻在动，四柱是这一类的主算力。
+        // 合：两张本命之间的互供，靠的是各自的用神与五行分布。
+        &[Intent::Natal, Intent::Fortune, Intent::Synastry]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 日柱地支——日主坐下，四柱起论的第一处。
+        Some(Principal { label: "日支", value: chart(self, m, q).day.branch })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
@@ -96,5 +112,16 @@ mod tests {
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
         assert!(!e.family().label().is_empty());
+    }
+
+    /// 主判据必须与盘面同源：它读的是同一次计算的同一个字段，不是另算一遍或解 JSON。
+    #[test]
+    fn the_principal_index_agrees_with_the_chart() {
+        let (e, m) = (BaziEngine, Moment::new(1990, 6, 15, 14, 30, 8.0));
+        let q = Query::at(1990, 6, 15, 14, 30, 8.0);
+        let p = e.principal(&m, &q).expect("四柱有主判据");
+        assert_eq!(p.label, "日支");
+        assert_eq!(p.value, "亥", "1990-06-15 14:30 +8 日柱辛亥");
+        assert_eq!(Value::String(p.value), e.cast(&m, &q)["day"]["branch"]);
     }
 }

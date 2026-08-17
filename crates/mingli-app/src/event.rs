@@ -79,7 +79,9 @@ mod tests {
         let reg = registry();
         let ev = cast(&reg, &t(), Some(2024), None).expect("默认注册表应能占事");
         let ids: Vec<&str> = ev.leaves.iter().map(|l| l.id).collect();
-        assert_eq!(ids, ["yijing", "meihua", "liuren", "qimen", "tarot", "geomancy", "ifa", "sikidy"]);
+        // 次序即注册表次序：从前这里是端口层一张手写表的次序，现在由各叶自己认领、
+        // 按注册表列出。集合未变，次序变了——只有一处定次序，好过两处各写一份。
+        assert_eq!(ids, ["yijing", "geomancy", "sikidy", "ifa", "tarot", "meihua", "liuren", "qimen"]);
         // 本命专属的叶不该出现在占事里
         assert!(!ids.contains(&"bazi") && !ids.contains(&"ziwei") && !ids.contains(&"astrology"));
     }

@@ -1,13 +1,21 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Moment, Query};
+use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query};
 use serde_json::Value;
 
 /// 七政四余（中国本土星占）叶（B 族）。仅 `qizhengsiyu` feature 开启时编译。
 /// 10 体黄经（七政 + 罗㬋/计都/月孛三余；紫炁 🟡 不入） + 28 宿值日 + 12 sign 归宫。
 #[derive(Debug, Default)]
 pub struct QizhengsiyuEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(_e: &QizhengsiyuEngine, m: &Moment, _q: &Query) -> crate::QizhengsiyuChart {
+crate::compute_at(m)
+}
 
 impl CastingEngine for QizhengsiyuEngine {
     fn id(&self) -> &'static str {
@@ -19,8 +27,16 @@ impl CastingEngine for QizhengsiyuEngine {
     fn family(&self) -> Family {
         Family::Angular
     }
-    fn cast(&self, m: &Moment, _q: &Query) -> Value {
-        serde_json::to_value(crate::compute_at(m)).unwrap_or(Value::Null)
+    fn cast(&self, m: &Moment, q: &Query) -> Value {
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 当日值宿。
+        let c = chart(self, m, q);
+        Some(Principal { label: "28 宿值日", value: c.mansion_name.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
