@@ -570,6 +570,7 @@ dependencies = [
  "mingli-contract",
  "mingli-engine",
  "mingli-interpret",
+ "mingli-jyotish",
  "mingli-liuren",
  "mingli-luoshu",
  "mingli-registry",
