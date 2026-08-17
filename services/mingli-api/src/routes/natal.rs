@@ -1,6 +1,6 @@
 //! 本命一路：四柱 / 紫微精盘、全叶排盘、岁运叠加、运势时序、单叶释义。
 
-use crate::dto::{ask_time, birth, engine_query, validate, ChartRequest, FortuneRequest, OverlayRequest};
+use crate::dto::{birth, engine_query, validate, ChartRequest, FortuneRequest, OverlayRequest};
 use crate::backend::Interpret;
 use crate::error::{bad_request, server_error};
 use crate::leaves;
@@ -46,11 +46,10 @@ pub(crate) async fn overlay_strength_handler(Json(req): Json<OverlayRequest>) ->
 
 /// 运势时序：本命 + 目标时刻 → 当下切片与一生曲线。
 pub(crate) async fn fortune_handler(Json(req): Json<FortuneRequest>) -> Response {
-    if let Err(e) = validate(&req.natal) {
+    if let Err(e) = req.natal.validate() {
         return bad_request(e);
     }
-    let t_target = ask_time(&req.t_target);
-    match mingli_app::bazi::fortune(&birth(&req.natal), &t_target, req.timeline_max_age) {
+    match mingli_app::bazi::fortune(&req.natal, &req.t_target.ask_time(), req.timeline_max_age) {
         Ok(v) => Json(v).into_response(),
         Err(e) => bad_request(e),
     }
