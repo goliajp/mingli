@@ -203,6 +203,7 @@ const fn trigram_from_xiang(s: &[u8]) -> u8 {
     else if b0 == 0xE7 && b1 == 0xA6 && b2 == 0xBB { 5 } // 离（本字）
     else if b0 == 0xE8 && b1 == 0x89 && b2 == 0xAE { 4 } // 艮（本字）
     else if b0 == 0xE5 && b1 == 0x85 && b2 == 0x91 { 3 } // 兑（本字）
+    // const 上下文求值：表里出现生字会直接编译失败，运行期到不了这里。
     else { panic!("trigram_from_xiang： 未识别的卦象字") }
 }
 

@@ -10,7 +10,7 @@
 //! - **总格**：姓名全字笔画之和。
 //!
 //! 每格取**三才五行**（个位：1·2 木、3·4 火、5·6 土、7·8 金、9·0 水）与 **81 数**
-//! （[`mingli_core::ringhash::fold_81`] 归一到 1..=81）。
+//! （[`fold_81`] 归一到 1..=81）。
 //!
 //! 诚实边界（🟡）：**康熙笔画表**（数千汉字的繁体笔画）属大查表，本 crate **不内置**——笔画由调用方
 //! 提供（错一字毒整枝）。**81 数的吉凶判断**亦属查表 + 流派分歧，本 crate 只给 81 数本身、不下吉凶断言。
@@ -18,7 +18,18 @@
 mod engine;
 pub use engine::WugeEngine;
 
-use mingli_core::ringhash::fold_81;
+/// 五格数按 `mod-80` 归一到 `1..=81`。
+///
+/// 81 数体系里 81 与 1 同位，超过 81 者减 80 循环——这是熊崎式的通行约定
+/// （🟡 版本有别：另有「减 80 至 ≤80」等变体，本 crate 取通行版）。
+#[must_use]
+pub const fn fold_81(n: u64) -> u64 {
+    if n == 0 {
+        0
+    } else {
+        ((n - 1) % 80) + 1
+    }
+}
 use serde::Serialize;
 
 /// 五行（按格的个位定）。
@@ -136,6 +147,20 @@ pub fn five_grids(surname: &[u32], given: &[u32]) -> Cast {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fold_81_wraps_at_eighty() {
+        assert_eq!(fold_81(0), 0);
+        assert_eq!(fold_81(1), 1);
+        assert_eq!(fold_81(80), 80);
+        assert_eq!(fold_81(81), 1);
+        assert_eq!(fold_81(160), 80);
+        assert_eq!(fold_81(161), 1);
+        // 值域恒在 1..=81（0 除外）
+        for n in 1..500u64 {
+            assert!((1..=81).contains(&fold_81(n)), "fold_81({n}) 出界");
+        }
+    }
 
     #[test]
     fn element_by_last_digit() {

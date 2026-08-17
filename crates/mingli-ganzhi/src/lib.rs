@@ -666,6 +666,8 @@ mod tests {
         assert!(parse_ganzhi("甲").is_none());
         assert!(parse_ganzhi("甲子丑").is_none());
         assert!(parse_ganzhi("XY").is_none());
+        // 天干过关、地支不在表内——两个位置各自都要挡住
+        assert!(parse_ganzhi("甲X").is_none());
     }
 
     #[test]
