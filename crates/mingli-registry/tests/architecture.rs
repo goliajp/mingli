@@ -179,3 +179,15 @@ fn the_roots_never_reach_up_into_a_leaf() {
         violations.join("\n  ")
     );
 }
+
+#[test]
+fn the_interpretation_layer_only_knows_the_ports() {
+    // 释义层不该认识任何叶、也不该认识编排实现——它吃的是 `LeafOutput` 与 JSON 串，
+    // 两者都由端口层定义。一旦它伸手去拿某片叶的具体类型，护栏就不再是「对任意叶都成立」的了。
+    let deps = internal_deps(&workspace_root().join("crates/mingli-interpret/Cargo.toml"));
+    assert_eq!(
+        deps,
+        ["mingli-contract"],
+        "释义层只许依赖端口层：它组装的是提示词，不是盘——盘由谁算、算的是什么，它不必知道"
+    );
+}
