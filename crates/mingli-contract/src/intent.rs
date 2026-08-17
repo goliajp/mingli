@@ -132,7 +132,8 @@ pub fn intents() -> &'static [IntentSpec] {
             Intent::Election, "择（择吉）",
             &["window(start, end, grain)", "category（婚/葬/动土/行/开业…）"],
             "期/序（候选日按吉凶排名）", Live,
-            "在一段时窗上逐日取要素并分档。事类宜忌各家出入大，不合成总分",
+            "在一段时窗上逐日取要素并分档。事类宜忌各家出入大，不合成总分；\
+             各家分档的粒度与判据也不同，故这一类目前由单叶作答，合成总排名等于替读者选边",
         ),
         i(
             Intent::Synastry, "合（合盘）",

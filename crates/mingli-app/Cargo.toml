@@ -21,6 +21,7 @@ mingli-ziwei = { workspace = true }
 mingli-zeri = { workspace = true }
 mingli-taiyi = { workspace = true }
 mingli-jyotish = { workspace = true }
+mingli-astrology = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

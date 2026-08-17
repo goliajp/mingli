@@ -208,6 +208,46 @@ pub fn separation(a: f64, b: f64) -> f64 {
     d.min(360.0 - d)
 }
 
+/// 两张盘之间的一个相位：甲盘某星与乙盘某星成角。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CrossAspect {
+    /// 甲盘的星名。
+    pub a: String,
+    /// 乙盘的星名。
+    pub b: String,
+    /// 相位名（合 / 六分 / 刑 / 拱 / 冲）。
+    pub kind: &'static str,
+    /// 实际夹角（度，取小于 180 的那一边）。
+    pub angle: f64,
+}
+
+/// 两张本命盘之间的全部相位。
+///
+/// 几何与盘内相位是同一件事——两个黄经的夹角落在某个相位角的容许度内。
+/// 不同的只是这次两个黄经来自两张盘，故 `a` 与 `b` 分属两人，且**不对称**：
+/// 「甲的太阳合乙的月亮」与「乙的太阳合甲的月亮」是两回事，两个方向都出。
+///
+/// 本函数**只出几何**。哪些相位算数、容许度取多少、哪些星入合盘，各家出入很大
+/// （有只取日月金火土的、有把外行星一律排除的、有按星体分别定容许度的），
+/// 那属取舍不属计算，交调用方或释义层，本层不代为选择。
+#[must_use]
+pub fn cross_aspects(a: &[PlanetPos], b: &[PlanetPos], orb: f64) -> Vec<CrossAspect> {
+    let mut out = Vec::new();
+    for pa in a {
+        for pb in b {
+            if let Some((kind, angle)) = classify_aspect(pa.longitude, pb.longitude, orb) {
+                out.push(CrossAspect {
+                    a: pa.name.clone(),
+                    b: pb.name.clone(),
+                    kind,
+                    angle,
+                });
+            }
+        }
+    }
+    out
+}
+
 /// 判定两黄经构成的相位（容许度 `orb` 内），无则 `None`。
 #[must_use]
 pub fn classify_aspect(a: f64, b: f64, orb: f64) -> Option<(&'static str, f64)> {

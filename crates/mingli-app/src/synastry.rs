@@ -6,6 +6,7 @@
 
 use crate::team::{self, Member};
 use crate::Birth;
+use mingli_astro::Moment;
 use serde::Serialize;
 use serde_json::{json, Value};
 
@@ -22,6 +23,8 @@ pub struct Synastry {
     pub b_supplies_a: u32,
     /// 团队合盘的完整结构（两人的旺衰 / 用神 / 五行画像 / 2×2 矩阵），供释义层与前端。
     pub detail: Value,
+    /// 两人本命盘之间的占星相位（几何事实，不含取舍）。
+    pub aspects: Value,
 }
 
 /// 合盘：两人本命各排一盘，取互补矩阵的两个非对角元。
@@ -45,6 +48,29 @@ pub fn compute(a: (&Birth, Option<&str>), b: (&Birth, Option<&str>)) -> Result<S
         a_supplies_b: cell(1, 0),
         b_supplies_a: cell(0, 1),
         detail,
+        aspects: cross_aspects_between(a.0, b.0),
+    })
+}
+
+/// 两人本命盘之间的相位（只出几何，不出取舍）。
+///
+/// 四柱那一路给的是「互供用神」——一个量化的供给度；占星这一路给的是「两盘之间成了哪些角」——
+/// 一组结构事实。两者都是「配」，说的却不是同一件事，故并列而不合成。
+///
+/// 哪些相位算数、容许度多少、哪些星入合盘，各家出入很大，那属取舍不属计算，
+/// 本层按默认容许度出全量，选哪些交释义层。
+fn cross_aspects_between(a: &Birth, b: &Birth) -> Value {
+    let chart = |x: &Birth| {
+        let m = Moment::new(x.year, x.month, x.day, x.hour, x.minute, x.tz);
+        mingli_astrology::compute_at(&m, None, mingli_astrology::HouseSystem::Placidus)
+    };
+    let (ca, cb) = (chart(a), chart(b));
+    let list = mingli_astrology::cross_aspects(&ca.planets, &cb.planets, mingli_astrology::DEFAULT_ORB);
+    json!({
+        "system": "astrology",
+        "orb": mingli_astrology::DEFAULT_ORB,
+        "count": list.len(),
+        "list": list,
     })
 }
 
@@ -58,6 +84,7 @@ impl Synastry {
             "a_supplies_b": self.a_supplies_b,
             "b_supplies_a": self.b_supplies_a,
             "detail": self.detail,
+            "aspects": self.aspects,
         })
     }
 }

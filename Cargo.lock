@@ -566,6 +566,7 @@ version = "0.1.0"
 dependencies = [
  "mingli-analysis",
  "mingli-astro",
+ "mingli-astrology",
  "mingli-bazi",
  "mingli-contract",
  "mingli-engine",

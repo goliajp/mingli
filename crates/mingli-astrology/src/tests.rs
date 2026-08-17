@@ -166,3 +166,72 @@ fn asc_mc_closed_form_sanity() {
     assert!(mc.abs() < 1e-9 || (mc - 360.0).abs() < 1e-9, "MC={mc}");
     assert!((asc - 90.0).abs() < 1e-9, "Asc={asc}");
 }
+
+// ── 两盘比对 ────────────────────────────────────────────────────────────
+mod cross {
+    use super::*;
+
+    fn pos(name: &str, lon: f64) -> PlanetPos {
+        PlanetPos {
+            name: name.to_string(),
+            longitude: lon,
+            sign: String::new(),
+            degree: 0.0,
+            house: None,
+        }
+    }
+
+    /// 相位是几何，与盘内同一套判定——夹角落在相位角的容许度内就算。
+    #[test]
+    fn a_cross_aspect_is_the_same_geometry_as_an_in_chart_one() {
+        let a = [pos("太阳", 10.0)];
+        let b = [pos("月亮", 190.0), pos("火星", 100.5), pos("木星", 45.0)];
+        let got = cross_aspects(&a, &b, DEFAULT_ORB);
+        // 10 与 190 差 180 → 冲；10 与 100.5 差 90.5 → 刑（容许 6°）；10 与 45 差 35 → 无
+        let kinds: Vec<&str> = got.iter().map(|x| x.kind).collect();
+        assert_eq!(kinds, ["冲", "刑"], "实得 {got:?}");
+        assert!((got[0].angle - 180.0).abs() < 1e-9);
+    }
+
+    /// 夹角是对称的，**归属不是**——每一条都要说清是谁的星对谁的星。
+    ///
+    /// 这是合盘与盘内相位最要紧的差别：盘内是一张表的上三角（同一个人的两颗星），
+    /// 合盘是两张表的全矩阵，且每格都有主宾。丢掉主宾，「甲的太阳合乙的月亮」
+    /// 与「乙的太阳合甲的月亮」就成了同一句话，而它们说的是两回事。
+    #[test]
+    fn each_pair_says_whose_planet_is_whose() {
+        let a = [pos("甲太阳", 0.0), pos("甲月亮", 90.0)];
+        let b = [pos("乙太阳", 90.0), pos("乙月亮", 180.0)];
+        let ab = cross_aspects(&a, &b, DEFAULT_ORB);
+        assert!(!ab.is_empty());
+        for x in &ab {
+            assert!(x.a.starts_with('甲') && x.b.starts_with('乙'), "主宾错位：{x:?}");
+        }
+        // 反向跑一遍，主宾整体调转，而夹角一一对应
+        let ba = cross_aspects(&b, &a, DEFAULT_ORB);
+        assert_eq!(ab.len(), ba.len());
+        for x in &ba {
+            assert!(x.a.starts_with('乙') && x.b.starts_with('甲'), "反向主宾错位：{x:?}");
+        }
+        for x in &ab {
+            assert!(
+                ba.iter().any(|y| y.a == x.b && y.b == x.a && y.kind == x.kind
+                    && (y.angle - x.angle).abs() < 1e-9),
+                "每条都该在反向里有一条镜像：{x:?}"
+            );
+        }
+    }
+
+    /// 容许度放宽只会多出相位，不会少——单调性，防止边界写反。
+    #[test]
+    fn a_wider_orb_never_loses_an_aspect() {
+        let a = [pos("太阳", 12.3), pos("金星", 200.0)];
+        let b = [pos("月亮", 100.0), pos("土星", 15.0), pos("火星", 272.7)];
+        let narrow = cross_aspects(&a, &b, 2.0);
+        let wide = cross_aspects(&a, &b, 8.0);
+        assert!(wide.len() >= narrow.len());
+        for n in &narrow {
+            assert!(wide.iter().any(|w| w.a == n.a && w.b == n.b && w.kind == n.kind));
+        }
+    }
+}
