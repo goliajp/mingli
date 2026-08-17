@@ -92,10 +92,10 @@ pub const fn d(aspect: &'static str, status: Determinism, note: &'static str) ->
 #[serde(rename_all = "snake_case")]
 pub enum Gender {
     /// 男。
-    #[serde(alias = "Male")]
+    #[serde(alias = "Male", alias = "男")]
     Male,
     /// 女。
-    #[serde(alias = "Female")]
+    #[serde(alias = "Female", alias = "女")]
     Female,
 }
 

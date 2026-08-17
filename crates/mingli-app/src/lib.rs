@@ -11,6 +11,7 @@ pub mod analysis;
 pub mod bazi;
 pub mod election;
 pub mod event;
+pub mod input;
 pub mod interpret;
 pub mod locative;
 pub mod mundane;
@@ -23,8 +24,9 @@ use mingli_contract::Gender;
 
 /// 一次出生/占问输入——用例层的公共入参。
 ///
-/// 与 HTTP DTO 的区别：这里的字段已经过校验与默认值填充，是领域可直接消费的形状。
-#[derive(Debug, Clone, Copy)]
+/// 也是它的**线上形状**：`tz` 缺省 +8、`minute` 缺省 0、性别缺省不排大运。
+/// 直接可反序列化是有意的——见 [`input`] 里为什么入参形状归用例层。
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
 pub struct Birth {
     /// 公历年（1900–2100）。
     pub year: i32,
@@ -35,14 +37,19 @@ pub struct Birth {
     /// 时 0..23。
     pub hour: u32,
     /// 分 0..59。
+    #[serde(default)]
     pub minute: u32,
-    /// 时区偏移小时。
+    /// 时区偏移小时。缺省 +8（中国）；日本传 9。
+    #[serde(default = "input::default_tz")]
     pub tz: f64,
     /// 性别（缺省则不排大运）。
+    #[serde(default)]
     pub gender: Option<Gender>,
     /// 是否按真太阳时校正时柱。
+    #[serde(default)]
     pub true_solar_time: bool,
     /// 出生地经度（真太阳时校正需要）。
+    #[serde(default)]
     pub longitude: Option<f64>,
 }
 

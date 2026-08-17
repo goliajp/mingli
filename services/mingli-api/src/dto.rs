@@ -4,6 +4,12 @@
 //! 领域类型不该为了迁就一个可能乱填的 HTTP body 而放宽自己的不变量。
 
 
+// 各意图的入参形状住在用例层（见 `mingli_app::input`）——同一批用例还要给 wasm 用，
+// 形状写在承接层就等于让两条交付路各写一遍。这里只留 HTTP 自己多出来的那些字段。
+pub(crate) use mingli_app::input::{
+    ElectionRequest, EventRequest, FortuneRequest, LocativeRequest, MundaneRequest, SynastryRequest, TeamRequest,
+    WordRequest,
+};
 use mingli_app::Birth;
 use mingli_contract::{Gender, Query};
 use serde::Deserialize;
@@ -18,8 +24,9 @@ pub(crate) struct ChartRequest {
     pub(crate) minute: u32,
     /// 时区偏移小时，缺省 +8（中国）。日本传 9。
     pub(crate) tz: Option<f64>,
-    /// "male" / "female"，缺省不算大运。
-    pub(crate) gender: Option<String>,
+    /// `"male"` / `"female"`（也收 `"男"` / `"女"` 与首字母大写），缺省不算大运。
+    #[serde(default)]
+    pub(crate) gender: Option<Gender>,
     /// 出生地纬度（占星 Asc/MC 用，可选）。
     pub(crate) latitude: Option<f64>,
     /// 出生地经度（占星 Asc/MC 用，可选）。
@@ -39,15 +46,6 @@ pub(crate) struct ChartRequest {
     pub(crate) subject: Option<String>,
 }
 
-/// HTTP 的性别字面 → 契约层性别。
-pub(crate) fn parse_gender(g: &Option<String>) -> Option<Gender> {
-    match g.as_deref() {
-        Some("male" | "男") => Some(Gender::Male),
-        Some("female" | "女") => Some(Gender::Female),
-        _ => None,
-    }
-}
-
 /// DTO → 用例层入参。
 pub(crate) fn birth(req: &ChartRequest) -> Birth {
     Birth {
@@ -57,7 +55,7 @@ pub(crate) fn birth(req: &ChartRequest) -> Birth {
         hour: req.hour,
         minute: req.minute,
         tz: req.tz.unwrap_or(8.0),
-        gender: parse_gender(&req.gender),
+        gender: req.gender,
         true_solar_time: req.true_solar_time,
         longitude: req.longitude,
     }
@@ -72,7 +70,7 @@ pub(crate) fn engine_query(req: &ChartRequest) -> Query {
         hour: req.hour,
         minute: req.minute,
         tz: req.tz.unwrap_or(8.0),
-        gender: parse_gender(&req.gender),
+        gender: req.gender,
         latitude: req.latitude,
         longitude: req.longitude,
         seed: req.seed,
@@ -93,155 +91,4 @@ pub(crate) struct OverlayRequest {
     pub(crate) natal: ChartRequest,
     /// 叠加干支字符串列表（顺序无关）。如 `["丁酉","丙午"]` = 大运丁酉柱 + 流年丙午柱。
     pub(crate) extras: Vec<String>,
-}
-
-/// 团队合盘：N 人生辰 → N 张本命盘 + 团队五行画像 + 互补矩阵。
-#[derive(Debug, Deserialize)]
-pub(crate) struct TeamRequest {
-    pub(crate) members: Vec<TeamMember>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct TeamMember {
-    pub(crate) year: i32,
-    pub(crate) month: u32,
-    pub(crate) day: u32,
-    pub(crate) hour: u32,
-    #[serde(default)]
-    pub(crate) minute: u32,
-    pub(crate) tz: Option<f64>,
-    pub(crate) gender: Option<String>,
-    #[serde(default)]
-    pub(crate) name: Option<String>,
-}
-
-/// DTO 成员 → 用例层成员。
-pub(crate) fn team_members(req: &TeamRequest) -> Vec<mingli_app::team::Member<'_>> {
-    req.members
-        .iter()
-        .map(|m| mingli_app::team::Member { birth: member_birth(m), name: m.name.as_deref() })
-        .collect()
-}
-
-/// D 族字/词模态请求：gematria/abjad 吃文字；wuge 吃笔画（康熙笔画表不内置，由调用方给）。
-#[derive(Debug, Deserialize)]
-pub(crate) struct WordRequest {
-    /// "gematria" / "abjad" / "wuge"。
-    pub(crate) system: String,
-    /// gematria（希伯来）/abjad（阿拉伯） 的词。
-    pub(crate) text: Option<String>,
-    /// wuge：姓各字笔画。
-    pub(crate) surname: Option<Vec<u32>>,
-    /// wuge：名各字笔画。
-    pub(crate) given: Option<Vec<u32>>,
-}
-
-/// Fortune：t 时刻运势切片 + 100 年用神供给时间序列。
-/// body = {natal: ChartRequest, t_target: AskTime(y/m/d/h/min/tz), timeline_max_age?: u32}
-#[derive(Debug, Deserialize)]
-pub(crate) struct FortuneRequest {
-    /// 本命输入（全量 ChartRequest：出生 y/m/d/h/min/tz/性别等）。
-    pub(crate) natal: ChartRequest,
-    /// 目标时刻(year/month/day/hour/minute/tz)。
-    pub(crate) t_target: TTime,
-    /// 时间序列扫描上限年龄。默认 100。
-    #[serde(default)]
-    pub(crate) timeline_max_age: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct TTime {
-    pub(crate) year: i32,
-    pub(crate) month: u32,
-    pub(crate) day: u32,
-    #[serde(default)]
-    pub(crate) hour: u32,
-    #[serde(default)]
-    pub(crate) minute: u32,
-    #[serde(default = "default_tz")]
-    pub(crate) tz: f64,
-}
-
-pub(crate) fn default_tz() -> f64 { 8.0 }
-
-/// 占事请求：问事此刻 + 取机 + 问句。
-#[derive(Debug, Deserialize)]
-pub(crate) struct EventRequest {
-    /// 问事此刻（缺省字段按 0 / +8 处理）。
-    pub(crate) t_ask: TTime,
-    /// 取机种子；缺省表示未取机，各叶按问事时刻自行派生。
-    pub(crate) seed: Option<u64>,
-    /// 问句（只入释义，不参与计算）。
-    pub(crate) question: Option<String>,
-}
-
-pub(crate) fn ask_time(t: &TTime) -> mingli_contract::AskTime {
-    mingli_contract::AskTime {
-        year: t.year,
-        month: t.month,
-        day: t.day,
-        hour: t.hour,
-        minute: t.minute,
-        tz: t.tz,
-    }
-}
-
-/// 择吉请求：时窗 + 事类。
-#[derive(Debug, Deserialize)]
-pub(crate) struct ElectionRequest {
-    /// 时窗起（含）。
-    pub(crate) window_start: TTime,
-    /// 时窗止（含）。
-    pub(crate) window_end: TTime,
-    /// 事类（婚 / 葬 / 动土 / 行 / 开业…；只入释义，不参与排序）。
-    pub(crate) category: Option<String>,
-}
-
-/// 寻方位请求：问事此刻 + 取机 + 所寻。
-#[derive(Debug, Deserialize)]
-pub(crate) struct LocativeRequest {
-    /// 问事此刻。
-    pub(crate) t_ask: TTime,
-    /// 取机种子（可缺）。
-    pub(crate) seed: Option<u64>,
-    /// 所寻（人 / 物 / 向；只入释义）。
-    pub(crate) category: Option<String>,
-}
-
-/// 合盘请求：甲乙两人。
-#[derive(Debug, Deserialize)]
-pub(crate) struct SynastryRequest {
-    /// 甲方。
-    pub(crate) a: TeamMember,
-    /// 乙方。
-    pub(crate) b: TeamMember,
-}
-
-pub(crate) fn member_birth(m: &TeamMember) -> Birth {
-    Birth {
-        year: m.year,
-        month: m.month,
-        day: m.day,
-        hour: m.hour,
-        minute: m.minute,
-        tz: m.tz.unwrap_or(8.0),
-        gender: parse_gender(&m.gender),
-        true_solar_time: false,
-        longitude: None,
-    }
-}
-
-/// 国运请求：奠基时刻 + 坐标（占星立国盘用）+ 目标年 + 时间线年数。
-#[derive(Debug, Deserialize)]
-pub(crate) struct MundaneRequest {
-    /// 政体奠基时刻。
-    pub(crate) founded_at: TTime,
-    /// 奠基地纬度（可缺）。
-    pub(crate) latitude: Option<f64>,
-    /// 奠基地经度（可缺）。
-    pub(crate) longitude: Option<f64>,
-    /// 目标年（年度盘所在年，缺省取立国年）。
-    pub(crate) target_year: Option<i32>,
-    /// 时间线年数（缺省 24，上限 72）。
-    pub(crate) span: Option<u32>,
 }
