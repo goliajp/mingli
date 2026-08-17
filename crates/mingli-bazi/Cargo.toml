@@ -1,9 +1,12 @@
 [package]
 name = "mingli-bazi"
-description = "L3 叶：四柱推命（八字）排盘——年/月/日/时四柱、十神、五行、农历、大运。建于 astro(天文) + ganzhi(干支)。"
+description = "Four Pillars of Destiny: the four pillars, ten gods, five elements, lunar date, luck cycles, strength, pattern and useful god."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bazi", "four-pillars", "chinese", "astrology"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
 serde_json = { workspace = true }

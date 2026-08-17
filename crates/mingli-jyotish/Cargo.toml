@@ -1,9 +1,12 @@
 [package]
 name = "mingli-jyotish"
-description = "L3 叶(B 族)：印度占星(Jyotish)。Lahiri ayanamsa 恒星黄道 + 27 nakshatra + 12 rasi + 9 行星(含 Rahu/Ketu)+ Lagna。承接 mingli-ephemeris + mingli-astrology。"
+description = "Vedic astrology: sidereal zodiac with four ayanamsas, 27 nakshatras, 12 rasis, nine grahas including Rahu and Ketu, the lagna, Vimshottari dasha and the navamsa."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["jyotish", "vedic", "astrology", "nakshatra"]
+categories = ["science", "algorithms"]
 
 [dependencies]
 serde_json = { workspace = true }

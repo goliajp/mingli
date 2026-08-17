@@ -45,6 +45,7 @@ members = [
 edition = "2024"
 version = "0.1.0"
 license = "MIT"
+repository = "https://github.com/goliajp/mingli"
 rust-version = "1.97"
 
 [workspace.dependencies]

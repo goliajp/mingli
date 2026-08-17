@@ -1,9 +1,12 @@
 [package]
 name = "mingli-pawukon"
-description = "L3 叶(A 族/确定性)：巴厘 Pawukon 历——210=2·3·5·7 上的十个并行週(wewaran)。简单週用 core::cyclic 并行相位，派生週(Dasawara/Dwiwara/Ekawara)用 urip 之和，卡日週(Catur/Asta/Sanga)按断点。"
+description = "The Balinese Pawukon calendar: ten concurrent weeks over a 210-day cycle, including the urip-derived and broken weeks."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["pawukon", "balinese", "calendar", "cyclic"]
+categories = ["date-and-time", "algorithms"]
 
 [dependencies]
 serde_json = { workspace = true }

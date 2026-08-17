@@ -1,9 +1,12 @@
 [package]
 name = "mingli-astrology"
-description = "L3 叶(B 族)：西洋占星本命盘——行星落黄道十二宫(星座) + 相位。建于 ephemeris(星历) + core(量化) + astro(Moment 共享层)。"
+description = "Western natal charts: planets in signs and houses with aspects, over Placidus, Koch, Whole Sign, Equal and Porphyry cusps."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["astrology", "natal-chart", "placidus", "houses"]
+categories = ["science", "algorithms"]
 
 [dependencies]
 serde_json = { workspace = true }

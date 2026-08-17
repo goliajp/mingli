@@ -1,9 +1,12 @@
 [package]
 name = "mingli-wasm"
-description = "命理大树的 wasm 绑定（整库一包）：engine 全叶 cast/cast_one、跨叶 NMI、释义 prompt 组装、D 族字/词。供浏览器/JS 直接调用引擎，无需服务端（LLM 释义除外）。"
+description = "WebAssembly bindings for the whole library: all eight intents, taking the same request bodies the HTTP endpoints take, so a browser can run the engine with no server."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["wasm", "divination", "bindings", "browser"]
+categories = ["wasm", "api-bindings", "algorithms"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]

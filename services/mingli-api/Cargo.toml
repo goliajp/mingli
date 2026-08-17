@@ -1,9 +1,12 @@
 [package]
 name = "mingli-api"
-description = "承接层：axum 服务，暴露 /api/bazi、/api/ziwei 精盘端点与 /api/cast 全叶并行排盘端点。"
+description = "The axum service: every divination system over HTTP JSON, one endpoint per intent, plus the interpretation endpoints."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["axum", "divination", "http", "api"]
+categories = ["web-programming::http-server", "algorithms"]
 
 [dependencies]
 mingli-contract = { workspace = true }

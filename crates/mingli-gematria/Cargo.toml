@@ -1,9 +1,12 @@
 [package]
 name = "mingli-gematria"
-description = "L3 叶(D 族/确定性)：希伯来 gematria 多计法——22 字母 + 5 尾形按七种 Mispar(Hechrachi/Gadol/Siduri/Katan/KatanMispari/AtBash/AlBam)求和。字符串→数,纯函数。"
+description = "Hebrew gematria in seven methods: Hechrachi, Gadol, Siduri, Katan, Katan Mispari, AtBash and AlBam, over 22 letters and five finals."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["gematria", "hebrew", "numerology", "cipher"]
+categories = ["algorithms", "text-processing"]
 
 [dependencies]
 serde_json = { workspace = true }

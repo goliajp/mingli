@@ -1,9 +1,12 @@
 [package]
 name = "mingli-registry"
-description = "装配根：唯一知道「树上有哪些叶」的地方。把各叶的 CastingEngine / WordEngine 实现装配成注册表，交给编排层消费。加新叶只需在此登记一行。"
+description = "The composition root: the one place that knows which divination systems exist. Registering a leaf is one line here."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["registry", "divination", "composition", "plugin"]
+categories = ["algorithms", "api-bindings"]
 
 [dependencies]
 mingli-contract = { workspace = true }
