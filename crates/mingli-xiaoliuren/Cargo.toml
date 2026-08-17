@@ -1,9 +1,12 @@
 [package]
 name = "mingli-xiaoliuren"
-description = "L3 叶(A 族/确定性)：小六壬(诸葛马前课)——农历月→日→时辰在 Z₆ 上连续掐指，落六神(大安/留连/速喜/赤口/小吉/空亡)。时间→模运算，完全确定。"
+description = "Xiao Liu Ren, the roadside reckoning: lunar month, day and double-hour counted around Z6 onto one of six deities. Fully determined by the moment."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["xiaoliuren", "divination", "chinese", "cyclic"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
 serde_json = { workspace = true }

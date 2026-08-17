@@ -1,9 +1,12 @@
 [package]
 name = "mingli-geomancy"
-description = "L3 叶(C 族)：地占 ʿilm al-raml——4 母图(种子)→盾牌图(女/侄/见证/法官)。建于 core(gf2 转置/XOR/奇偶 + sampler 种子)。法官恒为偶(GF(2) 奇偶校验定理)。"
+description = "Ilm al-raml geomancy: four mother figures seeded, then daughters, nieces, witnesses and the judge. The judge is always even, by a GF(2) parity theorem."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["geomancy", "raml", "divination", "gf2"]
+categories = ["algorithms", "simulation"]
 
 [dependencies]
 serde_json = { workspace = true }

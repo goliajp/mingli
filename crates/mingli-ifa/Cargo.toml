@@ -1,9 +1,12 @@
 [package]
 name = "mingli-ifa"
-description = "L3 叶(C 族)：西非约鲁巴 Ifá——双 figure(各 4 位)组成 256 odu。建于 core(gf2 位向量 + sampler 种子)。256 odu 名属🟡查表，本叶只出 16×16 格结构。"
+description = "West African Yoruba Ifa: two four-bit figures forming one of 256 odu. Provides the 16x16 structure; the odu names are a lookup table this crate does not claim."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["ifa", "yoruba", "divination", "odu"]
+categories = ["algorithms", "simulation"]
 
 [dependencies]
 serde_json = { workspace = true }

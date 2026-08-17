@@ -1,9 +1,12 @@
 [package]
 name = "mingli-qizhengsiyu"
-description = "L3 叶(B 族)：七政四余(中国本土星占)。日月五星 + 罗㬋/计都/月孛(紫炁 🟡)+ 28 宿值日 + 12 宫归。承接 mingli-ephemeris + mingli-astro + mingli-ganzhi。"
+description = "Qizheng Siyu, indigenous Chinese astrology: the seven luminaries and four shadow planets, the 28 lunar mansions on duty, and the twelve palaces."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["astrology", "chinese", "mansions", "qizheng"]
+categories = ["science", "algorithms"]
 
 [dependencies]
 serde_json = { workspace = true }

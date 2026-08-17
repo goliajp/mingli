@@ -1,9 +1,12 @@
 [package]
 name = "mingli-app"
-description = "用例层：本命 / 岁运叠加 / 运势时序 / 团队合盘 / 字词 / 跨叶分析 / 释义这些「一次完整请求要做的事」。承接层只做协议转换，业务编排都在这里。"
+description = "The use cases: one per intent — natal, fortune, event, election, locative, synastry, mundane and word — and the input shapes every delivery path shares."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["divination", "use-cases", "orchestration"]
+categories = ["algorithms", "api-bindings"]
 
 [dependencies]
 mingli-astro = { workspace = true }

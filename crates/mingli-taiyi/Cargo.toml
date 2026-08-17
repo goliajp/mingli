@@ -1,9 +1,12 @@
 [package]
 name = "mingli-taiyi"
-description = "L3 叶(⟂ 横切/确定性)：太乙神数——太乙积年(《太乙金镜式经》历元) → 太乙行八宫(三年一宫·不入中·廿四年一周·阳顺阴逆) + 三才(天地人) + 十六神方位框架。诸神(文昌/始击/主客/将)与古僻神名因源间分歧标🟡。"
+description = "Tai Yi Shen Shu: the accumulated years to the epoch, Tai Yi walking the eight palaces, the three powers, and the sixteen-spirit direction frame."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["taiyi", "divination", "chinese", "cyclic"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
 serde_json = { workspace = true }

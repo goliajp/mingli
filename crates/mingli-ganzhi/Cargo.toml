@@ -1,9 +1,12 @@
 [package]
 name = "mingli-ganzhi"
-description = "L2 主干：六十干支(sexagenary cycle)符号系统——天干地支、五虎遁、时辰、纳音五行、日柱递推。建于 mingli-core，对天文零依赖。"
+description = "The sexagenary cycle as a symbol system: stems and branches, the five-tiger rule, double-hours, nayin elements, and day-pillar recursion."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["sexagenary", "ganzhi", "calendar", "chinese"]
+categories = ["date-and-time", "algorithms"]
 
 [dependencies]
 mingli-core = { workspace = true }

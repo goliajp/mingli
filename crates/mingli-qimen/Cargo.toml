@@ -1,9 +1,12 @@
 [package]
 name = "mingli-qimen"
-description = "L3 叶(⟂ 横切/确定性)：奇门遁甲(时家)——节气定阴阳遁+三元局数(72局表,±3不变量自检) + 地盘三奇六仪布九宫(阳顺阴逆)。地盘复用洛书九宫;天盘九星/八门/八神因流派开关暂标🟡。"
+description = "Qi Men Dun Jia, hour-plate rotating method: the escaping-yang or -yin bureau from the solar term and its element, the earth plate over the nine palaces, and the sky, gate and spirit plates."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["qimen", "divination", "chinese", "nine-palace"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
 serde_json = { workspace = true }

@@ -1,9 +1,12 @@
 [package]
 name = "mingli-engine"
-description = "编排层：共享上下文记忆化 + rayon 并行 fan-out。注册表由调用方注入，本层不认识任何具体叶。"
+description = "Orchestration: a memoized shared context and a parallel fan-out over an injected registry. Knows the ports, never a leaf."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["orchestration", "divination", "parallel", "rayon"]
+categories = ["algorithms", "concurrency"]
 
 [dependencies]
 mingli-contract = { workspace = true }

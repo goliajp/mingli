@@ -1,9 +1,12 @@
 [package]
 name = "mingli-luoshu"
-description = "L2 主干：洛书幻方与九宫飞布——三阶幻方、九宫(八卦/方位)、阳顺阴逆飞星。建于 mingli-core::group。"
+description = "The Luoshu magic square and nine-palace flight: the order-3 square, the palaces and their trigrams and directions, and forward and reverse flying stars."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["luoshu", "magic-square", "nine-palace", "feng-shui"]
+categories = ["algorithms", "mathematics"]
 
 [dependencies]
 mingli-core = { workspace = true }

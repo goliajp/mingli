@@ -1,9 +1,12 @@
 [package]
 name = "mingli-ephemeris"
-description = "L1 物理石：行星星历——日月五星地心黄道经度(含光行时校正)。基于经审计的 vsop87 系数实现，开启 B 族(占星/七政四余/Jyotish)。"
+description = "Geocentric ecliptic longitudes for the Sun, Moon and planets, with light-time correction, from audited VSOP87 coefficients."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["ephemeris", "vsop87", "astronomy", "planets"]
+categories = ["science", "algorithms", "mathematics"]
 
 [dependencies]
 serde = { workspace = true }

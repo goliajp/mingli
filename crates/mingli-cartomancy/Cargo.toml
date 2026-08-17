@@ -1,9 +1,12 @@
 [package]
 name = "mingli-cartomancy"
-description = "L3 叶(C 族)：抽牌占卜——塔罗/卢恩等无放回抽取 + 正逆位。建于 core(sampler 洗牌 Fisher-Yates 种子可复现)。牌名属🟡查表，本叶只出抽取机制(置换/逆位 bit)。"
+description = "Card draws: reproducible Fisher-Yates dealing without replacement, plus reversals, over five decks. Provides the mechanism, not the card meanings."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["tarot", "cartomancy", "divination", "shuffle"]
+categories = ["algorithms", "simulation"]
 
 [dependencies]
 serde_json = { workspace = true }

@@ -1,9 +1,12 @@
 [package]
 name = "mingli-meihua"
-description = "L3 叶(C 族/确定性)：梅花易数时间起卦——农历年支/月/日/时辰 mod8/mod6 → 本卦/互卦/之卦。建于 astro(Moment 农历) + gua(六爻代数)。时间→模运算，完全确定。"
+description = "Meihua Yishu cast from a moment: the lunar year branch, month, day and double-hour reduced mod 8 and mod 6 into the primary, nuclear and changed hexagrams."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["meihua", "yijing", "divination", "chinese"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
 serde_json = { workspace = true }

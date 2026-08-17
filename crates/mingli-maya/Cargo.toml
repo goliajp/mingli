@@ -1,9 +1,12 @@
 [package]
 name = "mingli-maya"
-description = "L3 叶(A 族/确定性)：玛雅历法——Tzolkʼin 260=13×20(CRT 范例) + Haab 365 + Long Count。由民用日序(JDN)经 GMT 历元(584283)折算，时间→模运算/中国剩余定理，完全确定。"
+description = "The three interlocking Maya calendar counts: the 260-day Tzolkin as a textbook CRT, the 365-day Haab, and the Long Count, from the Julian day number."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["maya", "calendar", "tzolkin", "long-count"]
+categories = ["date-and-time", "algorithms"]
 
 [dependencies]
 serde_json = { workspace = true }

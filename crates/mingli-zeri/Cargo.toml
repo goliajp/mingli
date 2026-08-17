@@ -1,9 +1,12 @@
 [package]
 name = "mingli-zeri"
-description = "L3 叶(A 族/确定性)：择日学循环要素——建除十二神(日支−月建 on Z₁₂)与二十八宿值日(连续 Z₂₈)。建于 astro(节气月支) + ganzhi(日支)。时间→模运算，完全确定。"
+description = "Cyclic elements of Chinese date selection: the twelve jianchu officers and the 28 lunar mansions on duty."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["zeri", "date-selection", "chinese", "calendar"]
+categories = ["date-and-time", "algorithms"]
 
 [dependencies]
 serde_json = { workspace = true }

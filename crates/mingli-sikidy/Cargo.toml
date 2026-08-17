@@ -1,9 +1,12 @@
 [package]
 name = "mingli-sikidy"
-description = "L3 叶(C 族)：马达加斯加 Sikidy——4 母列(种子)→16 列 GF(2) 矩阵。建于 core(gf2 转置/XOR + sampler)。创世者列 C15 恒为偶(与地占法官同一奇偶校验定理)。"
+description = "Malagasy Sikidy: four seeded mother columns expanded into a sixteen-column GF(2) matrix. The creator column is always even, by the same parity theorem as the geomantic judge."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["sikidy", "malagasy", "divination", "gf2"]
+categories = ["algorithms", "simulation"]
 
 [dependencies]
 serde_json = { workspace = true }
