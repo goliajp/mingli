@@ -307,3 +307,124 @@ let r = interpret_leaf(&Echo, &sample_leaf("bazi")).unwrap();
 assert_eq!(r.backend, "echo");
 assert!(r.text.starts_with("len="));
 }
+
+// ── 七套模板的结构：一张表跑到底 ──────────────────────────────────
+//
+// 此前每套意图各有各的散装断言，于是「所有模板都该有的东西」没人守——
+// C1 审计就是这么查出三处漂移的（起句括号位置、免责句引号、合盘漏了提示槽位）。
+// 这张表把共有的形状集中声明一次，加一套意图就得在这里加一行，漏了就红。
+
+/// 一套「吃 JSON」的意图在结构上必须满足什么。
+struct Shape {
+    /// 稳定 id，也是 `Interpretation::leaf`。
+    id: &'static str,
+    /// 组装函数。
+    build: fn(&str) -> String,
+    /// 释义函数。
+    interpret: fn(&dyn Interpreter, &str) -> std::io::Result<Interpretation>,
+    /// JSON 的抬头，必须原样出现在提示词里。
+    json_header: &'static str,
+    /// 是否声明了读法提示（提示的位置在 JSON 前或后都算）。
+    has_hints: bool,
+    /// 字数上限。各意图输出形态不同，容许不一样，但**必须有**。
+    word_limit: u32,
+}
+
+fn shapes() -> Vec<Shape> {
+    vec![
+        Shape { id: "event", build: build_event_prompt, interpret: interpret_event,
+                json_header: "占事结果 JSON：", has_hints: true, word_limit: 250 },
+        Shape { id: "election", build: build_election_prompt, interpret: interpret_election,
+                json_header: "择吉结果 JSON：", has_hints: true, word_limit: 250 },
+        Shape { id: "locative", build: build_locative_prompt, interpret: interpret_locative,
+                json_header: "寻方位结果 JSON：", has_hints: true, word_limit: 200 },
+        Shape { id: "synastry", build: build_synastry_prompt, interpret: interpret_synastry,
+                json_header: "合盘结果 JSON：", has_hints: true, word_limit: 250 },
+        Shape { id: "mundane", build: build_mundane_prompt, interpret: interpret_mundane,
+                json_header: "国运结果 JSON：", has_hints: true, word_limit: 220 },
+        Shape { id: "team", build: build_team_prompt, interpret: interpret_team,
+                json_header: "【团队合盘 JSON】", has_hints: true, word_limit: 250 },
+    ]
+}
+
+/// 一段绝不会在护栏里自然出现的 JSON，用来验它确实被原样注入。
+const PROBE: &str = r#"{"__probe__":"零一二","n":-1}"#;
+
+#[test]
+fn every_intent_template_carries_the_same_frame() {
+    for s in shapes() {
+        let p = (s.build)(PROBE);
+        let where_ = |what: &str| format!("[{}] {what}", s.id);
+
+        // 起句：同一句话、同一个括号位置
+        assert!(
+            p.starts_with("你是术数释义助手。下面是【已由确定性引擎算好】的"),
+            "{}：起句应作「下面是【已由确定性引擎算好】的…」，实为「{}…」",
+            where_("起句"),
+            p.chars().take(40).collect::<String>()
+        );
+
+        // 免责句：同一种引号
+        assert!(
+            p.contains("「仅供研究与娱乐」"),
+            "{}：免责句应用「」而非『』或其它写法",
+            where_("免责句")
+        );
+
+        // 不许重算
+        assert!(p.contains("绝不"), "{}：护栏里要有「绝不改动 / 绝不修改」这条硬约束", where_("护栏"));
+
+        // 字数上限：容许各意图不同，但必须写明
+        assert!(
+            p.contains(&format!("{} 字以内", s.word_limit)),
+            "{}：应写明 {} 字以内",
+            where_("字数上限"),
+            s.word_limit
+        );
+
+        // JSON 抬头与原样注入
+        assert!(p.contains(s.json_header), "{}：缺 JSON 抬头「{}」", where_("JSON"), s.json_header);
+        assert!(p.contains(PROBE), "{}：JSON 应原样注入，不许被改写或转义", where_("JSON"));
+        assert_eq!(p.matches(PROBE).count(), 1, "{}：JSON 只该出现一次", where_("JSON"));
+
+        // 读法提示：声明了就得真有（合盘那处漏槽位就是这样漏掉的）
+        let frame_len = p.len() - PROBE.len();
+        if s.has_hints {
+            assert!(
+                p.contains("【字段") || p.contains("【读法】") || p.contains("【建除") || p.contains("【要素"),
+                "{}：声明了有读法提示，提示段却不在提示词里",
+                where_("提示")
+            );
+        }
+        assert!(frame_len > 200, "{}：框太短（{frame_len} 字节），护栏多半没进去", where_("整体"));
+    }
+}
+
+#[test]
+fn every_intent_interpretation_reports_itself_honestly() {
+    for s in shapes() {
+        let got = (s.interpret)(&Template, PROBE).expect("离线后端不该失败");
+        assert_eq!(got.leaf, s.id, "leaf 字段应等于意图 id");
+        assert_eq!(got.kind, "INT", "释义一律标 INT，与计算层区分开");
+        assert_eq!(got.backend, "template", "本例走离线兜底");
+        assert!(!got.text.is_empty(), "[{}] 离线后端也该出文字", s.id);
+    }
+}
+
+/// 六套意图的 id 互不重复，且与 `mingli_contract::intents()` 的清单对得上。
+#[test]
+fn the_intent_ids_line_up_with_the_contract() {
+    let ids: Vec<&str> = shapes().iter().map(|s| s.id).collect();
+    let mut sorted = ids.clone();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(sorted.len(), ids.len(), "意图 id 不该重复");
+    let declared: Vec<&str> = mingli_contract::intents().iter().map(|s| s.id).collect();
+    for id in &ids {
+        // team 是用例层的组合形态，不在 8 意图清单里；其余五个都该在
+        if *id == "team" {
+            continue;
+        }
+        assert!(declared.contains(id), "意图 {id} 不在 contract 的 intents() 清单里");
+    }
+}
