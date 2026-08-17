@@ -10,9 +10,9 @@
 //!
 //! 验证：天地盘 + 四课校验古法工作例「亥将子时甲子日 → 四课 丑/子/亥/戌」。
 //!
-//! 九宗门里八门已取传：贼克 / 比用 / 遥克 / 伏吟 / 返吟（有克者）/ 昴星 / 别责 / 八专；
+//! 九宗门取传已全部实现：贼克 / 比用 / 遥克 / 伏吟 / 返吟（有克与无克两路）/ 昴星 / 别责 / 八专；
 //! 涉害亦取传，但**取用法两派**（数不数「受克深浅」），见 [`SheHaiSchool`]。
-//! 唯一仍留空的是返吟无克一路（井栏射等），取传细则未查。
+//! 九宗门取传已全部实现。
 //!
 //! 三门的取传各自有一张**全表课数**可对账，这是本叶最硬的校验面：
 //! 昴星恰 16 课（刚 4 柔 12）、别责恰 9 课（刚 3 柔 6）、八专恰 16 课（刚 6 柔 10），
@@ -310,7 +310,22 @@ fn derive_transmission(
         {
             return (Pattern::FanYin, Some(transmit_from(first, offset)));
         }
-        return (Pattern::FanYin, None); // 无克的井栏射等，🟡 不强编
+        // 返吟无克 —— 井栏射 / 无亲。初传取**日支驿马**，中传支上神，末传干上神。
+        //
+        // 《六壬粹言》卷二写得最直白：「无亲课。谓返吟无克，取支之驿马为用，中用支上神，
+        // 末用干上神，曰无亲。计六课。」并列全了六组三传。《六壬大全》卷七〈课经集一〉
+        // 「井栏格」条、卷四引《黄帝初占》的算例、《注解大六壬指南》卷一，取法逐字相合。
+        //
+        // 古籍原本的说法是「以支辰傍射敌上神为用……如傍井倚栏，斜冲射之」——取日支斜冲之宫
+        // 上所乘的天盘神。返吟盘下巳上必是亥、亥上必是巳，与驿马取值恒同，两种写法在本门内无差。
+        //
+        // 不分刚柔：无克的六日全是阴干配阴支（丁己辛 × 丑未），刚日返吟必有克，
+        // 结构上不存在「刚日井栏射」。《大全》卷七径称之为「六阴日课」。
+        // （《大全》卷一有一句夹注「阳日用辰，阴日用日」与自身下半句及其余四源全部冲突，
+        //   措辞恰是昴星法的原话，疑为窜入的旁注，不采信。）
+        let group = mingli_ganzhi::sanhe_group_index(day_branch) as usize;
+        let first = mingli_ganzhi::YIMA[group];
+        return (Pattern::FanYin, Some([first, courses[2].up, courses[0].up]));
     }
 
     // 贼克法：下贼上优先于上克下。
@@ -659,9 +674,7 @@ mod tests {
                     for hb in 0..12u8 {
                         let c = compute_via(stem, branch, mg, hb);
                         seen.insert(c.pattern);
-                        if c.transmission.is_none() {
-                            assert_eq!(c.pattern, Pattern::FanYin, "只有返吟无克一路留空");
-                        }
+                        assert!(c.transmission.is_some(), "九宗门取传已全覆盖，不该再有留空");
                     }
                 }
             }
@@ -674,21 +687,28 @@ mod tests {
     #[test]
     fn full_scan_reaches_every_pattern_branch() {
         // 穷举 （日干×日支×月将×时支）=10×12×12×12=17280 组合，确保每条判定分支都被走到，
-        // 并校验：贼克/比用/遥克/伏吟/返吟（有克）给三传；涉害/昴星/别责/八专给 None。
+        // 并校验：十一种课式全部可达，且全部取传（九宗门已无留空）。
         use std::collections::HashSet;
         let mut patterns = HashSet::new();
-        let mut fanyin_some = false;
-        let mut fanyin_none = false;
+        let mut fanyin_with_ke = false;
+        let mut fanyin_no_ke = false;
         for stem in 0..10u8 {
             for branch in 0..12u8 {
                 for mg in 0..12u8 {
                     for hb in 0..12u8 {
                         let c = compute_via(stem, branch, mg, hb);
                         patterns.insert(c.pattern);
-                        match c.pattern {
-                            Pattern::FanYin if c.transmission.is_some() => fanyin_some = true,
-                            Pattern::FanYin => fanyin_none = true,
-                            _ => {}
+                        assert!(c.transmission.is_some(), "九宗门取传已全覆盖");
+                        if c.pattern == Pattern::FanYin {
+                            let courses = four_courses(stem, branch, plate_offset(mg, hb));
+                            let has_ke = courses.iter().enumerate().any(|(i, cc)| {
+                                down_controls_up(i, cc, stem) || up_controls_down(i, cc, stem)
+                            });
+                            if has_ke {
+                                fanyin_with_ke = true;
+                            } else {
+                                fanyin_no_ke = true;
+                            }
                         }
                     }
                 }
@@ -710,8 +730,8 @@ mod tests {
         ] {
             assert!(patterns.contains(&p), "课式 {p:?} 不可达");
         }
-        assert!(fanyin_some, "应存在有克返吟（给三传）");
-        assert!(fanyin_none, "应存在无克返吟（不强编三传）");
+        assert!(fanyin_with_ke, "应存在有克返吟（走贼克类取传）");
+        assert!(fanyin_no_ke, "应存在无克返吟（走井栏射）");
     }
 
     #[test]
@@ -859,5 +879,95 @@ mod course_census {
         }
         assert_eq!(SheHaiSchool::from_id("unknown"), None);
         assert_eq!(SheHaiSchool::default(), SheHaiSchool::Classical);
+    }
+}
+
+#[cfg(test)]
+mod jing_lan {
+    use super::*;
+
+    /// 返吟无克（井栏射 / 无亲）恰六课，六组三传逐字对《六壬粹言》卷二所列。
+    ///
+    /// 原文：「无亲课。谓返吟无克，取支之驿马为用，中用支上神，末用干上神，曰无亲。**计六课**。
+    /// 丁丑、己丑日三传亥未丑，辛丑日三传亥未辰，丁未己未日三传巳丑丑，辛未日三传巳丑辰。」
+    ///
+    /// 《六壬大全》卷一歌诀「若知六日该无克，丑未同干丁己辛」、卷七《订讹》
+    /// 「盖无克者，惟丁未、己未、辛未、丁丑、己丑、辛丑六日」、
+    /// 《注解大六壬指南》卷一同列六日，三处旁证。
+    #[test]
+    fn the_well_rail_course_has_exactly_six_days_with_the_transmissions_the_sources_list() {
+        // (日干, 日支, 三传)
+        const ORACLE: [(u8, u8, [u8; 3]); 6] = [
+            (3, 1, [11, 7, 1]),  // 丁丑 → 亥未丑
+            (5, 1, [11, 7, 1]),  // 己丑 → 亥未丑
+            (7, 1, [11, 7, 4]),  // 辛丑 → 亥未辰
+            (3, 7, [5, 1, 1]),   // 丁未 → 巳丑丑
+            (5, 7, [5, 1, 1]),   // 己未 → 巳丑丑
+            (7, 7, [5, 1, 4]),   // 辛未 → 巳丑辰
+        ];
+        // 六十甲子里返吟且无克的，恰是这六日
+        let mut found = Vec::new();
+        for stem in 0..10u8 {
+            for branch in 0..12u8 {
+                if stem % 2 != branch % 2 {
+                    continue;
+                }
+                let c = super::tests::compute_via_with(stem, branch, 6, 0, SheHaiSchool::Classical);
+                if c.pattern == Pattern::FanYin {
+                    // 有克的返吟走贼克类取传，三传由层层取上神得出；无克的走井栏
+                    let courses = four_courses(stem, branch, 6);
+                    let has_ke = courses.iter().enumerate().any(|(i, cc)| {
+                        down_controls_up(i, cc, stem) || up_controls_down(i, cc, stem)
+                    });
+                    if !has_ke {
+                        found.push((stem, branch, c.transmission.expect("井栏射应取传")));
+                    }
+                }
+            }
+        }
+        assert_eq!(found.len(), 6, "无克的返吟应恰六课，实得 {}", found.len());
+        for (stem, branch, want) in ORACLE {
+            let got = found
+                .iter()
+                .find(|(s, b, _)| (*s, *b) == (stem, branch))
+                .unwrap_or_else(|| panic!("六日里应有 干{stem} 支{branch}"));
+            assert_eq!(got.2, want, "干{stem} 支{branch} 的三传");
+        }
+        // 六日全是阴干配阴支——刚日返吟必有克，结构上不存在「刚日井栏射」
+        for (stem, branch, _) in &found {
+            assert!(!stem_is_yang(*stem) && !branch_is_yang(*branch), "井栏射只落六阴日");
+        }
+    }
+
+    /// 《六壬大全》卷四引《黄帝初占》的实占算例：己丑岁，小吉（未）加丑，三传亥未丑。
+    ///
+    /// 原文：「用井栏射法。初传巳上登明为用，将得六合。中传丑上见小吉，将得天后。
+    /// 末传未上见大吉，将得青龙。」登明＝亥、小吉＝未、大吉＝丑。
+    #[test]
+    fn the_worked_example_from_the_yellow_emperors_text() {
+        let c = super::tests::compute_via_with(5, 1, 6, 0, SheHaiSchool::Classical); // 己丑
+        assert_eq!(c.pattern, Pattern::FanYin);
+        assert_eq!(c.transmission, Some([11, 7, 1]), "亥 → 未 → 丑");
+    }
+
+    /// 丁未 / 己未 同时满足「返吟无克」与「八专」，两门归类有争而**结果无争**。
+    ///
+    /// 《大全》卷七〈课经集〉与所引《观月经》把这两日划归八专（故说「无克惟四日」），
+    /// 《订讹》、卷一歌诀、《粹言》、《指南》划归井栏（故说「六日」）。
+    /// 按八专阴日法（支阴连本位逆数三神为初、中末俱取干上神）算丁未日返吟，
+    /// 得初传未逆三 = 巳、中末皆丑，三传仍是巳丑丑，与井栏射一字不差。
+    #[test]
+    fn the_two_disputed_days_come_out_the_same_under_either_classification() {
+        for stem in [3u8, 5] {
+            let courses = four_courses(stem, 7, 6);
+            // 井栏法
+            let by_well = super::tests::compute_via_with(stem, 7, 6, 0, SheHaiSchool::Classical)
+                .transmission
+                .expect("应取传");
+            // 八专阴日法：起点取四课上神，连本位逆数三位；中末皆干上神
+            let by_bazhuan = [(courses[3].up + 10) % 12, courses[0].up, courses[0].up];
+            assert_eq!(by_well, by_bazhuan, "干{stem} 未日：两门归类不同但三传应相同");
+            assert_eq!(by_well, [5, 1, 1], "巳丑丑");
+        }
     }
 }
