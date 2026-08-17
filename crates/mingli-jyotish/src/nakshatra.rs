@@ -41,7 +41,10 @@ pub fn rasi_of(sidereal_lon: f64) -> usize {
 ///   如 Taurus 0° → Capricorn(9)、Leo 0° → Aries(0)、Scorpio 0° → Cancer(3)。
 /// - Dual rasi (Gemini/Virgo/Sagittarius/Pisces， idx 2/5/8/11)：起本 sign + 4 mod 12。
 ///   如 Gemini 0° → Libra(6)、Virgo 0° → Capricorn(9)。
+///
+/// 写作 `× 9 / 30` 而不是 `× 0.3`：0.3 在二进制里表示不精确，108 个 navamsa 边界
+/// （每 3°20′ 一格）里有 25 个会因此落回上一格。`9.0 / 30.0` 则 108 个边界全对。
 #[must_use]
 pub fn navamsa_of(sidereal_lon: f64) -> usize {
-    (sidereal_lon.rem_euclid(360.0) * 0.3).floor() as usize % 12
+    (sidereal_lon.rem_euclid(360.0) * 9.0 / 30.0).floor() as usize % 12
 }

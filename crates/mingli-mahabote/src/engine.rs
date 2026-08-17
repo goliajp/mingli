@@ -25,7 +25,10 @@ impl CastingEngine for MahaboteEngine {
         use Determinism::{Det, Und};
         const { &[
             d("核心数·七宫·八天週行星", Det, "（缅历年−星期） mod 7，校验 2000-01-01=Adipati"),
-            d("宫义·宫间关系", Und, "无自洽单源，不下断言"),
+            d("宫间关系", Und, "🟡 真单源。Grand Trine / Minor Trine / Square / Core / Cardinal Points 五套几何只见于 Barbara Cameron《MaHaBote, the Little Key》一脉：其学生 Sage Asita 的教学页与所附五图、荷兰 DIRAH 函授课、Scribd 两份转抄——四家英文名逐字相同、示例盘同构，判为同源。缅语侧查过缅文维基《မဟာဘုတ်》（只给三行盘面与顺时针盘序、不涉关系）与六个缅甸开源实现（一律只算宫位），一条都没有。另注：Cameron 讲的「友敌生克」是**行星之间**，不是宫之间"),
+            d("七宫含义", Und, "🟡 两系互证的只有三宫：Adipati（领袖 / 善言辞）、Atun（声誉 / 勤勉）、Marana（极端 / 无中间地带）。**Thike 一宫两说相反**——Cameron 作 House of Wealth，而缅文 zatas.ts 的 သိုက်ဖွား 条通篇讲缺钱负债劳而无获（သိုက် 字面即「埋在地下的宝藏」）。Binga 与 Yaza 两系交集过小，缅文维基则不给任何含义。故整体不出"),
+            d("盘面几何与吉凶二分", Det, "缅文维基的三行 wikitable（顶 အဓိပတိ；中 အထွန်း|သိုက်|ရာဇ；底 မရဏ|ဘင်္ဂ|ပုတိ）与 Cameron 盘图（顶 7；中 3|4|5；底 2|1|6，上两排绿底、底排橙底）逐格重合，两条源流互不相干。吉凶二分另有巴利词源独立佐证：bhaṅga 坏灭 / maraṇa 死 / pūti 腐归凶，rāja 王 / adhipati 主宰 / htun 光耀 / thike 埋藏之宝归吉"),
+            d("HOUSES 是索引序不是盘序", Det, "本叶的 HOUSES 配的是 (缅历年−星期) mod 7 的索引序，与盘面顺时针序差「每步 +2」（HOUSES[k] == BOARD[(2k) mod 7]，七项已验）。现只输出本命宫名故无碍；若日后要出整张盘或宫位坐标，直接拿它当盘序会错位"),
         ] }
     }
 }
