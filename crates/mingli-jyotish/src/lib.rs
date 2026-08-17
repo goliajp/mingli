@@ -38,7 +38,9 @@
     reason = "叶内各模块以 `use super::*` 共享 crate 顶层的领域 import——这是把一张大盘拆成多文件的常规手法"
 )]
 
+pub mod varga;
 mod engine;
+pub use varga::{all_vargas, varga_rasi, Varga, VargaPositions};
 pub use engine::JyotishEngine;
 
 use mingli_astro::Moment;
