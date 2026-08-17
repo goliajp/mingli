@@ -18,9 +18,12 @@ pub fn leaf(
     q: &Query,
     subject: Subject,
 ) -> Result<Interpretation, String> {
+    // 提示词要问这片叶自己要读法与主体重映射，所以除了盘面还得把叶本身交过去；
+    // 用例层手上正好有注册表，取它是这里的事。
+    let e = reg.iter().find(|e| e.id() == leaf_id).ok_or_else(|| format!("未知叶 {leaf_id}"))?;
     let leaf = mingli_engine::cast_one(reg, leaf_id, q).ok_or_else(|| format!("未知叶 {leaf_id}"))?;
-    mingli_interpret::interpret_leaf_with_subject(backend, &leaf, subject)
-        .or_else(|_| mingli_interpret::interpret_leaf_with_subject(&Template, &leaf, subject))
+    mingli_interpret::interpret_leaf_with_subject(backend, e.as_ref(), &leaf, subject)
+        .or_else(|_| mingli_interpret::interpret_leaf_with_subject(&Template, e.as_ref(), &leaf, subject))
         .map_err(|e| format!("释义后端不可用：{e}"))
 }
 

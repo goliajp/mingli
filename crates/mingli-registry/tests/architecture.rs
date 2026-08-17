@@ -281,12 +281,8 @@ fn the_layer_table_and_the_workspace_agree_in_both_directions() {
 /// 内层源码里仍然写着叶名字面量的地方——每一处都要有它非在这里不可的理由。
 ///
 /// 与 [`APP_MAY_KNOW`] 同一个用法：点名而不是数个数，名单要动就得改这张表，改的人得说清为什么。
-const LEAF_NAMES_STILL_INSIDE: [(&str, &str); 1] = [(
-    "crates/mingli-interpret/src/guardrails/natal.rs",
-    "释义层按叶 id 存着一张「这片叶的 JSON 字段各是什么意思」的提示表。\
-     这是叶自己的领域知识寄放在了释义层——与 analysis 从前那张特征表同一个形状，\
-     该由叶经端口声明。待改；改法参照 CastingEngine::principal。",
-)];
+/// 空表是应有的状态；往里加一条，就是往内层放回一处「加叶要回头改这里」的地方。
+const LEAF_NAMES_STILL_INSIDE: [(&str, &str); 0] = [];
 
 /// 这个文件是不是只在测试时编译——即 crate 根里写着 `#[cfg(test)] mod <它>;`。
 ///

@@ -66,9 +66,12 @@ pub fn analysis() -> String {
 /// query JSON 解析失败、或未知叶 id 时返回错误。
 #[wasm_bindgen]
 pub fn prompt(id: &str, query_json: &str) -> Result<String, JsValue> {
-    let leaf = mingli_engine::cast_one(&registry(), id, &parse_query(query_json)?)
+    let reg = registry();
+    // 提示词里的读法提示由叶自己声明，故除了盘面还要把叶本身交给释义层。
+    let e = reg.iter().find(|e| e.id() == id).ok_or_else(|| JsValue::from_str("未知叶"))?;
+    let leaf = mingli_engine::cast_one(&reg, id, &parse_query(query_json)?)
         .ok_or_else(|| JsValue::from_str("未知叶"))?;
-    Ok(mingli_interpret::build_prompt(&leaf))
+    Ok(mingli_interpret::build_prompt(e.as_ref(), &leaf))
 }
 
 /// 四柱精盘。入参为 [`mingli_app::Birth`] 的 JSON（与 `POST /api/bazi` 同形）。

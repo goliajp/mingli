@@ -15,8 +15,10 @@ fn bench(c: &mut Criterion) {
         seed: None, name: Some("Ada".to_string()),
         schools: std::collections::BTreeMap::new(),
     };
-    let leaf = cast_all_detailed(&registry(), &q).into_iter().find(|l| l.id == "liuren").unwrap();
-    c.bench_function("build_prompt", |b| b.iter(|| build_prompt(black_box(&leaf))));
+    let reg = registry();
+    let e = reg.iter().find(|e| e.id() == "liuren").unwrap();
+    let leaf = cast_all_detailed(&reg, &q).into_iter().find(|l| l.id == "liuren").unwrap();
+    c.bench_function("build_prompt", |b| b.iter(|| build_prompt(e.as_ref(), black_box(&leaf))));
 }
 
 criterion_group!(benches, bench);

@@ -1,25 +1,33 @@
-use super::guardrails::natal::{det_mark, semantic_hints};
+use super::guardrails::natal::det_mark;
 use super::*;
-use mingli_contract::{Determinism, LeafOutput};
+use mingli_contract::{CastingEngine, Determinism, LeafOutput};
 
 use mingli_contract::{Gender, Query};
 use mingli_engine::cast_all_detailed;
 use mingli_registry::registry;
 
-fn sample_leaf(id: &str) -> LeafOutput {
-let q = Query {
+fn sample_query() -> Query {
+Query {
     year: 1990, month: 6, day: 15, hour: 14, minute: 30, tz: 8.0,
     gender: Some(Gender::Male), latitude: Some(31.23), longitude: Some(121.47),
     seed: None, name: Some("Ada".to_string()),
     schools: std::collections::BTreeMap::new(),
-};
-cast_all_detailed(&registry(), &q).into_iter().find(|l| l.id == id).unwrap()
+}
+}
+
+/// 取真叶与它的盘面。
+///
+/// 提示词里的读法由叶自己声明，所以测试也得拿真叶，不能只拿一份盘面结构。
+fn sample(id: &str) -> (Box<dyn CastingEngine>, LeafOutput) {
+let e = registry().into_iter().find(|e| e.id() == id).expect("注册表里应有这片叶");
+let leaf = cast_all_detailed(&registry(), &sample_query()).into_iter().find(|l| l.id == id).unwrap();
+(e, leaf)
 }
 
 #[test]
 fn prompt_has_guardrails_and_chart() {
-let leaf = sample_leaf("liuren"); // 含 DET + UND
-let p = build_prompt(&leaf);
+let (leaf_e, leaf) = sample("liuren"); // 含 DET + UND
+let p = build_prompt(leaf_e.as_ref(), &leaf);
 // 护栏关键句在内。
 assert!(p.contains("绝不修改"));
 assert!(p.contains("仅供研究与娱乐"));
@@ -33,9 +41,9 @@ assert!(p.contains("\"pattern\"")); // 盘面 JSON 字段
 
 #[test]
 fn template_backend_is_deterministic_and_honest() {
-let leaf = sample_leaf("liuren");
-let r1 = interpret_leaf(&Template, &leaf).unwrap();
-let r2 = interpret_leaf(&Template, &leaf).unwrap();
+let (leaf_e, leaf) = sample("liuren");
+let r1 = interpret_leaf(&Template, leaf_e.as_ref(), &leaf).unwrap();
+let r2 = interpret_leaf(&Template, leaf_e.as_ref(), &leaf).unwrap();
 assert_eq!(r1.text, r2.text); // 确定
 assert_eq!(r1.backend, "template");
 assert_eq!(r1.kind, "INT");
@@ -43,14 +51,15 @@ assert_eq!(r1.leaf, "liuren");
 assert!(r1.text.contains("仅供研究与娱乐"));
 assert!(r1.text.contains("🟡UND")); // liuren 有欠定 → 提示
 // 纯 DET 叶（maya 无 UND 项）→ 不提 UND。
-let maya = interpret_leaf(&Template, &sample_leaf("maya")).unwrap();
+let (maya_e, maya_leaf) = sample("maya");
+let maya = interpret_leaf(&Template, maya_e.as_ref(), &maya_leaf).unwrap();
 assert!(!maya.text.contains("🟡UND"));
 }
 
 #[test]
 fn bazi_prompt_has_semantic_hints_and_jixiong_allowed() {
-let leaf = sample_leaf("bazi");
-let p = build_prompt(&leaf);
+let (leaf_e, leaf) = sample("bazi");
+let p = build_prompt(leaf_e.as_ref(), &leaf);
 // 新版护栏：允许给吉凶/喜忌评估，但要有依据。
 assert!(p.contains("吉凶"));
 assert!(p.contains("评估"));
@@ -72,8 +81,8 @@ assert!(p.contains("\"three_houses\""));
 
 #[test]
 fn qimen_prompt_explains_all_four_plates() {
-let leaf = sample_leaf("qimen");
-let p = build_prompt(&leaf);
+let (leaf_e, leaf) = sample("qimen");
+let p = build_prompt(leaf_e.as_ref(), &leaf);
 // 四盘的字段都要有语义提示，缺一层 LLM 就读不懂盘
 for field in ["earth[9]", "sky.stems[9]", "sky.stars[9]", "star_vigor[9]", "gates.gates[9]", "spirits.spirits[9]", "patterns"] {
     assert!(p.contains(field), "缺字段提示：{field}");
@@ -93,11 +102,17 @@ assert!(p.contains("仅供研究与娱乐"));
 #[test]
 fn only_the_semantically_rich_leaves_carry_hints() {
 // 结构复杂、需要读法引导的叶才给提示；纯循环叶不给，免得徒增噪音。
-for id in ["bazi", "ziwei", "qimen"] {
-    assert!(semantic_hints(id).is_some(), "{id} 应有语义提示");
-}
-for id in ["maya", "pawukon", "nope"] {
-    assert!(semantic_hints(id).is_none());
+//
+// 读法归叶自己声明后，这条问的是各叶的声明，而不是释义层的一张表——
+// 释义层已经不知道有哪些叶了。
+for e in &registry() {
+    let rich = matches!(e.id(), "bazi" | "ziwei" | "qimen");
+    assert_eq!(
+        e.reading_notes().is_some(),
+        rich,
+        "叶 `{}` 的读法提示有无与预期不符",
+        e.id()
+    );
 }
 }
 
@@ -253,35 +268,27 @@ assert!(Subject::from_str_opt("xxx").is_none());
 
 #[test]
 fn subject_remap_only_for_bazi_and_non_person() {
-let bazi = sample_leaf("bazi");
+let (bazi_e, bazi) = sample("bazi");
 // Person 主体：无主体段
-let p = build_prompt_with_subject(&bazi, Subject::Person);
+let p = build_prompt_with_subject(bazi_e.as_ref(), &bazi, Subject::Person);
 assert!(!p.contains("主体类型"));
 assert!(!p.contains("主体重映射"));
 // Company：出现重映射段 + 商业义
-let c = build_prompt_with_subject(&bazi, Subject::Company);
+let c = build_prompt_with_subject(bazi_e.as_ref(), &bazi, Subject::Company);
 assert!(c.contains("公司/组织"));
 assert!(c.contains("正财=稳定营收"));
 assert!(c.contains("不做经营断言"));
 // Product：产品象义
-let pr = build_prompt_with_subject(&bazi, Subject::Product);
+let pr = build_prompt_with_subject(bazi_e.as_ref(), &bazi, Subject::Product);
 assert!(pr.contains("产品定位"));
 assert!(pr.contains("择日盘的镜像"));
 // Event：复盘语义，不预言
-let ev = build_prompt_with_subject(&bazi, Subject::Event);
+let ev = build_prompt_with_subject(bazi_e.as_ref(), &bazi, Subject::Event);
 assert!(ev.contains("不作未来预言"));
 // 其它叶(maya) + Company：无 bazi 特定重映射（返回 None）
-let maya = sample_leaf("maya");
-let mc = build_prompt_with_subject(&maya, Subject::Company);
+let (maya_e, maya) = sample("maya");
+let mc = build_prompt_with_subject(maya_e.as_ref(), &maya, Subject::Company);
 assert!(!mc.contains("正财=稳定营收"));
-}
-
-#[test]
-fn semantic_hints_only_for_known_leaves() {
-assert!(semantic_hints("bazi").is_some());
-assert!(semantic_hints("ziwei").is_some());
-assert!(semantic_hints("maya").is_none());
-assert!(semantic_hints("nonexistent").is_none());
 }
 
 #[test]
@@ -303,7 +310,8 @@ impl Interpreter for Echo {
         "echo"
     }
 }
-let r = interpret_leaf(&Echo, &sample_leaf("bazi")).unwrap();
+let (bz_e, bz) = sample("bazi");
+let r = interpret_leaf(&Echo, bz_e.as_ref(), &bz).unwrap();
 assert_eq!(r.backend, "echo");
 assert!(r.text.starts_with("len="));
 }

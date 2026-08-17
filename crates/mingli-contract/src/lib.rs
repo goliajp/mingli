@@ -260,6 +260,18 @@ pub trait CastingEngine: Send + Sync {
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }
+    /// 本叶盘面的读法：各字段是什么、传统上先看哪一处。没有则返回 `None`（默认）。
+    ///
+    /// 这是本叶的领域知识——「`strength.wuxing` 是五行力量分布、缺者宜补旺者宜泄」这种话，
+    /// 只有写这片叶的人说得准。释义层把它原样交给后端，自己不攒也不改。
+    fn reading_notes(&self) -> Option<&'static str> {
+        None
+    }
+    /// 同一套计算换个主体读时的象义重映射（公司 / 物 / 事）。默认无——多数叶不含
+    /// 宫位、十神、六亲这类随主体改变所指的概念，对它们 person 与其余主体等价。
+    fn subject_notes(&self, _subject: Subject) -> Option<&'static str> {
+        None
+    }
     /// 本叶的[主判据][`Principal`]；本叶没有这样一个量则返回 `None`（默认）。
     ///
     /// 实现应当从自己的**强类型盘面**取，不要去解自己输出的那份 JSON——
@@ -414,6 +426,46 @@ impl QueryKind {
     #[must_use]
     pub fn id(&self) -> &'static str {
         self.intent().id()
+    }
+}
+
+/// 主体类型：同一套四柱计算给不同主体读出不同象义。
+///
+/// **计算层完全 DET 同源**（干支/五行/十神/旺衰对任何主体一致）；
+/// **只解读层换映射**。person 是默认；company/product/event 适配「物有时刻 → 八字」（择日的逆运算）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Subject {
+    /// 人（默认）：传统人盘。年=祖根、月=父母青年、日=自身/配偶、时=子女晚年。
+    Person,
+    /// 公司/组织：年=创立根基/行业属性、月=成长环境/团队、日=主体/核心、时=前景/产出。
+    Company,
+    /// 物（有时刻发布的产品/建筑/开张）：同公司盘（择日的镜像）。
+    Product,
+    /// 事（已发生事件）：用于复盘事的性质与走向。
+    Event,
+}
+
+impl Subject {
+    /// 从字符串解析(`"person"/"company"/"product"/"event"`)。
+    #[must_use]
+    pub fn from_str_opt(s: &str) -> Option<Self> {
+        match s {
+            "person" | "人" => Some(Self::Person),
+            "company" | "公司" => Some(Self::Company),
+            "product" | "object" | "物" | "产品" => Some(Self::Product),
+            "event" | "事" => Some(Self::Event),
+            _ => None,
+        }
+    }
+    /// 中文展示名。
+    #[must_use]
+    pub fn cn(self) -> &'static str {
+        match self {
+            Self::Person => "人",
+            Self::Company => "公司/组织",
+            Self::Product => "物/产品",
+            Self::Event => "事/事件",
+        }
     }
 }
 
