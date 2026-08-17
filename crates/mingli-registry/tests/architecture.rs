@@ -134,10 +134,12 @@ fn the_port_layer_stays_thin() {
 /// 点名而不是数个数：数字容易被悄悄加一，名单要动就得改这张表，改的人得说清为什么。
 /// 判据是「用例需要那片叶的**强类型产物**」，而不只是「一张能算的盘」——
 /// 后者应经装配根注入、走 `CastingEngine`。
-const APP_MAY_KNOW: [(&str, &str); 4] = [
+const APP_MAY_KNOW: [(&str, &str); 5] = [
     ("mingli-bazi", "本命 / 岁运叠加 / 团队合盘要 BaziChart 的旺衰与用神，不是 JSON"),
     ("mingli-ziwei", "本命用例要 ZiweiChart 的宫位与四化"),
     ("mingli-zeri", "择吉用例要 DayGrade 的分档来排序"),
+    ("mingli-jyotish", "运势用例要 Mahadasha 的起讫年龄逐段比对，好定出目标时刻落在哪一段；\
+     那是强类型的时间序列，解 JSON 会把 f64 的年龄比较变成字符串活儿"),
     ("mingli-taiyi", "国运用例要沿年份取 TaiyiPalace 的宫 / 卦 / 三才；从前是解析它的输出 JSON 再按名找回字面量"),
 ];
 

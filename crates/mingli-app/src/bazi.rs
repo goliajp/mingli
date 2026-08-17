@@ -2,6 +2,7 @@
 
 use crate::Birth;
 use mingli_bazi::{BaziChart, BirthInput};
+use mingli_astro::Moment;
 use mingli_contract::{AskTime, Gender};
 use serde_json::{json, Value};
 
@@ -79,7 +80,38 @@ pub fn fortune(b: &Birth, t: &AskTime, timeline_max_age: Option<u32>) -> Result<
     let max_age = timeline_max_age.unwrap_or(100).min(MAX_AGE_CAP);
     let at = mingli_bazi::fortune_at(input, t.year, t.month, t.day, t.hour, t.minute, t.tz);
     let timeline = mingli_bazi::fortune_supply_timeline(input, max_age);
-    Ok(json!({ "at": at, "timeline": timeline, "max_age": max_age }))
+    Ok(json!({
+        "at": at,
+        "timeline": timeline,
+        "max_age": max_age,
+        "dasha": vimshottari_at(b, t),
+    }))
+}
+
+/// 目标时刻所处的 Vimshottari 大运段，以及整条序列。
+///
+/// 「运」这一类问局有两片叶答得起：四柱给的是「大运十步 + 百年供给曲线」，
+/// 印度占星给的是「Mahādaśā 序列」。两者都是**势**，粒度却不同——
+/// 四柱按十年一步且与节气相关，Vimshottari 按主星各自的年数（6 至 20 年不等）。
+///
+/// 形状上取加法：四柱那份原样留在顶层不动，这一段挂在 `dasha` 下。
+/// 硬要合成一条曲线会把两套各自的粒度都磨掉，而它们的粒度本身就是各自体系的一部分。
+fn vimshottari_at(b: &Birth, t: &AskTime) -> Value {
+    let birth = Moment::new(b.year, b.month, b.day, b.hour, b.minute, b.tz);
+    let chart = mingli_jyotish::compute_at(&birth, None, mingli_jyotish::Ayanamsa::default());
+    let target = Moment::new(t.year, t.month, t.day, t.hour, t.minute, t.tz);
+    let age = (target.jd_ut - birth.jd_ut) / 365.25;
+    let current = chart
+        .mahadashas
+        .iter()
+        .find(|d| age >= d.start_age_years && age < d.end_age_years);
+    json!({
+        "system": "jyotish",
+        "birth_lord": chart.birth_dasha_lord,
+        "age_years": age,
+        "current": current,
+        "timeline": chart.mahadashas,
+    })
 }
 
 #[cfg(test)]
@@ -134,5 +166,57 @@ mod tests {
         b.true_solar_time = true;
         // 没给经度 → 静默回退钟表时（数据完整性优先于校正信仰）
         assert_eq!(natal(&b).hour.ganzhi, natal(&sample()).hour.ganzhi);
+    }
+}
+
+#[cfg(test)]
+mod dasha_tests {
+    use super::*;
+    use mingli_contract::Gender;
+
+    fn natal() -> Birth {
+        Birth {
+            year: 1990, month: 6, day: 15, hour: 14, minute: 30, tz: 8.0,
+            gender: Some(Gender::Male), true_solar_time: false, longitude: None,
+        }
+    }
+
+    /// 「运」这一类由两片叶答：四柱那份原样在顶层，印度占星的大运挂在 `dasha` 下。
+    ///
+    /// 这条钉住两件事——旧字段一个不少（加法不改旧形状），
+    /// 以及 `current` 真的是**目标年龄落在其中**的那一段，不是随手取的第一段。
+    #[test]
+    fn the_fortune_carries_both_systems_and_picks_the_right_dasha() {
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        let v = fortune(&natal(), &t, None).expect("应可算");
+        for k in ["at", "timeline", "max_age"] {
+            assert!(v.get(k).is_some(), "四柱那份的 `{k}` 不该因为加了 dasha 而消失");
+        }
+        let d = &v["dasha"];
+        assert_eq!(d["system"], "jyotish");
+        let age = d["age_years"].as_f64().expect("年龄应是数");
+        let cur = &d["current"];
+        assert!(!cur.is_null(), "目标时刻应落在某一段大运里");
+        let (a, b) = (
+            cur["start_age_years"].as_f64().expect("起"),
+            cur["end_age_years"].as_f64().expect("止"),
+        );
+        assert!(a <= age && age < b, "current 段 [{a}, {b}) 应含目标年龄 {age}");
+        assert!(!d["timeline"].as_array().expect("序列").is_empty());
+    }
+
+    /// 两套的粒度本来就不同——四柱十年一步，Vimshottari 各主星 6 至 20 年不等。
+    /// 这条不是审美，是防止有人日后把两条曲线合成一条：合了就把各自的粒度磨掉了。
+    #[test]
+    fn the_two_systems_keep_their_own_grain() {
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        let v = fortune(&natal(), &t, None).expect("应可算");
+        let dasha = v["dasha"]["timeline"].as_array().expect("序列");
+        let spans: Vec<f64> = dasha
+            .iter()
+            .map(|d| d["years"].as_f64().unwrap_or_default())
+            .collect();
+        assert!(spans.iter().any(|x| (*x - 10.0).abs() > 1.0), "Vimshottari 各段不该都是十年");
+        assert!(spans.iter().all(|x| (6.0..=20.0).contains(x)), "各段应在 6 至 20 年之间");
     }
 }
