@@ -113,7 +113,7 @@ fn no_leaf_declares_the_same_item_twice() {
     assert!(dup.is_empty(), "这几片叶的 profile 有重名项：{dup:?}");
 }
 
-/// 全仓的确定性分布：这个数字会随施工变化，测试只做**下界**约束，
+/// 全仓的确定性分布：这个数字会随收录进度变化，测试只做**下界**约束，
 /// 防止有人把「算不准」的东西悄悄改标成算得准来让别的检查过关。
 #[test]
 fn the_undetermined_surface_stays_visible() {
