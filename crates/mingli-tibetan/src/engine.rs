@@ -42,7 +42,26 @@ impl CastingEngine for TibetanEngine {
         const { &[
             d("60 周期·年 mewa", Det, "5 元素×12 生肖；mewa 逆行，校验 2024=木阳龙·mewa3"),
             d("年 parkha（不存在，非未实现）", Und, "🟡 查证结论是主流藏历确实不给年份配卦，故本叶不出。原典《白琉璃》与洛钦《月光疏》（Gyurme Dorje 英译 2001）把八卦的用法列全为：babs-spar（按年龄性别推的现行卦）、skye-spar（由母亲年龄推的本命卦）、天/地/敌门、历日卦、时辰卫——无年卦。Berzin 原话「Except for in the Bon variation ... there are no transiting annual trigrams」；Janson《Tibetan Calendar Mathematics》Appendix E 的 E.1 年 / E.2 月无 Trigram 小节而 E.3 阴历日 / E.4 历日才有；Henning 的 tibcalendar 里 get_year_astro_data() 也只填 rabjung/animal/element/gender/sme_ba。苯教有年卦一说仅 Berzin 单源。未取到实体 lo tho 年历样本核对"),
-            d("日 parkha 与历日 parkha（未实现）", Und, "🟡 这两项**不是定不下，是还没做**——四源一致可落 Det：《白琉璃》给月建起卦表（虎马狗月初一＝Li 等），Janson E.10 给公式 (D + 6A + 6) amod 8，Erlewine 与 tibastro 的月表与编号逐条相同，且 Janson 公式复算 Erlewine 的算例逐字吻合。落码前须注意月序→生肖的映射 Phugpa 与 Tsurphu 不同，公式要以生肖而非月号为参"),
+            d(
+                "历日 parkha",
+                Det,
+                "Janson《Tibetan Calendar Mathematics》E.4：`(JD + 2) amod 8`（其 Table 15 次第）。\
+                 与元素 / 性别 / 生肖 / 数四者同为简单循环，周期 10 / 2 / 12 / 8 / 9",
+            ),
+            d(
+                "阴历日 parkha 的公式",
+                Det,
+                "Janson E.10：`(D + 30(A−3)) amod 8`，A 取该月生肖序。原文另以枚举复述同一规则\
+                 （寅午戌起 Li、卯未亥起 Zin、子辰申起 Kham、丑巳酉起 Da），两处互为校验，测试逐条对过。\
+                 吃生肖而非月号是有意的——月序到生肖的映射 Phugpa 与 Tsurphu 不同",
+            ),
+            d(
+                "阴历日 parkha 的取日（未实现）",
+                Und,
+                "🟡 公式已落 Det，但要用它得先有藏历的阴历日与月生肖，而本 crate 不做阴历推步\
+                 （无闰月 / 缺日）。故 `lunar_day_parkha` 由调用方给出这两个数；\
+                 要本 crate 自出，须先实现 Phugpa 的朔望推步，那是另一件事",
+            ),
             d("个人 parkha 的「斜跳」", Und, "🟡 真分歧：《白琉璃》/《月光疏》与 tibastro 主张数到十要斜跳（count + ⌊count/11⌋×3 再 mod 8），Berzin 与 Erlewine 的描述则是纯 mod 8 无斜跳。两说各有来源，未取得裁定依据"),
         ] }
     }
