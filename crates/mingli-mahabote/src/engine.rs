@@ -51,6 +51,19 @@ impl CastingEngine for MahaboteEngine {
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
         const { &[
+            d(
+                "本命宫的取法（与第二实现不合，未定）",
+                Und,
+                "🟡 本叶取 `核心数 =（缅历年 − 星期）mod 7`，宫名按 Binga…Puti 直接索引，\
+                 依据是 cool-emerald 的逐字算例（单源）。为找第二源取了 Guru-ThutaSann/py-mahahote，\
+                 它用的是**另一套模型**：`缅历年 mod 7` 定起点，七行星按「အောင်လံထူ」序 1→4→7→3→6→2→5 \
+                 依次填入七宫，本命看出生行星落在哪一宫。\
+                 把它转录后逐日比对 858 天，**754 天给出不同的宫**。\
+                 但这个比对含两处未能从源码确证的假设（Rahu 如何并入只有七个行星位的图、\
+                 本命宫是否即出生行星所落之宫），故只能说「第二源未确认本叶，且很可能冲突」，\
+                 不能据此断定谁对。要定下来须取到缅文原典或 lo tho 实体年历的算例",
+            ),
+
             d("核心数·七宫·八天週行星", Det, "（缅历年−星期） mod 7，校验 2000-01-01=Adipati"),
             d("宫间关系", Und, "🟡 真单源。Grand Trine / Minor Trine / Square / Core / Cardinal Points 五套几何只见于 Barbara Cameron《MaHaBote, the Little Key》一脉：其学生 Sage Asita 的教学页与所附五图、荷兰 DIRAH 函授课、Scribd 两份转抄——四家英文名逐字相同、示例盘同构，判为同源。缅语侧查过缅文维基《မဟာဘုတ်》（只给三行盘面与顺时针盘序、不涉关系）与六个缅甸开源实现（一律只算宫位），一条都没有。另注：Cameron 讲的「友敌生克」是**行星之间**，不是宫之间"),
             d("七宫含义", Und, "🟡 两系互证的只有三宫：Adipati（领袖 / 善言辞）、Atun（声誉 / 勤勉）、Marana（极端 / 无中间地带）。**Thike 一宫两说相反**——Cameron 作 House of Wealth，而缅文 zatas.ts 的 သိုက်ဖွား 条通篇讲缺钱负债劳而无获（သိုက် 字面即「埋在地下的宝藏」）。Binga 与 Yaza 两系交集过小，缅文维基则不给任何含义。故整体不出"),
