@@ -14,7 +14,7 @@
 //!
 //! 语域注：数本身是确定计算；其「含义」属释义层，本 crate 不下断言。
 //! 🟡 欠定项：生命灵数有「分量约化」与「全数字相加」两法（本 crate 用分量约化，多数教材主数法）；
-//! 元音是否含 Y 随流派（本 crate 仅 AEIOU 为元音）。两者已文档化，不静默选边。
+//! Y 算元音还是辅音随流派，本 crate 三说并出，见 [`YRule`]。
 
 
 mod engine;
@@ -86,7 +86,7 @@ pub fn letter_value(c: char, system: System) -> Option<u64> {
     }
 }
 
-/// 是否元音（仅 AEIOU；Y 不计，见 crate 文档 🟡）。
+/// 是否是无争议的元音（AEIOU）。Y 的归属看语境，见 [`YRule`] 与 [`vowel_flags`]。
 #[must_use]
 pub fn is_vowel(c: char) -> bool {
     matches!(c.to_ascii_uppercase(), 'A' | 'E' | 'I' | 'O' | 'U')
@@ -153,28 +153,132 @@ pub fn expression(name: &str, system: System) -> u64 {
     reduce_with_master(string_sum(name, |c| letter_value(c, system)))
 }
 
+/// Y 归入元音还是辅音的约定。灵魂数与人格数按这条分岔，表达数不受影响。
+///
+/// 三说的来源强度差得很远，选项按强度排：
+///
+/// - [`Contextual`](YRule::Contextual)：**4 个独立源**（Hans Decoz / World Numerology、
+///   Token Rock、Felicia Bender、Crystal Logic）。Decoz 给了八条按位置的细则，
+///   Token Rock 一句话概括为「Y 恒为元音，除非它紧挨着另一个元音」——两者逐例一致，
+///   本 crate 实现的就是这一句，它能复现 Decoz 全部八条（含其两条 default）。
+/// - [`AfterVowel`](YRule::AfterVowel)：**2 个独立源**（Lyn's Numerology Charts、Astrala）
+///   明确主张「Y 跟在元音后面仍算元音」（Clayton / May / Taylor）。
+/// - [`Never`](YRule::Never)：**1 个二手转述**（Felicia Bender 引 Juno Jordan
+///   《Numerology: The Romance In Your Name》，未取得原书）。这是本 crate 从前的默认。
+///
+/// 🟡 未实现的部分：前两说都还带一条**按音节**的条款（「该音节里没有别的元音时 Y 算元音」，
+/// 如 Bryan 的 Y），要分音节才能判，本 crate 没有音节切分器，故不实现，也不假装实现。
+/// Y 恒为元音（Lynn Buess）同样只有一处二手转述，不入选项。
+/// W 在 Matthew / Drew / Owen 一类里算元音的说法有 2 源（其中一处只有立场没有规则），
+/// 强度不足，本 crate 一律把 W 当辅音。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum YRule {
+    /// Y 紧邻另一个元音（前或后）时作辅音，否则作元音。
+    Contextual,
+    /// 只有后接元音时 Y 才作辅音；跟在元音后面仍作元音。
+    AfterVowel,
+    /// Y 一律作辅音。
+    Never,
+}
+
+impl YRule {
+    /// 稳定标识（进 JSON）。
+    #[must_use]
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Contextual => "contextual",
+            Self::AfterVowel => "after_vowel",
+            Self::Never => "never",
+        }
+    }
+
+    /// 三种约定，按来源强度排。
+    #[must_use]
+    pub const fn all() -> [Self; 3] {
+        [Self::Contextual, Self::AfterVowel, Self::Never]
+    }
+}
+
+/// 逐字符判定「这个位置算不算元音」。返回长度 = `name.chars().count()`。
+///
+/// AEIOU 恒为元音；Y 按 `rule` 定；其余（含 W、非字母）为非元音。
+/// 判邻居时**不跨词**——空格、连字符一类非字母把词断开，所以「Mary Ann」里
+/// Mary 的 Y 后面没有字母，算元音。
+#[must_use]
+pub fn vowel_flags(name: &str, rule: YRule) -> Vec<bool> {
+    let chars: Vec<char> = name.chars().collect();
+    let mut out = vec![false; chars.len()];
+    for i in 0..chars.len() {
+        let c = chars[i];
+        if is_vowel(c) {
+            out[i] = true;
+            continue;
+        }
+        if !c.eq_ignore_ascii_case(&'y') {
+            continue;
+        }
+        let letter_at = |k: usize| chars.get(k).copied().filter(char::is_ascii_alphabetic);
+        let prev_is_vowel = i.checked_sub(1).and_then(letter_at).is_some_and(is_vowel);
+        let next_is_vowel = letter_at(i + 1).is_some_and(is_vowel);
+        out[i] = match rule {
+            YRule::Never => false,
+            YRule::Contextual => !prev_is_vowel && !next_is_vowel,
+            YRule::AfterVowel => !next_is_vowel,
+        };
+    }
+    out
+}
+
+fn sum_where(name: &str, system: System, keep: impl Fn(bool, char) -> bool, rule: YRule) -> u64 {
+    let flags = vowel_flags(name, rule);
+    let total: u64 = name
+        .chars()
+        .zip(flags)
+        .filter(|&(c, is_v)| keep(is_v, c))
+        .filter_map(|(c, _)| letter_value(c, system))
+        .sum();
+    reduce_with_master(total)
+}
+
+/// 灵魂数（Soul Urge）：姓名元音之和约化，Y 的归属按 `rule`。
+#[must_use]
+pub fn soul_urge_with(name: &str, system: System, rule: YRule) -> u64 {
+    sum_where(name, system, |is_v, _| is_v, rule)
+}
+
+/// 人格数（Personality）：姓名辅音之和约化，Y 的归属按 `rule`。
+#[must_use]
+pub fn personality_with(name: &str, system: System, rule: YRule) -> u64 {
+    sum_where(name, system, |is_v, c| !is_v && c.is_ascii_alphabetic(), rule)
+}
+
 /// 灵魂数（Soul Urge）：姓名元音之和约化。
+///
+/// Y 按来源最强的 [`YRule::Contextual`] 判；另两说的读数在
+/// [`NameNumbers::by_y_rule`] 里一并给出。
 #[must_use]
 pub fn soul_urge(name: &str, system: System) -> u64 {
-    reduce_with_master(string_sum(name, |c| {
-        if is_vowel(c) {
-            letter_value(c, system)
-        } else {
-            None
-        }
-    }))
+    soul_urge_with(name, system, YRule::Contextual)
 }
 
 /// 人格数（Personality）：姓名辅音之和约化。
+///
+/// Y 按来源最强的 [`YRule::Contextual`] 判；另两说的读数在
+/// [`NameNumbers::by_y_rule`] 里一并给出。
 #[must_use]
 pub fn personality(name: &str, system: System) -> u64 {
-    reduce_with_master(string_sum(name, |c| {
-        if c.is_ascii_alphabetic() && !is_vowel(c) {
-            letter_value(c, system)
-        } else {
-            None
-        }
-    }))
+    personality_with(name, system, YRule::Contextual)
+}
+
+/// 某一种 Y 归属约定下的灵魂数与人格数。
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct VowelReading {
+    /// 约定标识（`"contextual"` / `"after_vowel"` / `"never"`）。
+    pub y_rule: &'static str,
+    /// 该约定下的灵魂数。
+    pub soul_urge: u64,
+    /// 该约定下的人格数。
+    pub personality: u64,
 }
 
 /// 姓名数（某系统下的表达/灵魂/人格）。
@@ -182,22 +286,30 @@ pub fn personality(name: &str, system: System) -> u64 {
 pub struct NameNumbers {
     /// 字母表系统。
     pub system: System,
-    /// 表达数。
+    /// 表达数（全字母之和，不受 Y 归属影响）。
     pub expression: u64,
-    /// 灵魂数。
+    /// 灵魂数（按 [`YRule::Contextual`]）。
     pub soul_urge: u64,
-    /// 人格数。
+    /// 人格数（按 [`YRule::Contextual`]）。
     pub personality: u64,
+    /// 三种 Y 归属约定下的读数并出，按来源强度排；不替调用方选边。
+    pub by_y_rule: [VowelReading; 3],
 }
 
 /// 由姓名与系统算姓名数。
 #[must_use]
 pub fn name_numbers(name: &str, system: System) -> NameNumbers {
+    let reading = |rule: YRule| VowelReading {
+        y_rule: rule.id(),
+        soul_urge: soul_urge_with(name, system, rule),
+        personality: personality_with(name, system, rule),
+    };
     NameNumbers {
         system,
         expression: expression(name, system),
         soul_urge: soul_urge(name, system),
         personality: personality(name, system),
+        by_y_rule: YRule::all().map(reading),
     }
 }
 
@@ -307,6 +419,84 @@ mod tests {
         assert_eq!(whole.life_path, comp.life_path_alt);
         // 缺省入口走 Component
         assert_eq!(compute_at(&m).life_path_method, comp.life_path_method);
+    }
+
+    /// Y 归属的三说：语境派（4 独立源）用 Decoz 的八条位置细则逐条对，
+    /// 「跟在元音后仍算元音」一支（2 独立源）用它自己举的例子对。
+    #[test]
+    fn the_three_y_conventions_each_match_the_examples_their_sources_give() {
+        use YRule::{AfterVowel, Contextual, Never};
+        let v = |name: &str, rule: YRule| -> Vec<bool> {
+            let flags = vowel_flags(name, rule);
+            name.chars().zip(flags).filter(|(c, _)| c.eq_ignore_ascii_case(&'y')).map(|(_, f)| f).collect()
+        };
+
+        // —— Decoz 八条（World Numerology），逐条对 ——
+        // 1 首字母 + 后接辅音 → 元音
+        for n in ["Yvonne", "Ylsa", "Yvette"] {
+            assert_eq!(v(n, Contextual), vec![true], "{n}");
+        }
+        // 2 末字母 + 前为辅音 → 元音
+        for n in ["Barry", "Tommy", "Jimmy"] {
+            assert_eq!(v(n, Contextual), vec![true], "{n}");
+        }
+        // 3 首字母 + 后接元音 → 辅音
+        for n in ["Yolanda", "Yammy"] {
+            assert!(!v(n, Contextual)[0], "{n}");
+        }
+        // 4 末字母 + 前为元音 → 辅音
+        for n in ["Mulrooney", "Mickey"] {
+            assert_eq!(v(n, Contextual), vec![false], "{n}");
+        }
+        // 5 夹在两辅音之间 → 元音
+        for n in ["Kyle", "Tyson"] {
+            assert_eq!(v(n, Contextual), vec![true], "{n}");
+        }
+        // 6 夹在两元音之间 → 辅音
+        assert_eq!(v("Eyarta", Contextual), vec![false]);
+        // 7 / 8 一侧是元音 → 取辅音（Decoz 的 default，Token Rock「紧挨元音即辅音」同）
+        assert_eq!(v("Maya", Contextual), vec![false]);
+        assert_eq!(v("Troy", Contextual), vec![false]);
+        assert_eq!(v("Wayne", Contextual), vec![false]);
+
+        // —— AfterVowel 一支：跟在元音后面仍算元音（Lyn's / Astrala 举的例）——
+        for n in ["Clayton", "Taylor", "May"] {
+            assert_eq!(v(n, AfterVowel), vec![true], "{n}");
+        }
+        // 但后接元音时两说一致取辅音
+        assert!(!v("Yolanda", AfterVowel)[0]);
+        // 无元音相邻时两说也一致
+        assert_eq!(v("Lynn", AfterVowel), v("Lynn", Contextual));
+
+        // —— Never：一律辅音 ——
+        for n in ["Yvonne", "Barry", "Kyle", "Clayton"] {
+            assert!(v(n, Never).iter().all(|f| !f), "{n}");
+        }
+    }
+
+    /// 词与词之间不相邻：空格断开后，Mary 的 Y 后面没有字母。
+    #[test]
+    fn adjacency_does_not_reach_across_a_space() {
+        assert!(vowel_flags("Mary Ann", YRule::Contextual)[3], "Mary 的 Y 应算元音");
+        // 若错误地跨词看邻居，后面是空格再后是 A，可能被误判
+        assert!(vowel_flags("Mary anne", YRule::Contextual)[3]);
+    }
+
+    /// 三读并出：表达数不随 Y 归属变，灵魂 / 人格随之变，且主值 = 语境派。
+    #[test]
+    fn all_three_readings_are_reported_side_by_side() {
+        let n = name_numbers("Barry", System::Pythagorean);
+        assert_eq!(n.by_y_rule.len(), 3);
+        assert_eq!(n.by_y_rule[0].y_rule, "contextual");
+        assert_eq!((n.soul_urge, n.personality), (n.by_y_rule[0].soul_urge, n.by_y_rule[0].personality));
+        // Barry 的 Y 在语境派算元音、在 Never 算辅音，两读必不同
+        let never = n.by_y_rule.iter().find(|r| r.y_rule == "never").expect("三说齐全");
+        assert_ne!(n.soul_urge, never.soul_urge, "Barry 含 Y，两说的灵魂数应不同");
+        // 表达数与 Y 归属无关
+        assert_eq!(n.expression, expression("Barry", System::Pythagorean));
+        // 不含 Y 的名字三读必然相同
+        let plain = name_numbers("Abel", System::Pythagorean);
+        assert!(plain.by_y_rule.iter().all(|r| r.soul_urge == plain.soul_urge));
     }
 
     #[test]
