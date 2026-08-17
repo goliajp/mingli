@@ -670,3 +670,141 @@ for k in 0..60i64 {
     assert!(fu.stem == 0 || fu.stem == 5, "符头日干应为甲/己");
 }
 }
+
+// ── 天地盘干相加诸格 ────────────────────────────────────────────────
+//
+// 四层独立编纂（《奇门遁甲统宗》卷一奇门四十格 ·《遁甲演义》卷二逐格详解 ·
+// 《奇门法窍》卷六吉凶格注释 ·《奇门遁甲秘笈大全》卷十五）在条件与方向上完全一致。
+// 《遁甲演义》引王璋作「天上六辛加地下六乙」「天上六癸加地下六丁」，方向无歧义。
+
+/// 造一个只在指定宫摆好天地盘干的最小盘面，用来单测格的判定。
+fn plate_with(palace: u8, sky_stem: &'static str, earth_stem: &'static str) -> ([&'static str; 9], SkyPlate, GatePlate) {
+    let k = palace as usize - 1;
+    let mut earth = [""; 9];
+    let mut stems = [""; 9];
+    earth[k] = earth_stem;
+    stems[k] = sky_stem;
+    let sky = SkyPlate { shift: 1, stars: [""; 9], stems, center_stem: "", center_palace: 2 };
+    let gates = GatePlate { zhi_shi_gate: "", zhi_shi_palace: 1, steps: 0, shift: 1, gates: [""; 9] };
+    (earth, sky, gates)
+}
+
+/// 八个干加干格，逐格钉方向：反过来必是另一个格或不成格。
+#[test]
+fn qm5_stem_patterns_hold_in_one_direction_only() {
+    for (sky_stem, earth_stem, name, class) in STEM_PATTERNS {
+        let (earth, sky, gates) = plate_with(3, sky_stem, earth_stem);
+        let p = patterns(&earth, &sky, &gates);
+        assert_eq!(p.stem_patterns.len(), 1, "{name} 应恰成一格");
+        let found = &p.stem_patterns[0];
+        assert_eq!((found.name, found.sky, found.earth), (name, sky_stem, earth_stem));
+        assert_eq!(found.classical_class, class);
+        assert_eq!(found.palace, 3);
+
+        // 反向：要么是另一个格，要么不成格；绝不能还判成同一个格
+        let (earth_r, sky_r, gates_r) = plate_with(3, earth_stem, sky_stem);
+        let back = patterns(&earth_r, &sky_r, &gates_r);
+        for hit in &back.stem_patterns {
+            assert_ne!(hit.name, name, "{sky_stem}加{earth_stem} 与 {earth_stem}加{sky_stem} 不该同名");
+        }
+    }
+}
+
+/// 三对反向格各自成对，且吉凶归类照古籍：返首/跌穴俱吉，其余三对俱凶。
+#[test]
+fn qm5_the_reversed_pairs_are_named_apart() {
+    let name_of = |sky_stem: &'static str, earth_stem: &'static str| {
+        let (e, s, g) = plate_with(1, sky_stem, earth_stem);
+        patterns(&e, &s, &g).stem_patterns.first().map(|p| (p.name, p.classical_class))
+    };
+    assert_eq!(name_of("戊", "丙"), Some(("青龙返首", "吉")));
+    assert_eq!(name_of("丙", "戊"), Some(("飞鸟跌穴", "吉")));
+    assert_eq!(name_of("辛", "乙"), Some(("白虎猖狂", "凶")));
+    assert_eq!(name_of("乙", "辛"), Some(("青龙逃走", "凶")));
+    assert_eq!(name_of("癸", "丁"), Some(("螣蛇夭矫", "凶")));
+    assert_eq!(name_of("丁", "癸"), Some(("朱雀投江", "凶")));
+    assert_eq!(name_of("丙", "庚"), Some(("荧入太白", "凶")));
+    assert_eq!(name_of("庚", "丙"), Some(("太白入荧", "凶")));
+    // 不在表里的组合不成格
+    assert_eq!(name_of("戊", "戊"), None);
+    assert_eq!(name_of("乙", "丙"), None);
+}
+
+/// 三奇得使六组：奇在天、仪在地，且**三组与凶格是同一个判据**。
+///
+/// 「乙加甲午」与「乙加辛（青龙逃走）」不是可能共现，是同一个盘面——地盘辛恒为甲午辛。
+/// 《遁甲演义》卷二：「乙奇加甲午辛乃青龙逃走，丙奇加甲申庚上乃荧入太白，丁奇加甲寅癸乃朱雀投江。
+/// 凡此三者，尚有微疵不吉。如遇本旬直符同临其上，方可用之而吉也。」
+/// 朴素实现会把这三个凶格标成吉格，所以这条测试要求两边同时出现。
+#[test]
+fn qm5_three_of_the_six_de_shi_pairs_are_the_very_same_board_as_a_calamity() {
+    for (qi, yi, xun_head, conflicting) in QI_DE_SHI_PAIRS {
+        let (earth, sky, gates) = plate_with(7, qi, yi);
+        let p = patterns(&earth, &sky, &gates);
+        assert_eq!(p.qi_de_shi.len(), 1, "{qi}加{yi} 应成得使");
+        let d = &p.qi_de_shi[0];
+        assert_eq!((d.qi, d.yi, d.xun_head, d.conflicting), (qi, yi, xun_head, conflicting));
+
+        match conflicting {
+            // 同判据的凶格必须同时出现在 stem_patterns 里，名字对得上
+            Some(bad) => {
+                let names: Vec<&str> = p.stem_patterns.iter().map(|s| s.name).collect();
+                assert!(names.contains(&bad), "{qi}加{yi} 应同时判出 {bad}，实得 {names:?}");
+            }
+            // 洁净的三组：乙加己、丁加壬 不成任何凶格；丙加戊 同时是飞鸟跌穴（同为吉）
+            None => {
+                for hit in &p.stem_patterns {
+                    assert_eq!(hit.classical_class, "吉", "{qi}加{yi} 不该判出凶格 {}", hit.name);
+                }
+            }
+        }
+    }
+    // 六组恰好覆盖三奇 × 各两仪，且旬首互不重复
+    let mut heads: Vec<&str> = QI_DE_SHI_PAIRS.iter().map(|(_, _, h, _)| *h).collect();
+    heads.sort_unstable();
+    let mut want = ["甲子", "甲戌", "甲申", "甲午", "甲辰", "甲寅"];
+    want.sort_unstable();
+    assert_eq!(heads, want, "六旬首各用一次");
+    // 每奇恰配两仪
+    for qi in SAN_QI {
+        assert_eq!(QI_DE_SHI_PAIRS.iter().filter(|(q, ..)| *q == qi).count(), 2, "{qi} 应配两仪");
+    }
+}
+
+/// 三奇合吉门与三奇得使是两个格，不可混为一谈。
+///
+/// 《烟波钓叟歌》分作两句（「吉门偶尔合三奇」与「三奇得使诚堪使」），
+/// 《奇门遁甲秘笈大全》卷十五也分列「三奇上吉门格」与「三奇得使格」。
+#[test]
+fn qm5_meeting_a_lucky_gate_is_not_the_same_as_being_on_duty() {
+    // 乙 + 开门同宫，但地盘不是甲戌己 → 只合吉门，不得使
+    let mut earth = [""; 9];
+    let mut stems = [""; 9];
+    let mut gate_names = [""; 9];
+    earth[2] = "丙";
+    stems[2] = "乙";
+    gate_names[2] = "开门";
+    let sky = SkyPlate { shift: 1, stars: [""; 9], stems, center_stem: "", center_palace: 2 };
+    let gates = GatePlate { zhi_shi_gate: "开门", zhi_shi_palace: 3, steps: 0, shift: 1, gates: gate_names };
+    let p = patterns(&earth, &sky, &gates);
+    assert_eq!(p.qi_gates.len(), 1, "乙与开门同宫，应判三奇合吉门");
+    assert!(p.qi_de_shi.is_empty(), "地盘不是甲戌己，不该判得使");
+
+    // 反过来：乙加己 得使，但无吉门
+    let (e2, s2, g2) = plate_with(3, "乙", "己");
+    let q = patterns(&e2, &s2, &g2);
+    assert_eq!(q.qi_de_shi.len(), 1);
+    assert!(q.qi_gates.is_empty(), "无门则不合吉门");
+}
+
+/// 中五宫无天盘干（寄坤二），扫描不该在那里静默漏判或误判。
+#[test]
+fn qm5_the_empty_centre_never_matches_a_pattern() {
+    let mut earth = [""; 9];
+    earth[4] = "丙"; // 中五地盘有干，天盘为空
+    let sky = SkyPlate { shift: 1, stars: [""; 9], stems: [""; 9], center_stem: "戊", center_palace: 2 };
+    let gates = GatePlate { zhi_shi_gate: "", zhi_shi_palace: 1, steps: 0, shift: 1, gates: [""; 9] };
+    let p = patterns(&earth, &sky, &gates);
+    assert!(p.stem_patterns.is_empty() && p.qi_de_shi.is_empty(), "中五天盘为空，不该成格");
+    assert!(!p.stem_fu_yin_palaces.contains(&5), "中五也不该判干伏吟");
+}

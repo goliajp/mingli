@@ -890,6 +890,8 @@ interface QimenPatterns {
   stem_fu_yin_palaces: number[]
   full_fu_yin: boolean
   qi_gates: { palace: number; qi: string; gate: string }[]
+  qi_de_shi: { palace: number; qi: string; yi: string; xun_head: string; conflicting: string | null }[]
+  stem_patterns: { palace: number; name: string; sky: string; earth: string; classical_class: string }[]
 }
 
 interface QimenSpirits {
@@ -922,6 +924,7 @@ function Qimen({ c }: { c: QimenChart }) {
   const pat = c.patterns
   const noPattern = !pat.full_fu_yin && !pat.star_fu_yin && !pat.star_fan_yin && !pat.gate_fu_yin
     && !pat.gate_fan_yin && pat.stem_fu_yin_palaces.length === 0 && pat.qi_gates.length === 0
+    && pat.qi_de_shi.length === 0 && pat.stem_patterns.length === 0
   return (
     <div className="lp">
       <Section title={`${c.setup.yang_dun ? '阳遁' : '阴遁'} ${c.setup.ju} 局 · ${c.setup.term} · ${YUAN_CN[c.setup.yuan] ?? c.setup.yuan}`}>
@@ -988,13 +991,27 @@ function Qimen({ c }: { c: QimenChart }) {
           {pat.stem_fu_yin_palaces.length > 0 &&
             <span className="qm-chip">干伏吟 · {pat.stem_fu_yin_palaces.map(gongName).join(' ')}</span>}
           {pat.qi_gates.map((q) => (
-            <span className="qm-chip qi" key={q.palace}>{q.qi} 临 {q.gate} · {gongName(q.palace)}</span>
+            <span className="qm-chip qi" key={'qg' + q.palace}>{q.qi} 合 {q.gate} · {gongName(q.palace)}</span>
+          ))}
+          {pat.qi_de_shi.map((d) => (
+            <span className={`qm-chip qi${d.conflicting ? ' caveat' : ''}`} key={'ds' + d.palace}
+              title={d.conflicting
+                ? `与「${d.conflicting}」是同一个盘面，非偶然共现；《遁甲演义》判为微疵不吉，须本旬直符同临方可用`
+                : `${d.qi} 加 ${d.xun_head}${d.yi}`}>
+              三奇得使 · {d.qi}加{d.xun_head}{d.yi} · {gongName(d.palace)}{d.conflicting ? ' ⚠' : ''}
+            </span>
+          ))}
+          {pat.stem_patterns.map((sp) => (
+            <span className={`qm-chip ${sp.classical_class === '吉' ? 'good' : 'bad'}`} key={'sp' + sp.palace}
+              title={`天盘${sp.sky} 加 地盘${sp.earth}（古籍归「${sp.classical_class}格」）`}>
+              {sp.name} · {gongName(sp.palace)}
+            </span>
           ))}
           {noPattern && <span className="qm-chip none">本盘无已收格局</span>}
         </div>
       </Section>
 
-      <div className="lp-note">四盘齐全：地盘三奇六仪 · 天盘（九星 + 三奇六仪随值符转）· 人盘八门（值使随时辰数）· 神盘八神；星名后小字是该星在月令下的旺相休囚死。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故悬停可见另一系；中宫与天禽寄宫取通行的坤 2。格局只收无争议的伏吟 / 反吟 / 三奇临吉门，其余 200+ 条各家出入大，未收。</div>
+      <div className="lp-note">四盘齐全：地盘三奇六仪 · 天盘（九星 + 三奇六仪随值符转）· 人盘八门（值使随时辰数）· 神盘八神；星名后小字是该星在月令下的旺相休囚死。🟡 八神第 5 / 6 位两系称谓相左（白虎 / 玄武 与 勾陈 / 朱雀），位序一致故悬停可见另一系；中宫与天禽寄宫取通行的坤 2。格局收多源无争议的几类：伏吟 / 反吟、三奇合吉门、干加干八格（返首 / 跌穴 / 猖狂 / 逃走 / 夭矫 / 投江 / 荧入白 / 白入荧）与三奇得使；吉凶归类照录古籍分卷。⚠ 标记处表示该得使与一个凶格是**同一个盘面**（如乙加甲午即青龙逃走），《遁甲演义》判为微疵不吉。其余 200+ 条各家出入大，未收。</div>
     </div>
   )
 }

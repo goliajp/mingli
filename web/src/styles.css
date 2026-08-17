@@ -831,6 +831,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .qm-chip.on { border-color: var(--shu); color: var(--shu); }
 .qm-chip.qi { border-color: var(--mu); color: var(--mu); }
 .qm-chip.none { color: var(--washi-faint); border-style: dashed; }
+.qm-chip.good { border-color: var(--mu); color: var(--mu); }
+.qm-chip.bad { border-color: var(--huo); color: var(--huo); }
+.qm-chip.caveat { border-style: dashed; }
 
 /* —— 奇门时家盘：一宫四层（神 / 星 · 旺衰 / 门 / 天盘干／地盘干） —— */
 .qm-cell {
