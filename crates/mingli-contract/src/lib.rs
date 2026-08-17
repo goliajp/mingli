@@ -83,11 +83,19 @@ pub const fn d(aspect: &'static str, status: Determinism, note: &'static str) ->
 }
 
 /// 性别（用于需要它的叶，如八字大运）。
+///
+/// 线上一律小写。这个枚举原本按 Rust 的拼法收发，于是直接吃 [`Query`] JSON 的两个入口
+/// （`/api/route` 与 wasm 的 `parse_query`）只认 `"Male"`，而 HTTP 的 DTO 层、web 的
+/// `types.ts`、各叶回声里的 `input.gender` 说的都是 `"male"`——同一个词在同一套 API 里
+/// 有两种拼法，写不对的那一头会收到 422。`Male` / `Female` 仍以别名接受，旧调用不破。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Gender {
     /// 男。
+    #[serde(alias = "Male")]
     Male,
     /// 女。
+    #[serde(alias = "Female")]
     Female,
 }
 
