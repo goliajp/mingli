@@ -38,7 +38,10 @@ impl CastingEngine for JyotishEngine {
             d("Ayanamsa（4 派）", Det, "Lahiri 用 SE 1956-01-01 anchor + 平岁差线性，容差 ±0.05° vs Swiss Ephemeris；KP/Raman/Fagan 用 J2000 静态偏移"),
             d("Vimshottari mahadasha timeline", Det, "9 主星固定年表（7/20/6/10/7/18/16/19/17 总 120），月亮 nakshatra 残余比例算 birth dasha 起止；9 段完整 timeline"),
             d("D-9 navamsa 分盘", Det, "公式 floor(lon×0.3)%12；校验三类(Movable/Fixed/Dual)起算 sign 与古典分类完全一致"),
-            d("Antardasha/Pratyantar 子细分", Und, "本叶给完整 mahadasha 9 段；antardasha （mahadasha 内 9 步子细分） 留后续"),
+            d("Antardasha（bhukti）子细分", Det, "时长 = 主星年数 × 子星年数 ÷ 120，首个子运即主星自己、其后依同一固定顺序循环（BPHS 51.1 与 51.2）；drik-panchanga、PyJHora、VedAstro 三个开源实现的源码常量逐条一致。九步之和恰铺满主运跨度"),
+            d("Vimśottarī 一年折合多少天", Und, "🟡 原典只给年数比例、**不规定年长**；实查六个不同取值：儒略年 365.25(Wikipedia/Maitreya 默认)、savana 360(VedAstro 于 Raman ayanāṃśa)、回归年 365.24219、格里年 365.2425、365.2564(VedAstro 于 KP)、真恒星年 365.256364(PyJHora 默认)。drik-panchanga 源码自注「some say 360 days, others 365.25 or 365.2563 etc」，VedAstro 自注「vary as per the astrologer's preference」。本叶做成参数，默认儒略年，不写死"),
+            d("Pratyantardaśā 及更深层", Und, "同一条比例规则再嵌一层（三实现皆如此），但层数与命名南北传统不一（北传 dasa-antardasa-pratyantardasa，南传 dasa-bhukti-antara-sukshma，各家给到 5/6/8 层不等）；本叶只出两层"),
+            d("antardaśā 起始子星的变体", Und, "🟡 仅见 PyJHora 提供六档选项（主星/下一星/上一星 × 顺/逆），其自身只含混标注为「as calculated by various astrologers」，未取得任何文献出处；本叶只实现 BPHS 的「首个子运即主星」"),
             d("其它分盘(D-10/D-12/...)", Und, "本叶给 D-1(rasi) + D-9(navamsa) 两核心；其余 vargas 留后续"),
         ] }
     }

@@ -225,3 +225,81 @@ assert!((0.0..360.0).contains(&lagna));
 // → minus ~23.3° ≈ 235.1° → 235.1/30 = 7.8 → rasi 7(Vrishchika))。
 assert!(matches!(chart.lagna_rasi, Some(7 | 8)));
 }
+
+// ── Antardaśā（bhukti）：BPHS 51.1–51.2 的比例细分 ──────────────────
+
+/// 每步 = 主星年数 × 子星年数 ÷ 120，九步之和恰等于主运跨度。
+///
+/// BPHS 51.1「daśābdāḥ svasvamānaghnāḥ sarvāyuryogabhājitāḥ」——
+/// 主星年数乘子星年数、除以全部主星年数之和（120）。
+/// drik-panchanga（`factor = mahadasa[lord] * mahadasa[maha_lord] / 120.`）、
+/// PyJHora（除数常量 `human_life_span_for_vimsottari_dhasa = 120`）、
+/// VedAstro（`const double fullHumanLifeYears = 120.0`）三个实现逐条一致。
+#[test]
+fn each_antardasha_is_the_product_over_one_twenty_and_they_tile_the_period() {
+    let tl = vimshottari_timeline(123.456, 2_447_892.5);
+    for md in &tl {
+        assert_eq!(md.antardashas.len(), 9, "{} 应有九步", md.lord);
+        let md_years = VIMSHOTTARI_YEARS.iter().find(|(l, _)| *l == md.lord).expect("主星在表内").1;
+        let mut total = 0.0;
+        for ad in &md.antardashas {
+            let sub_years = VIMSHOTTARI_YEARS.iter().find(|(l, _)| *l == ad.lord).expect("子星在表内").1;
+            let want = md.years * sub_years / 120.0;
+            assert!((ad.years - want).abs() < 1e-9, "{}·{} 应为 {want}，实得 {}", md.lord, ad.lord, ad.years);
+            total += ad.years;
+        }
+        // 九步铺满主运跨度，首尾与主运对齐
+        assert!((total - md_years).abs() < 1e-9, "{} 的九步之和应等于 {md_years}", md.lord);
+        assert!((md.antardashas[0].start_age_years - md.start_age_years).abs() < 1e-9);
+        assert!((md.antardashas[8].end_age_years - md.end_age_years).abs() < 1e-9);
+    }
+}
+
+/// 首个子运即主星自己，其后依同一固定顺序循环（BPHS 51.2）。
+#[test]
+fn the_first_antardasha_belongs_to_the_lord_of_the_dasha() {
+    for lon in [0.0, 13.5, 99.9, 200.0, 359.99] {
+        for md in vimshottari_timeline(lon, 2_451_545.0) {
+            assert_eq!(md.antardashas[0].lord, md.lord, "首个子运应是主星自己");
+            // 九个子星互不重复，恰是那九颗
+            let mut got: Vec<&str> = md.antardashas.iter().map(|a| a.lord).collect();
+            got.sort_unstable();
+            let mut want: Vec<&str> = VIMSHOTTARI_LORDS.to_vec();
+            want.sort_unstable();
+            assert_eq!(got, want);
+            // 顺序是固定序列的循环
+            let start = VIMSHOTTARI_LORDS.iter().position(|l| *l == md.lord).expect("主星在序列内");
+            for (i, ad) in md.antardashas.iter().enumerate() {
+                assert_eq!(ad.lord, VIMSHOTTARI_LORDS[(start + i) % 9], "第 {i} 步");
+            }
+        }
+    }
+}
+
+/// 一年折合多少天是参数，不是常数——换一个年长，整条时间轴按比例伸缩，年龄不变。
+///
+/// 原典只给年数比例、不规定年长；实查到六个不同取值（见 `YEAR_LENGTHS`）。
+#[test]
+fn the_length_of_a_year_scales_the_timeline_without_moving_the_ages() {
+    let birth = 2_447_892.5;
+    let julian = vimshottari_timeline_with(123.456, birth, 365.25);
+    let savana = vimshottari_timeline_with(123.456, birth, 360.0);
+    for (a, b) in julian.iter().zip(savana.iter()) {
+        assert_eq!(a.lord, b.lord);
+        // 年龄（以「年」计）与年长无关
+        assert!((a.start_age_years - b.start_age_years).abs() < 1e-9);
+        // 儒略日则按年长伸缩
+        let ja = a.end_jd - birth;
+        let jb = b.end_jd - birth;
+        assert!((ja * 360.0 - jb * 365.25).abs() < 1e-6, "两种年长应成定比");
+    }
+    // 六个取值互不相同、皆为正
+    let mut vals: Vec<f64> = YEAR_LENGTHS.iter().map(|(_, v)| *v).collect();
+    assert!(vals.iter().all(|v| *v > 300.0));
+    vals.sort_by(f64::total_cmp);
+    vals.dedup();
+    assert_eq!(vals.len(), 6, "六个取值应互不相同");
+    // 默认入口取儒略年
+    let d = vimshottari_timeline(123.456, birth);
+    assert!((d[0].end_jd - julian[0].end_jd).abs() < 1e-9);
+}
