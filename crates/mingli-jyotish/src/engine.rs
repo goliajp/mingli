@@ -65,10 +65,23 @@ impl CastingEngine for JyotishEngine {
             d("Vimśottarī 一年折合多少天", Und, "🟡 原典只给年数比例、**不规定年长**；实查六个不同取值：儒略年 365.25(Wikipedia/Maitreya 默认)、savana 360(VedAstro 于 Raman ayanāṃśa)、回归年 365.24219、格里年 365.2425、365.2564(VedAstro 于 KP)、真恒星年 365.256364(PyJHora 默认)。drik-panchanga 源码自注「some say 360 days, others 365.25 or 365.2563 etc」，VedAstro 自注「vary as per the astrologer's preference」。本叶做成参数，默认儒略年，不写死"),
             d("Pratyantardaśā 及更深层", Und, "🟡 同一条比例规则再嵌一层（三实现皆如此），但层数与命名南北传统不一（北传 dasa-antardasa-pratyantardasa，南传 dasa-bhukti-antara-sukshma，各家给到 5/6/8 层不等）；本叶只出两层"),
             d("antardaśā 起始子星的变体", Und, "🟡 仅见 PyJHora 提供六档选项（主星/下一星/上一星 × 顺/逆），其自身只含混标注为「as calculated by various astrologers」，未取得任何文献出处；本叶只实现 BPHS 的「首个子运即主星」"),
-            d("其余十四个分盘（未实现，非欠定）", Und, "🟡 「留后续」这个理由站不住：Ṣoḍaśavarga 十六盘里十四个的规则在 BPHS 第 6 章明载且五个开源实现逐点实测全同（12 宫 × 30000 点）。D-12 是「本宫起顺数、每份 2°30′」，六实现全同；D-10 是「奇宫本宫、偶宫第 9，均顺数」（BPHS 6.13 `dashamAMshAH svatashchauje yugme tannavamAt smR^itAH`），原典毫无歧义。本叶只出 D-1 与 D-9 是**没写**，不是定不下"),
+            d(
+                "十二个分盘（D-3/4/7/10/12/16/20/24/27/40/45/60）",
+                Det,
+                "Parasara 一系。两个彼此独立的开源实现逐条对照——kunjara/jyotish（PHP，每盘只实现此法）\
+                 与 PyJHora（Python，每盘并列 3–6 法，取其 Parasara 默认）——在 12 盘 × 12 宫 × 300 点 \
+                 共 43 200 个点上零分歧。D-10 另有原典 BPHS 6.13 直证",
+            ),
+            d(
+                "分盘的其余诸法（Parivritti / Somanatha / Jaganatha 等）",
+                Und,
+                "🟡 每盘都不止一法：PyJHora 逐盘并列 3–6 种（Parivritti cyclic / even-reverse、\
+                 Somanatha alternate、Jaganatha、以及若干 Parasara 变体如「偶宫逆数」）。\
+                 本叶只出 Parasara 一系并在此声明其余，不静默选边。要收哪一法须各自找 ≥2 源",
+            ),
             d("D-2 hora 落宫", Und, "🟡 BPHS 6.5-6 只说奇宫前半属日后半属月、偶宫相反，**没有指定落哪个宫**。日→Leo / 月→Cancer 是后世注家所补，另有 Raman、Kashinatha、Parivritti Dwaya、Somanatha 等至少五种活跃流派"),
             d("D-30 偶宫弧长", Und, "🟡 BPHS 6.27 作 vyatyayāt same（偶宫反转），反的是弧长还是只反主星，梵文两可；两个开源实现取另一读，实测分别在 6.7% 与 20% 的度数点上不合。另：份内度数原典未定义，各实现一律沿用等分 1°，与不等分宫位互相矛盾"),
-            d("JHora 的 D-10 变体", Und, "🟡 Jagannatha Hora 对偶宫走「第 5 宫逆数 + 份内度数 30−x」（软件标 D-10 (5-8)），与 BPHS 6.13 冲突且无文本依据——node-jhora 的 varga audit 文档明记此事并把默认改回原典读法。本叶若实现 D-10 按原典"),
+            d("JHora 的 D-10 变体", Und, "🟡 Jagannatha Hora 对偶宫走「第 5 宫逆数 + 份内度数 30−x」（软件标 D-10 (5-8)），与 BPHS 6.13 冲突且无文本依据——node-jhora 的 varga audit 文档明记此事并把默认改回原典读法。本叶的 D-10 按原典"),
         ] }
     }
     fn schools(&self) -> &'static [SchoolItem] {

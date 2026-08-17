@@ -73,6 +73,8 @@ pub struct GrahaPosition {
     pub navamsa: usize,
     /// D-9 navamsa 分盘 rasi 名。
     pub navamsa_name: &'static str,
+    /// 其余十二个分盘的落宫（分盘 id → rasi 索引）。D-9 另见 `navamsa`。
+    pub vargas: std::collections::BTreeMap<&'static str, usize>,
 }
 
 /// 计算一颗行星的恒星黄道排盘条目。
@@ -102,6 +104,7 @@ pub(crate) fn graha_position(graha: Graha, jde: f64, ay: f64) -> GrahaPosition {
         nakshatra_name: NAKSHATRA_NAMES[naks],
         nakshatra_lord: VIMSHOTTARI_LORDS[naks % 9],
         navamsa: nav,
+        vargas: crate::varga::all_vargas(sidereal).rasi,
         navamsa_name: RASI_NAMES[nav],
     }
 }

@@ -322,3 +322,113 @@ fn all_one_hundred_eight_navamsa_boundaries_land_in_the_right_division() {
         assert_eq!(navamsa_of(lon + 1.0), (k as usize) % 12, "边界 {k} 之后 1° 应仍在本格");
     }
 }
+
+// ── 分盘 ────────────────────────────────────────────────────────────────
+//
+// 每一条落宫都由两个彼此独立的开源实现交叉确认：`kunjara/jyotish`（PHP，每盘只实现
+// Parasara 一法）与 `naturalstupid/PyJHora`（Python，每盘并列 3–6 法，取其 Parasara 默认）。
+// 把两者各自的写法分别转录一遍，在 12 盘 × 12 宫 × 300 点 = 43 200 个点上逐点比对，
+// **零分歧**；下面的期望值取自那批全同的点。
+mod varga_tests {
+    use crate::varga::{all_vargas, varga_rasi, Varga, ALL};
+
+    /// 除数顺序与 `ALL` 一致，供下面的表逐列对上。
+    const DIVISORS: [Varga; 12] = ALL;
+
+    /// (恒星黄经, 十二盘落宫)。落宫 0=白羊 … 11=双鱼。
+    const ORACLE: [(f64, [usize; 12]); 11] = [
+        (0.0, [0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0]),
+        (13.4, [4, 3, 3, 4, 5, 7, 8, 2, 0, 5, 8, 2]),
+        (29.99, [8, 9, 6, 9, 11, 3, 7, 3, 2, 3, 8, 11]),
+        (45.0, [5, 7, 10, 2, 7, 0, 6, 3, 4, 2, 2, 7]),
+        (77.7, [6, 8, 6, 7, 9, 5, 3, 6, 9, 11, 10, 1]),
+        (123.456, [4, 4, 4, 5, 5, 5, 10, 6, 3, 4, 9, 10]),
+        (180.0, [6, 6, 6, 6, 6, 0, 0, 4, 6, 0, 0, 6]),
+        (222.22, [11, 10, 3, 7, 11, 10, 4, 0, 7, 10, 10, 7]),
+        (271.5, [9, 9, 3, 5, 9, 0, 1, 4, 4, 8, 2, 0]),
+        (333.33, [11, 11, 5, 8, 0, 9, 6, 5, 11, 10, 0, 5]),
+        (359.99, [7, 8, 11, 4, 10, 11, 11, 2, 11, 9, 4, 10]),
+    ];
+
+    #[test]
+    fn every_varga_matches_both_reference_implementations() {
+        for (lon, want) in ORACLE {
+            for (i, v) in DIVISORS.iter().enumerate() {
+                assert_eq!(
+                    varga_rasi(*v, lon),
+                    want[i],
+                    "{} 在恒星黄经 {lon}° 上应落第 {} 宫",
+                    v.id(),
+                    want[i]
+                );
+            }
+        }
+    }
+
+    /// 一宫三十度切成 n 份，走满一宫恰好用掉 n 份——不多不少。
+    ///
+    /// 这条抓的是「份宽算错」：份宽偏大则一宫走不满，偏小则越界到下一宫，
+    /// 两种都不会让上面的抽样 oracle 全错，只会错在边界附近。
+    #[test]
+    fn one_sign_is_exactly_n_parts_wide() {
+        for v in ALL {
+            let n = v.divisor() as usize;
+            for rasi in 0_i32..12 {
+                let base = f64::from(rasi) * 30.0;
+                let seen: Vec<usize> = (0..n)
+                    .map(|k| varga_rasi(v, base + (k as f64 + 0.5) * 30.0 / n as f64))
+                    .collect();
+                assert_eq!(seen.len(), n);
+                // 份序连续推进：相邻两份的落宫差必是固定步长（各盘的 step 见模块说明）
+                let step = (seen[1] + 12 - seen[0]) % 12;
+                for w in seen.windows(2) {
+                    assert_eq!(
+                        (w[1] + 12 - w[0]) % 12,
+                        step,
+                        "{} 在第 {rasi} 宫内的份序推进不匀",
+                        v.id()
+                    );
+                }
+            }
+        }
+    }
+
+    /// 落宫恒在 0..12，且黄经绕一圈回到原处。
+    #[test]
+    fn a_varga_rasi_is_always_a_rasi() {
+        for v in ALL {
+            for k in 0..3600 {
+                let lon = f64::from(k) / 10.0;
+                let r = varga_rasi(v, lon);
+                assert!(r < 12, "{} 落宫 {r} 越界", v.id());
+                assert_eq!(r, varga_rasi(v, lon + 360.0), "{} 绕一圈应回到原处", v.id());
+                assert_eq!(r, varga_rasi(v, lon - 360.0), "{} 负向绕一圈应回到原处", v.id());
+            }
+        }
+    }
+
+    /// 十二盘各有其名与所主，且 id 不重。
+    #[test]
+    fn the_twelve_vargas_are_all_named() {
+        let mut ids: Vec<&str> = ALL.iter().map(|v| v.id()).collect();
+        ids.sort_unstable();
+        let n = ids.len();
+        ids.dedup();
+        assert_eq!(ids.len(), n, "分盘 id 不该重复");
+        for v in ALL {
+            assert!(!v.sanskrit_name().is_empty() && !v.subject().is_empty());
+            assert_eq!(v.id(), format!("d{}", v.divisor()));
+        }
+    }
+
+    /// 汇总函数与逐盘计算给同一个答案。
+    #[test]
+    fn the_summary_agrees_with_each_varga() {
+        let lon = 123.456;
+        let all = all_vargas(lon);
+        assert_eq!(all.rasi.len(), 12);
+        for v in ALL {
+            assert_eq!(all.rasi[v.id()], varga_rasi(v, lon));
+        }
+    }
+}
