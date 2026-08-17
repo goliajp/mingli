@@ -14,14 +14,15 @@ pub(crate) async fn analysis_handler() -> impl IntoResponse {
 
 /// 返回 8 类问事意图清单 + 当前注册叶集合（供 web 顶层「先选你要问什么」UI）。
 pub(crate) async fn intents_handler() -> impl IntoResponse {
-    let intents: Vec<_> = mingli_contract::intents()
-        .iter()
-        .map(|s| {
+    // 「这一类问局是什么」在端口层，「谁来答」要问注册表里的叶——两者在编排层合成。
+    let intents: Vec<_> = mingli_engine::intent_catalog(leaves())
+        .into_iter()
+        .map(|(s, default_leaves)| {
             serde_json::json!({
                 "id": s.id,
                 "name_zh": s.name_zh,
                 "atoms": s.atoms,
-                "default_leaves": s.default_leaves,
+                "default_leaves": default_leaves,
                 "output_shape": s.output_shape,
                 "status": s.status,
                 "status_label": s.status.label(),

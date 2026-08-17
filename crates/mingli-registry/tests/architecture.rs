@@ -277,3 +277,109 @@ fn the_layer_table_and_the_workspace_agree_in_both_directions() {
         assert_eq!(pair[1], pair[0] + 1, "层号应连续，L{} 与 L{} 之间空了", pair[0], pair[1]);
     }
 }
+
+/// 内层源码里仍然写着叶名字面量的地方——每一处都要有它非在这里不可的理由。
+///
+/// 与 [`APP_MAY_KNOW`] 同一个用法：点名而不是数个数，名单要动就得改这张表，改的人得说清为什么。
+const LEAF_NAMES_STILL_INSIDE: [(&str, &str); 1] = [(
+    "crates/mingli-interpret/src/guardrails/natal.rs",
+    "释义层按叶 id 存着一张「这片叶的 JSON 字段各是什么意思」的提示表。\
+     这是叶自己的领域知识寄放在了释义层——与 analysis 从前那张特征表同一个形状，\
+     该由叶经端口声明。待改；改法参照 CastingEngine::principal。",
+)];
+
+/// 这个文件是不是只在测试时编译——即 crate 根里写着 `#[cfg(test)] mod <它>;`。
+///
+/// 测试里点名列出「这一类应路由到哪几片叶」正是我们要的守卫，不该被当成违规；
+/// 而这类模块常常单独成文件，光靠扫 `#[cfg(test)] { … }` 块看不见它。
+fn is_test_only_module(src_dir: &Path, file: &Path) -> bool {
+    let Some(stem) = file.file_stem().and_then(|x| x.to_str()) else { return false };
+    let Ok(root) = std::fs::read_to_string(src_dir.join("lib.rs")) else { return false };
+    root.contains(&format!("#[cfg(test)]\nmod {stem};"))
+}
+
+/// 去掉 `#[cfg(test)]` 模块：理由同上，这里处理的是写在同一文件里的内联形式。
+fn without_test_modules(src: &str) -> String {
+    let mut out = String::with_capacity(src.len());
+    let mut rest = src;
+    while let Some(at) = rest.find("#[cfg(test)]") {
+        out.push_str(&rest[..at]);
+        let after = &rest[at..];
+        let Some(open) = after.find('{') else { break };
+        let (mut depth, mut end) = (0i32, None);
+        for (i, ch) in after[open..].char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = Some(open + i + 1);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        match end {
+            Some(e) => rest = &after[e..],
+            None => break,
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+#[test]
+fn the_inner_layers_do_not_name_any_leaf() {
+    // 依赖只向内这条规则是按 Cargo 依赖判定的，看不见字符串。可「装配根是唯一列叶的地方」
+    // 在字符串层面同样要成立：内层若按叶 id 分派，加一片叶就得回头改内层，
+    // 而**漏改不会报错**——那片叶只是静默地不参与，比编译失败难查得多。
+    //
+    // 这条测试是那次翻修留下的守卫：端口层曾写死 21 个叶 id（意图 → 叶 的路由表），
+    // 跨叶分析层曾按叶 id 逐个去解各叶的输出 JSON。两处都已改成由叶自己声明。
+    let layers = layers();
+    let root = workspace_root();
+    let leaf_ids: Vec<String> = mingli_registry::registry().iter().map(|e| e.id().to_string()).collect();
+    assert!(leaf_ids.len() >= 20, "注册表应给得出叶名清单");
+
+    let mut violations = Vec::new();
+    for (name, manifest) in manifests() {
+        // 只查内层：L3 是叶自己（它当然写自己的 id），L6+ 是用例与交付，另有 APP_MAY_KNOW 管着。
+        if !matches!(layers.get(name.as_str()), Some(0 | 1 | 2 | 4 | 5)) {
+            continue;
+        }
+        let src_dir = manifest.parent().expect("manifest 应有目录").join("src");
+        for file in rust_files(&src_dir) {
+            let rel = file.strip_prefix(&root).unwrap_or(&file).to_string_lossy().replace('\\', "/");
+            if LEAF_NAMES_STILL_INSIDE.iter().any(|(f, _)| *f == rel) || is_test_only_module(&src_dir, &file) {
+                continue;
+            }
+            let text = without_test_modules(&std::fs::read_to_string(&file).expect("源文件应可读"));
+            for id in &leaf_ids {
+                if text.contains(&format!("\"{id}\"")) {
+                    violations.push(format!("{rel} 里写着叶名 \"{id}\""));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "内层不该按叶名分派——那片叶该自己声明（见 CastingEngine::answers / principal）：\n  {}",
+        violations.join("\n  ")
+    );
+}
+
+/// 递归收集一个目录下的 .rs 文件。
+fn rust_files(dir: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else { return out };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(rust_files(&p));
+        } else if p.extension().is_some_and(|x| x == "rs") {
+            out.push(p);
+        }
+    }
+    out
+}

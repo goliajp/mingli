@@ -22,10 +22,8 @@
     reason = "信息论计数→f64 精度损失可忽略；px/py 等为数学惯用命名；intern 编码窄化受控；对 0.0/identity 的精确比较是有意为之"
 )]
 
-use mingli_contract::{CastingEngine, Family, Gender, Query};
-use mingli_engine::cast_all_detailed;
+use mingli_contract::{CastingEngine, Family, Gender, Moment, Query};
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 
 // 计数表用 BTreeMap 而非 HashMap：浮点加法不结合，`a + b + c` 换个次序就换个末位。
@@ -92,50 +90,6 @@ pub fn nmi(xs: &[i64], ys: &[i64]) -> f64 {
 
 // ===================== 逐叶特征 =====================
 
-/// 取某叶 JSON 盘里一个**低基数分类特征**（用于跨叶 NMI）。NMI 对重标号不变，故编码任意。
-#[must_use]
-pub fn feature(id: &str, c: &Value) -> Option<String> {
-    let s = |v: &Value| v.as_str().map(str::to_string);
-    let n = |v: &Value| v.as_i64().map(|x| x.to_string());
-    match id {
-        "bazi" => s(&c["day"]["branch"]),       // 日支(12)
-        "ziwei" => s(&c["ming_branch"]),         // 命宫支(12)
-        "astrology" => s(&c["planets"][0]["sign"]), // 太阳座(12)
-        "jyotish" => s(&c["grahas"][1]["nakshatra_name"]), // 月亮 nakshatra(27)
-        "qizhengsiyu" => s(&c["mansion_name"]),  // 28 宿值日
-        "meihua" => s(&c["primary_upper"]),      // 上卦(8)
-        "xiaoliuren" => n(&c["hour_pos"]),       // 时神位(6)
-        "zeri" => s(&c["jianchu"]),              // 建除(12)
-        "maya" => n(&c["tzolkin_number"]),       // 13
-        "pawukon" => s(&c["pancawara"]),         // 5
-        "mahabote" => s(&c["house"]),            // 7
-        "tibetan" => s(&c["animal"]),            // 生肖(12)
-        "qimen" => n(&c["setup"]["ju"]),         // 局(9)
-        "taiyi" => n(&c["taiyi"]["palace"]),     // 八宫(8)
-        "numerology" => n(&c["life_path"]),      // 生命数(~11)
-        "liuren" => n(&c["day_branch"]),         // 日支(12)——与 bazi 同源
-        "yijing" => s(&c["primary_lower"]),      // C：下卦(8)
-        "geomancy" => n(&c["judge"]),            // C：法官(16)
-        "sikidy" => n(&c["seer"]),               // C：创世者(16)
-        "ifa" => n(&c["left"]),                  // C：左 figure(16)
-        "tarot" => c["cards"][0]["index"].as_i64().map(|i| (i % 13).to_string()), // C：粗化(13)
-        _ => None,
-    }
-}
-
-/// 该叶所取特征的中文说明（展示用）。
-#[must_use]
-pub fn feature_label(id: &str) -> &'static str {
-    match id {
-        "bazi" | "liuren" => "日支", "ziwei" => "命宫支", "astrology" => "太阳星座",
-        "jyotish" => "月宿(nakshatra)", "qizhengsiyu" => "28 宿值日", "meihua" => "上卦",
-        "xiaoliuren" => "时神位", "zeri" => "建除", "maya" => "Tzolkʼin 数", "pawukon" => "Pancawara",
-        "mahabote" => "本命宫", "tibetan" => "生肖", "qimen" => "局数", "taiyi" => "太乙宫",
-        "numerology" => "生命灵数", "yijing" => "下卦",
-        "geomancy" => "法官", "sikidy" => "创世者", "ifa" => "左 figure", "tarot" => "首牌（粗化）", _ => "",
-    }
-}
-
 // ===================== 跨叶分析 =====================
 
 /// 单叶在样本上的统计。
@@ -167,34 +121,43 @@ pub struct Analysis {
 }
 
 /// 在一组查询样本上做跨叶分析。
+///
+/// 取的是每片叶自己声明的[主判据][`mingli_contract::Principal`]。本层因此不需要知道
+/// 任何一片叶的盘面长什么样——从前这里有一张按叶 id 分派、逐个去 JSON 里按路径取字段的表，
+/// 那张表让「跨叶统计」这一层依赖了二十一片叶的内部形状：加一片叶若忘了往表里补一行，
+/// 它只会静默地从相关性矩阵里消失，不报错。
 #[must_use]
 pub fn cross_leaf(reg: &[Box<dyn CastingEngine>], queries: &[Query]) -> Analysis {
-    let detailed: Vec<_> = queries.iter().map(|q| cast_all_detailed(reg, q)).collect();
-    if detailed.is_empty() {
+    if queries.is_empty() {
         return Analysis { n: 0, leaves: vec![], nmi: vec![] };
     }
-    let order = &detailed[0];
-    let k = order.len();
-    // 每叶一列：把分类特征 intern 成整数编码。
-    let mut cols: Vec<Vec<i64>> = vec![Vec::with_capacity(detailed.len()); k];
+    let k = reg.len();
+    // 每叶一列：把主判据的取值 intern 成整数编码（NMI 对重标号不变，故编码任意）。
+    let mut cols: Vec<Vec<i64>> = vec![Vec::with_capacity(queries.len()); k];
     let mut interns: Vec<HashMap<String, i64>> = vec![HashMap::new(); k];
-    for row in &detailed {
-        for (li, leaf) in row.iter().enumerate() {
-            let f = feature(leaf.id, &leaf.chart).unwrap_or_else(|| "∅".to_string());
+    let mut labels: Vec<&'static str> = vec![""; k];
+    for q in queries {
+        let m = Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+        for (li, e) in reg.iter().enumerate() {
+            let p = e.principal(&m, q);
+            if let Some(p) = &p {
+                labels[li] = p.label;
+            }
+            let value = p.map_or_else(|| "∅".to_string(), |p| p.value);
             let map = &mut interns[li];
             let next = map.len() as i64;
-            let code = *map.entry(f).or_insert(next);
+            let code = *map.entry(value).or_insert(next);
             cols[li].push(code);
         }
     }
-    let leaves: Vec<LeafStat> = order
+    let leaves: Vec<LeafStat> = reg
         .iter()
         .enumerate()
-        .map(|(li, leaf)| LeafStat {
-            id: leaf.id.to_string(),
-            name: leaf.name.to_string(),
-            family: leaf.family,
-            feature: feature_label(leaf.id),
+        .map(|(li, e)| LeafStat {
+            id: e.id().to_string(),
+            name: e.name().to_string(),
+            family: e.family(),
+            feature: labels[li],
             entropy: entropy(&cols[li]),
             distinct: interns[li].len(),
         })
@@ -208,7 +171,7 @@ pub fn cross_leaf(reg: &[Box<dyn CastingEngine>], queries: &[Query]) -> Analysis
             mat[j][i] = v;
         }
     }
-    Analysis { n: detailed.len(), leaves, nmi: mat }
+    Analysis { n: queries.len(), leaves, nmi: mat }
 }
 
 /// 生成采样网格：`start..=end` 年 × 12 月 × 每月 9、24 日（午时，北京坐标）。
@@ -285,14 +248,16 @@ mod tests {
         assert_eq!(mutual_information(&[0, 1], &[0]), 0.0);
     }
 
+    /// 每片叶都要给得出主判据——给不出的那片会以「∅」进统计，成为一列常量，
+    /// 熵为 0、与谁的 NMI 都是 0，看上去像「这套系统与别的毫不相干」而不像「它没作声明」。
     #[test]
-    fn feature_extraction_smoke() {
-        let q = sample_grid(1990, 1990);
-        let leaves = cast_all_detailed(&registry(), &q[0]);
-        for leaf in &leaves {
-            let f = feature(leaf.id, &leaf.chart);
-            assert!(f.is_some(), "{} 应能取到特征", leaf.id);
-            assert!(!feature_label(leaf.id).is_empty());
+    fn every_leaf_declares_a_principal_index() {
+        let q = &sample_grid(1990, 1990)[0];
+        let m = Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+        for e in &registry() {
+            let p = e.principal(&m, q);
+            let p = p.unwrap_or_else(|| panic!("叶 `{}` 没有声明主判据", e.id()));
+            assert!(!p.label.is_empty() && !p.value.is_empty(), "{} 的主判据不该是空的", e.id());
         }
     }
 
@@ -302,9 +267,6 @@ mod tests {
         let a = cross_leaf(&registry(), &[]);
         assert_eq!(a.n, 0);
         assert!(a.leaves.is_empty() && a.nmi.is_empty());
-        // 未知叶 id → 无特征 / 空标签。
-        assert_eq!(feature("nope", &serde_json::json!({})), None);
-        assert_eq!(feature_label("nope"), "");
     }
 
     #[test]
