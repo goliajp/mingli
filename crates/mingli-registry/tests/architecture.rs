@@ -224,3 +224,23 @@ fn the_interpretation_layer_only_knows_the_ports() {
         "释义层只许依赖端口层：它组装的是提示词，不是盘——盘由谁算、算的是什么，它不必知道"
     );
 }
+
+#[test]
+fn the_use_case_layer_never_reaches_for_the_composition_root() {
+    // 用例层拿注册表是**由调用方注入**的（函数参数），不是自己去装配根里取。
+    // 一旦它 use 了 registry，「同一份用例能被 axum 与 wasm 两侧复用」就不成立了——
+    // 装配是更外层的事，用例只该说「给我一组叶」。
+    // 测试与基准可以自由装配全树，故只查生产依赖。
+    let deps = internal_deps(&workspace_root().join("crates/mingli-app/Cargo.toml"));
+    assert!(
+        !deps.iter().any(|d| d == "mingli-registry"),
+        "用例层不许依赖装配根——注册表应由调用方注入。\n\
+         若某个用例确实需要「全部的叶」，那也该是调用方把全部的叶传进来。"
+    );
+    // 反向：装配根也不该反过来依赖用例层
+    let reg_deps = internal_deps(&workspace_root().join("crates/mingli-registry/Cargo.toml"));
+    assert!(
+        !reg_deps.iter().any(|d| d == "mingli-app"),
+        "装配根只列叶，不认识用例"
+    );
+}
