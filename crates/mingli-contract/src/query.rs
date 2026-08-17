@@ -10,10 +10,10 @@ use std::collections::BTreeMap;
 
 /// 性别（用于需要它的叶，如八字大运）。
 ///
-/// 线上一律小写。这个枚举原本按 Rust 的拼法收发，于是直接吃 [`Query`] JSON 的两个入口
-/// （`/api/route` 与 wasm 的 `parse_query`）只认 `"Male"`，而 HTTP 的 DTO 层、web 的
-/// `types.ts`、各叶回声里的 `input.gender` 说的都是 `"male"`——同一个词在同一套 API 里
-/// 有两种拼法，写不对的那一头会收到 422。`Male` / `Female` 仍以别名接受，旧调用不破。
+/// 线上一律小写。这个枚举原本按 Rust 的拼法收发，于是凡是直接把 [`Query`] 从 JSON 解出来的
+/// 地方只认 `"Male"`，而各叶盘里回声出去的 `input.gender` 写的是 `"male"`——同一个词在
+/// 同一套契约里有两种拼法，写错的那一头会被拒。`Male` / `Female` 与 `男` / `女`
+/// 都以别名接受，旧调用不破。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Gender {
@@ -118,12 +118,12 @@ pub struct AskTime {
 /// 问局（需求侧）分类，按「时间轴与切面」模型组织。
 ///
 /// 每变体携带其所需的**输入原子**；一切意图最终都映射到一组叶（由编排层的 `route` 在运行时定夺）。
-/// `Natal` 是当前 webapp 唯一已实现形态，载荷复用现 [`Query`] 结构（向后兼容，API 不破坏）。
-/// 其余变体携最小输入原子。
+/// `Natal` 直接复用 [`Query`] 作载荷——「一个时刻的切片」要的原子与共享输入恰好相同；
+/// 其余变体各携该类问局的最小输入原子。
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum QueryKind {
-    /// **命**：本命盘（出生切片）。当前 webapp 唯一已实现形态。
+    /// **命**：本命盘——一个时刻的静态切片。
     Natal(Query),
     /// **运**：本命 + 目标时刻 → 运势/流年/dasha 定位。
     Fortune {

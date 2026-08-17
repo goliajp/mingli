@@ -94,7 +94,7 @@ intent! {
 intent! {
     /// 由团队合盘结果（JSON 形式）组装团队释义提示词。
     ///
-    /// 输入是 `/api/team` 端点返回的完整 JSON（含 members / team_wuxing /
+    /// 输入是团队合盘用例的完整结果 JSON（含 members / team_wuxing /
     /// team_weakest / team_strongest / complement_matrix）。由调用方序列化好直接传入，
     /// 本函数不解析也不假设结构。
     ///
