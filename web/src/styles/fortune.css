@@ -120,3 +120,20 @@
 .fortune-mile-chip.daji { color: #cfe1a8; border-color: #6a8a4a; background: rgba(120, 180, 80, 0.10); }
 .fortune-mile-chip.daxiong { color: #e8b8b0; border-color: #8a4a3a; background: rgba(188, 71, 71, 0.10); }
 .fortune-mile-chip small { opacity: 0.7; margin-left: 3px; }
+
+/* —— 另一套「运」：Vimshottari 大运条 + 当前段的九步小运 —— */
+.fortune-dasha { margin: 20px 0 4px; }
+.fd-now { font-size: 14px; color: var(--washi-soft); margin: 8px 0 9px; }
+.fd-now b { color: var(--teal); }
+.fd-span { font-family: var(--mono); font-size: 12px; color: var(--washi-faint); margin-left: 10px; }
+.fd-bar { display: flex; height: 26px; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.fd-seg { flex-basis: 0; display: flex; align-items: center; justify-content: center; font-style: normal;
+  font-size: 11px; font-family: var(--mono); color: var(--washi-faint); border-right: 1px solid var(--line);
+  background: rgba(0,0,0,.24); overflow: hidden; white-space: nowrap; }
+.fd-seg:last-child { border-right: 0; }
+.fd-seg.on { background: rgba(95, 179, 191, .16); color: var(--teal); }
+.fd-antar { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.fd-chip { font-size: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 11px;
+  color: var(--washi-faint); background: rgba(0,0,0,.2); }
+.fd-chip small { font-family: var(--mono); font-size: 10px; margin-left: 4px; }
+.fd-chip.on { border-color: var(--teal); color: var(--teal); background: rgba(95, 179, 191, .1); }

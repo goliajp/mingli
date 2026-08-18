@@ -4,6 +4,11 @@ import type { Interpretation, Synastry, TeamMember } from '../types'
 import { fetchSynastry, fetchSynastryAdvice } from '../api/client'
 import { WUXING_COLOR } from '../lib/display'
 
+// 相位分五名。着色只区分「同相/异相」这个几何事实，不表吉凶——那属释义层
+const ASPECT_CLASS: Record<string, string> = {
+  合: 'conj', 拱: 'harm', 六分: 'harm', 冲: 'tens', 刑: 'tens',
+}
+
 type Person = { name: string; year: number; month: number; day: number; hour: number; minute: number; tz: number; gender: 'male' | 'female' }
 
 const A0: Person = { name: '甲', year: 1987, month: 9, day: 17, hour: 15, minute: 0, tz: 8, gender: 'male' }
@@ -100,6 +105,21 @@ export function SynastryView() {
           <div className="sy-team">
             团队五行画像 · 最缺 <b>{res.detail.team_weakest.wuxing} {res.detail.team_weakest.pct}%</b> · 最旺 <b>{res.detail.team_strongest.wuxing} {res.detail.team_strongest.pct}%</b>
           </div>
+          {res.aspects.count > 0 && (
+            <div className="sy-aspects">
+              <div className="sy-asp-l">
+                两盘相位 <small>（{res.aspects.count} 条 · 容许度 ±{res.aspects.orb}° · 全量不筛）</small>
+              </div>
+              <div className="sy-asp-row">
+                {res.aspects.list.map((x) => (
+                  <span key={`${x.a}-${x.kind}-${x.b}`} className={`sy-asp ${ASPECT_CLASS[x.kind] ?? ''}`}>
+                    {x.a}<b>{x.kind}</b>{x.b}
+                    <small>{x.angle.toFixed(1)}°</small>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="ev-verdict">
             <button className="go interp-btn" onClick={() => void ask()} disabled={aBusy}>
               {aBusy ? '斟酌中…' : '🔮 配（由 LLM 生成）'}
@@ -111,7 +131,7 @@ export function SynastryView() {
               </>
             )}
           </div>
-          <div className="lp-note">「供给度」= 对方盘的五行分布里，我主用神所属那一行占多少——它是客观结构指标，与「合不合」是两回事。🟡 合婚 / 合伙契合度可结合互供与日主生克来评估，但不构成关系建议；占星合盘几何相位待加。</div>
+          <div className="lp-note">「供给度」= 对方盘的五行分布里，我主用神所属那一行占多少——它是客观结构指标，与「合不合」是两回事。🟡 合婚 / 合伙契合度可结合互供与日主生克来评估，但不构成关系建议。占星那一路给的是两盘间成了哪些角，与互供说的不是同一件事，故并列而不合成。</div>
         </>
       )}
     </section>

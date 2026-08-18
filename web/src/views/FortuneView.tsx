@@ -14,7 +14,7 @@ export function FortuneView({ fortune, age, onBackToNatal }: {
   onBackToNatal: () => void
 }) {
   if (!fortune) return <section className="card fortune"><div className="fortune-load">运势切片加载中…</div></section>
-  const { at, timeline } = fortune
+  const { at, timeline, dasha } = fortune
   const ys = at.natal.yongshen
   const primaryColor = WUXING_COLOR[ys.primary_wuxing] ?? '#888'
   const secondaryColor = ys.secondary_wuxing ? (WUXING_COLOR[ys.secondary_wuxing] ?? '#888') : '#888'
@@ -198,6 +198,48 @@ export function FortuneView({ fortune, age, onBackToNatal }: {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* —— 另一套「运」：Vimshottari 大运/小运。与上面的大运同名不同物 —— */}
+      {dasha?.current && (
+        <div className="fortune-dasha">
+          <div className="fortune-mile-l">
+            Vimshottari 大运 · 小运 <small>（印度占星的运，与四柱大运是两套独立算法，此处并列不合成）</small>
+          </div>
+          <div className="fd-now">
+            出生主星 <b>{dasha.birth_lord}</b> · 现行大运 <b>{dasha.current.lord}</b>
+            <span className="fd-span">{dasha.current.start_age_years.toFixed(1)} — {dasha.current.end_age_years.toFixed(1)} 岁</span>
+          </div>
+          <div className="fd-bar" role="img" aria-label="Vimshottari 120 年大运条">
+            {dasha.timeline.map((d) => {
+              const on = d.lord === dasha.current?.lord && d.start_age_years === dasha.current.start_age_years
+              return (
+                <i
+                  key={`${d.lord}-${d.start_age_years}`}
+                  className={on ? 'fd-seg on' : 'fd-seg'}
+                  style={{ flexGrow: d.effective_years }}
+                  title={`${d.lord} ${d.start_age_years.toFixed(1)}—${d.end_age_years.toFixed(1)} 岁`}
+                >
+                  {d.effective_years >= 9 ? d.lord : ''}
+                </i>
+              )
+            })}
+          </div>
+          <div className="fd-antar">
+            {dasha.current.antardashas.map((a) => {
+              const on = dasha.age_years >= a.start_age_years && dasha.age_years < a.end_age_years
+              return (
+                <span key={a.lord} className={on ? 'fd-chip on' : 'fd-chip'}>
+                  {a.lord} <small>{a.start_age_years.toFixed(1)}—{a.end_age_years.toFixed(1)}</small>
+                </span>
+              )
+            })}
+          </div>
+          <div className="fortune-note">
+            九主星按固定年数循环 120 年，起点由出生时月亮所在 nakshatra 已行比例定；上方一行是当前大运的九步小运。
+            本层只出周期位置，不出吉凶
           </div>
         </div>
       )}
