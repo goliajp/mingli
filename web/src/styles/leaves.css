@@ -532,3 +532,7 @@
 .num-method small { color: var(--washi-faint); }
 .nm-alt { margin-left: auto; color: var(--washi-dim); border: 1px solid var(--line); border-radius: 11px; padding: 2px 9px; }
 .nm-alt b { color: var(--teal); font-family: var(--mono); }
+
+/* —— 小六壬：六神环上的方位 —— */
+.deity-dir { display: block; margin-top: 3px; font-size: 11px; color: var(--washi-faint); font-family: var(--mono); }
+.deity.on .deity-dir { color: var(--teal); }

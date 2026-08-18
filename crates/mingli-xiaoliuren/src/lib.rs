@@ -30,6 +30,33 @@ use serde::Serialize;
 /// 六神固定环（次序即掐指方向）：大安→留连→速喜→赤口→小吉→空亡。
 pub const DEITIES: [&str; 6] = ["大安", "留连", "速喜", "赤口", "小吉", "空亡"];
 
+/// 六神各配之方，**六个里只有四个定得下来**（与 [`DEITIES`] 同序，定不下者为 `None`）。
+///
+/// 定得下的四个五行—方位—四象三者自洽、多源同述：
+/// 大安属木·东·青龙、留连属水·北·玄武、速喜属火·南·朱雀、赤口属金·西·白虎。
+///
+/// 两个留空，各有各的理由，都不是「还没查」：
+///
+/// - **空亡**配「中」。中宫不是可面向的方位——本仓库在奇门那边已按同一条道理处理过
+///   （值符落中五宫时按「中 5 寄坤 2」归并，不出「朝中间」这种候选）。
+///   小六壬没有对应的寄宫之说可援，故此处留空而非硬给一个方向。
+/// - **小吉**各家不同：一系作属水·北（与留连同方），一系作属木（不给方位），
+///   而其口诀又作「失物在**坤方**」（西南）——三说并存。知乎《小六壬理论知识详解》
+///   那一路明记「不同的文献来源对小吉的方位属性描述有所不同，这反映了小六壬占卜法
+///   在民间传承中的多个版本」。三说无一得两个独立源，按铁律留空。
+///
+/// 正因两个留空，本叶**不认领「寻」这一类问局**：一次掐指落在哪个神是不由人的，
+/// 六分之二的情形给不出方位，那就不是「算得出这一类的 output_shape」。
+/// 方位仍随盘面出，读的人自己看得见有没有。
+pub const DEITY_DIRECTION: [Option<&str>; 6] = [
+    Some("东"), // 大安 · 木 · 青龙
+    Some("北"), // 留连 · 水 · 玄武
+    Some("南"), // 速喜 · 火 · 朱雀
+    Some("西"), // 赤口 · 金 · 白虎
+    None,       // 小吉 —— 三说并存
+    None,       // 空亡 —— 配「中」，非可面向之方
+];
+
 /// 一次小六壬掐指的结果。三个神位皆为 `0..6` 的环上下标。
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct Cast {
@@ -51,6 +78,12 @@ pub struct Cast {
     pub day_deity: &'static str,
     /// 时神名（最终落定）。
     pub hour_deity: &'static str,
+    /// 时神所配之方；落在小吉或空亡时为 `None`（见 [`DEITY_DIRECTION`]）。
+    pub hour_direction: Option<&'static str>,
+    /// 日神所配之方；同上。
+    pub day_direction: Option<&'static str>,
+    /// 月神所配之方；同上。
+    pub month_direction: Option<&'static str>,
 }
 
 /// 在共享上下文 [`Moment`] 上做小六壬掐指（确定性）。
@@ -75,6 +108,9 @@ pub fn compute_at(m: &Moment) -> Cast {
         month_deity: DEITIES[month_pos as usize],
         day_deity: DEITIES[day_pos as usize],
         hour_deity: DEITIES[hour_pos as usize],
+        hour_direction: DEITY_DIRECTION[hour_pos as usize],
+        day_direction: DEITY_DIRECTION[day_pos as usize],
+        month_direction: DEITY_DIRECTION[month_pos as usize],
     }
 }
 
@@ -152,5 +188,62 @@ mod tests {
                 assert_eq!(c.hour_deity, DEITIES[c.hour_pos as usize]);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod direction_tests {
+    use super::*;
+
+    /// 六神配方位：四个定得下、两个定不下，且**定不下的那两个必须留空**。
+    ///
+    /// 这条守的不只是取值，还有「留空」这件事本身。硬给小吉一个方位、
+    /// 或给空亡填个「中」，都会让本叶看起来能答「寻」——而那正是它答不了的。
+    /// 四个定得下的，其五行—方位—四象三者自洽（大安木东青龙、留连水北玄武、
+    /// 速喜火南朱雀、赤口金西白虎），这是它们能被多源同述的原因。
+    #[test]
+    fn four_of_the_six_deities_have_a_settled_direction() {
+        assert_eq!(DEITY_DIRECTION.len(), DEITIES.len(), "方位表应与六神一一对应");
+        for (name, want) in [
+            ("大安", Some("东")),
+            ("留连", Some("北")),
+            ("速喜", Some("南")),
+            ("赤口", Some("西")),
+            ("小吉", None),
+            ("空亡", None),
+        ] {
+            let k = DEITIES.iter().position(|d| *d == name).expect("六神应有此神");
+            assert_eq!(DEITY_DIRECTION[k], want, "{name} 的方位");
+        }
+        // 定得下的四个互不同方——四正各一，这是它们自洽的表现
+        let set: std::collections::BTreeSet<&str> = DEITY_DIRECTION.iter().flatten().copied().collect();
+        assert_eq!(set.len(), 4, "四个定得下的应分居四正，实为 {set:?}");
+        assert!(!set.contains("中"), "中宫不是可面向之方，不该出现在方位表里");
+    }
+
+    /// 盘面上的三个方位各自跟着自己那一级的神，不串位。
+    #[test]
+    fn each_level_carries_its_own_deitys_direction() {
+        for (y, mo, d, h) in [(2026, 8, 19, 12), (1990, 6, 15, 0), (2024, 1, 1, 23), (1987, 9, 17, 7)] {
+            let c = compute_at(&mingli_astro::Moment::new(y, mo, d, h, 0, 8.0));
+            for (deity, dir, level) in [
+                (c.month_deity, c.month_direction, "月"),
+                (c.day_deity, c.day_direction, "日"),
+                (c.hour_deity, c.hour_direction, "时"),
+            ] {
+                let k = DEITIES.iter().position(|x| *x == deity).expect("神名应在环上");
+                assert_eq!(dir, DEITY_DIRECTION[k], "{y}-{mo}-{d} {h}时：{level}神「{deity}」的方位串位了");
+            }
+        }
+    }
+
+    /// 本叶不认领「寻」——因为六分之二的落点给不出方位。
+    ///
+    /// 这条与 `mingli-registry` 的「认领『寻』必须真给得出方位候选」互为表里：
+    /// 那条防「认领了却给不出」，这条防「给得出一部分就去认领」。
+    #[test]
+    fn the_leaf_does_not_claim_locative_because_two_deities_cannot_answer() {
+        let unsettled = DEITY_DIRECTION.iter().filter(|d| d.is_none()).count();
+        assert_eq!(unsettled, 2, "小吉与空亡两处留空是不认领「寻」的理由，实有 {unsettled} 处");
     }
 }
