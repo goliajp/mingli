@@ -513,6 +513,47 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
 }
 
 
+/// 每一条 Und 都要写下「查过哪些源」，不能只说各家出入很大。
+///
+/// 铁律给 Und 留了两个归宿：找到 ≥2 独立源就落 Det 并写 oracle，找不到就留 Und，
+/// **并把查过哪些源、为何定不下写进 note**。第三种归宿不存在。可「各家说法不一」这句话
+/// 本身是不设防的——它跟「我没查」在文本上一模一样，读的人分不出哪条是查证的结论、
+/// 哪条是印象。两条曾经就是这么写的（占星的合盘相位、择日的神煞宜忌），
+/// 补查之后才知道它们背后确有实据，只是没落到纸上。
+///
+/// 判据取「点得出名字」：note 里要么出现书名号引的典籍，要么出现拉丁字母写的
+/// 实现名 / 作者名 / 站点名——两者都没有，就说明这条只有立场没有出处。
+/// 「还没做」那一类另有归宿（见 [`a_capability_that_was_taken_away_is_still_accounted_for`]），
+/// 它们不必点源，因为它们声明的正是「尚未查证」。
+#[test]
+fn every_undetermined_item_names_what_was_checked() {
+    let latin = |s: &str| {
+        s.split(|c: char| !c.is_ascii_alphabetic() && c != '.' && c != '-')
+            .any(|w| w.chars().filter(char::is_ascii_alphabetic).count() >= 3)
+    };
+    let mut bare = Vec::new();
+    for e in mingli_registry::registry() {
+        for it in e.profile() {
+            if it.status != mingli_contract::Determinism::Und {
+                continue;
+            }
+            if it.note.contains("还没做") {
+                continue;
+            }
+            if !it.note.contains('《') && !latin(it.note) {
+                bare.push(format!("{} · {}", e.id(), it.aspect));
+            }
+        }
+    }
+    assert!(
+        bare.is_empty(),
+        "以下 Und 条目只说了「定不下」却没点出任何查过的来源\n  {}\n\
+         写清楚查过哪些典籍 / 哪些实现、各自说了什么、为什么据此定不下；\
+         若属「尚未查证」，按那一类的写法写明「还没做」",
+        bare.join("\n  "),
+    );
+}
+
 /// 每片叶都要有读法提示，且要与该叶盘面的字段数相称——写一句话搪塞等于没写。
 ///
 /// 门槛按盘面的字段数定，不是拍一个绝对数：字段少的叶（如小六壬三个字段）两三句就够，

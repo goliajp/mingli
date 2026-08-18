@@ -109,7 +109,9 @@ if [ "$mode" = save ]; then
   echo "✓ 抓下 $n 个请求 → $file"
 else
   if [ ! -f "$file" ]; then
-    echo "✗ 没有 $file，先跑一次 save" >&2
+    # ${} 不能省：紧跟中文标点时，bash 会把那几个字节读进变量名，
+    # 于是这条提示自己先崩成 unbound variable，读的人看到的是 bash 报错而不是提示
+    echo "✗ 没有 ${file}，先跑一次 save" >&2
     exit 1
   fi
   if diff -u "$file" "$out"; then
