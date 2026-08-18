@@ -525,3 +525,10 @@
 .jy-varga th:first-child, .jy-varga td:first-child { text-align: left; padding-left: 8px; }
 .jy-varga td { text-align: center; padding: 5px 4px; font-family: var(--serif); }
 .jy-varga td:nth-child(2) { font-family: var(--serif); color: var(--washi); }
+
+/* —— 数字学：生命灵数的两派并列 —— */
+.num-method { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 10px; font-size: 13px; }
+.nm-here { color: var(--kin-bright); font-weight: 700; }
+.num-method small { color: var(--washi-faint); }
+.nm-alt { margin-left: auto; color: var(--washi-dim); border: 1px solid var(--line); border-radius: 11px; padding: 2px 9px; }
+.nm-alt b { color: var(--teal); font-family: var(--mono); }

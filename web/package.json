@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "css-vars": "node e2e/css-vars.mjs",
-    "shots": "node e2e/css-vars.mjs && node e2e/shoot.mjs"
+    "shots": "node e2e/css-vars.mjs && node e2e/wired.mjs && node e2e/shoot.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",
