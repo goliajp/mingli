@@ -250,3 +250,91 @@ fn the_bureau_follows_the_nayin_of_the_life_palace() {
         "五个局应当都出现过，实际只见到 {seen:?}——有局取不到说明推导链上某处收窄了",
     );
 }
+
+/// 四化：**十干全覆盖**，并与传统口诀交叉。
+///
+/// 原先只验了庚一干（1990 年那张盘），另外九干四十条里的三十六条没人对过。
+/// 四化是这套系统最常用的部件之一，错一干就是十分之一的盘全错。
+///
+/// 通行版参照：<https://ccziwei.com/ziwei-doushu/articles/ziwei-doushu-tianggan-sihua-biao>
+/// 与 <https://vocus.cc/article/6646c651fd89780001ef63be> 等处同表
+/// （`SihuaSchool::Standard` 的文档另记 5 独立源）。
+///
+/// 第二条判据是**口诀**「甲廉破武阳、乙机梁紫阴、丙同机昌廉、丁阴同机巨、戊贪阴右机、
+/// 己武贪梁曲、庚阳武阴同、辛巨阳曲昌、壬梁紫左武、癸破巨阴贪」——它是同一张表的
+/// 另一种编码（practitioner 背的就是这个），逐字取首。表若在某一格抄错，两条判据会一起红。
+#[test]
+fn the_four_transformations_cover_all_ten_stems() {
+    // (禄, 权, 科, 忌)，甲→癸
+    const STANDARD: [(&str, &str, &str, &str); 10] = [
+        ("廉贞", "破军", "武曲", "太阳"), // 甲
+        ("天机", "天梁", "紫微", "太阴"), // 乙
+        ("天同", "天机", "文昌", "廉贞"), // 丙
+        ("太阴", "天同", "天机", "巨门"), // 丁
+        ("贪狼", "太阴", "右弼", "天机"), // 戊
+        ("武曲", "贪狼", "天梁", "文曲"), // 己
+        ("太阳", "武曲", "太阴", "天同"), // 庚
+        ("巨门", "太阳", "文曲", "文昌"), // 辛
+        ("天梁", "紫微", "左辅", "武曲"), // 壬
+        ("破军", "巨门", "太阴", "贪狼"), // 癸
+    ];
+    // 口诀逐字：每干四字，依次取禄/权/科/忌之星名的辨识字
+    const MNEMONIC: [&str; 10] = [
+        "廉破武阳", "机梁紫阴", "同机昌廉", "阴同机巨", "贪阴右机",
+        "武贪梁曲", "阳武阴同", "巨阳曲昌", "梁紫左武", "破巨阴贪",
+    ];
+    const GAN: [&str; 10] = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+
+    for (k, (lu, quan, ke, ji)) in STANDARD.iter().enumerate() {
+        let got = sihua_for(u8::try_from(k).expect("0..10"), SihuaSchool::Standard);
+        assert_eq!(
+            (got.lu, got.quan, got.ke, got.ji),
+            (*lu, *quan, *ke, *ji),
+            "{} 干的四化对不上",
+            GAN[k],
+        );
+        // 口诀交叉：第 j 字应是第 j 化之星的辨识字
+        let want: Vec<char> = MNEMONIC[k].chars().collect();
+        for (j, star) in [got.lu, got.quan, got.ke, got.ji].into_iter().enumerate() {
+            assert!(
+                star.contains(want[j]),
+                "{} 干第 {} 化：口诀作「{}」，表作「{star}」",
+                GAN[k],
+                j + 1,
+                want[j],
+            );
+        }
+    }
+}
+
+/// 中州派与通行版恰好在三干上分岔，且那三处是同一条学理的三个后果。
+///
+/// 王亭之一系主张左辅右弼属辅曜、不入四化，于是通行表里由右弼化科的戊、
+/// 由左辅化科的壬都要换星，庚随之调整。**三干必须一起变**——只改其一两处，
+/// 这个流派自身就不自洽了，而盘面上看不出任何异样。原先只验了庚。
+#[test]
+fn the_zhongzhou_school_diverges_on_exactly_three_stems() {
+    let mut diverged = Vec::new();
+    for k in 0..10u8 {
+        let a = sihua_for(k, SihuaSchool::Standard);
+        let b = sihua_for(k, SihuaSchool::Quanshu);
+        if (a.lu, a.quan, a.ke, a.ji) != (b.lu, b.quan, b.ke, b.ji) {
+            diverged.push((k, b));
+        }
+    }
+    let ids: Vec<u8> = diverged.iter().map(|(k, _)| *k).collect();
+    assert_eq!(ids, vec![4, 6, 8], "应恰在戊(4)/庚(6)/壬(8) 三干分岔，实为 {ids:?}");
+    for (k, b) in &diverged {
+        assert_eq!(b.ke, if *k == 4 { "太阳" } else { "天府" }, "第 {k} 干中州派的化科");
+    }
+    // 该派的立论：左辅右弼一概不入四化——十干扫一遍，两星都不该出现
+    for k in 0..10u8 {
+        let s = sihua_for(k, SihuaSchool::Quanshu);
+        for star in [s.lu, s.quan, s.ke, s.ji] {
+            assert!(
+                star != "左辅" && star != "右弼",
+                "中州派主张左辅右弼不入四化，第 {k} 干却出了「{star}」",
+            );
+        }
+    }
+}
