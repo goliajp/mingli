@@ -23,6 +23,11 @@ pub mod progression;
 
 /// 推运时间序列覆盖到第几岁。取 100——与四柱大运的百年时间线同尺度，
 /// 前端的时间拨杆也是 0–100 岁。
+///
+/// **本命盘不带推运**：每一格都是一次完整星历求值，而本命盘的问法里没有人要一生的运。
+/// 曾经带过，代价是排一盘 35.6 ms、盘面 276 KB，而其余二十片叶合起来 0.5 ms、33 KB。
+/// 推运现由用例层的「运」那条路按需算（`mingli_app::bazi::fortune`），
+/// 与四柱逐年的供给时序、印度占星的 Vimshottari 同处一层。
 pub const PROGRESSION_MAX_AGE: u32 = 100;
 pub mod placidus;
 
@@ -204,8 +209,6 @@ pub struct NatalChart {
     pub cusp_system: Option<String>,
     /// 所选分宫制的十二宫（WholeSign 时为 `None`；Placidus 极区时回落，见 doc）。
     pub cusp_houses: Option<Vec<CuspHouseEntry>>,
-    /// 二次推运时间序列（一日一年）——本叶答「运」这一类靠的就是它。
-    pub progression: progression::Progression,
 }
 
 /// 某时刻太阳所在星座名——只算太阳，不排整盘。
@@ -325,7 +328,6 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
     let Some(g) = geo else {
         let planets = compute_planets(m.jde, None);
         let aspects = compute_aspects(&planets);
-        let progression = progression::progression(m.jde, &planets, PROGRESSION_MAX_AGE);
         return NatalChart {
             planets,
             aspects,
@@ -333,7 +335,6 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
             houses: None,
             cusp_system: None,
             cusp_houses: None,
-            progression,
         };
     };
 
@@ -400,9 +401,7 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
             .collect()
     });
 
-    let progression = progression::progression(m.jde, &planets, PROGRESSION_MAX_AGE);
     NatalChart {
-        progression,
         planets,
         aspects,
         angles: Some(Angles {

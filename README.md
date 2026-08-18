@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 732 tests green
+> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 734 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -137,16 +137,46 @@ check existed.
 
 A type check proves the code compiles. This proves the page still agrees with itself.
 
+## Taking only what you need
+
+Each system is its own crate, and the registry gates each one behind a feature named
+after it. Nothing forces you to carry twenty-four.
+
+```bash
+cargo add mingli-bazi                     # one crate: serde plus three shared layers, no ephemeris
+cargo add mingli-registry --no-default-features --features bazi,yijing   # two systems behind the port
+```
+
+Measured, release wasm32:
+
+| Bundle | Size |
+|---|---|
+| Skeleton, no systems | 0.52 MB |
+| Four Pillars only | 0.57 MB |
+| Four Pillars + Zi Wei | 0.59 MB |
+| Western astrology only | 1.32 MB |
+| All twenty-four | 1.82 MB |
+
+A system costs about 0.05 MB on top of the skeleton; the three that carry planetary
+ephemerides cost 0.87 MB between them. `feature-matrix.sh` builds every leaf on its
+own, so a system that quietly drags in another fails there rather than in your bundle.
+
+Casting is dominated by the ephemeris leaves. On this machine one chart takes roughly
+12 µs for Four Pillars, 270 µs for Jyotish, and under 5 µs for the other seventeen.
+A guard fails if any single leaf takes more than 60% of the whole tree's casting time
+or payload -- it exists because one did, once.
+
+
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 732 tests
+cargo test --workspace     # 734 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
 ./scripts/api-snapshot.sh check snap.txt   # 37 requests, byte for byte
 ./scripts/test-count.sh    # the count in this README, against a real run
-./scripts/feature-matrix.sh  # 5 feature combinations, two wasm32 builds, one dependency-graph check
+./scripts/feature-matrix.sh  # every leaf built on its own, two wasm32 builds, one dependency-graph check
 ```
 
 All of the above, plus the screenshot pass, run on every push — see the badge at the top.

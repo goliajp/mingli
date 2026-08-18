@@ -9,7 +9,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 732 个测试全绿
+> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 734 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -131,16 +131,42 @@ cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走�
 
 　　类型检查证明代码编得过，这个证明画面还自洽。
 
+## 只取你要的那几片
+
+　　每套术数是一个独立 crate，装配根按叶 id 逐片开关。不必扛着二十四片。
+
+```bash
+cargo add mingli-bazi                     # 单 crate：serde + 三个共享层，不含星历
+cargo add mingli-registry --no-default-features --features bazi,yijing   # 两片，走统一端口
+```
+
+　　实测（release，wasm32）：
+
+| 装配 | 体积 |
+|---|---|
+| 一片不装（纯骨架） | 0.52 MB |
+| 只要四柱 | 0.57 MB |
+| 四柱 + 紫微 | 0.59 MB |
+| 只要西洋占星 | 1.32 MB |
+| 全部二十四片 | 1.82 MB |
+
+　　一片叶在骨架之上约 0.05 MB；三片带行星星历的叶合计 0.87 MB。
+`feature-matrix.sh` 会把每片叶各单独装配一次——某片悄悄拖进另一片，会在那里红，而不是在你的产物里。
+
+　　排盘的成本集中在星历叶。本机实测：四柱约 12 µs、印度占星 270 µs，其余十七片各不足 5 µs。
+另有一条守卫：**任一片叶占全树排盘耗时或载荷超过 60% 即红**——它是因为真出过一次才立的。
+
+
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 732 个测试
+cargo test --workspace     # 734 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
 ./scripts/api-snapshot.sh check snap.txt   # 37 个请求逐字节
 ./scripts/test-count.sh    # 本文自称的测试数，对回真跑一遍的结果
-./scripts/feature-matrix.sh  # 5 种 feature 组合 + 两条 wasm32 + 一条查依赖图
+./scripts/feature-matrix.sh  # 二十四片叶各单独装配一次 + 两条 wasm32 + 一条查依赖图
 ```
 
 　　以上连同截图断言，每次 push 都会跑一遍——见顶部徽章。

@@ -31,6 +31,17 @@ run "只开 astrology"           --no-default-features --features astrology || f
 run "只开 jyotish"             --no-default-features --features jyotish   || fail=1
 run "只开 qizhengsiyu"         --no-default-features --features qizhengsiyu || fail=1
 
+# 逐叶开关：二十四片各自单独装配一次。
+#
+# 这一段不是凑数——「只要其中一片」是这棵树对使用者的一个承诺，而承诺只有真的裁一次
+# 才算数。装配根里每片一行 `#[cfg(feature = ...)]`，少写一行、或某片叶被别处无条件依赖，
+# 单开它就会编不过（或悄悄把别的叶一并拉进来）。
+for leaf in bazi ziwei astrology jyotish qizhengsiyu yijing geomancy sikidy ifa cartomancy \
+            meihua xiaoliuren zeri maya pawukon mahabote liuren qimen taiyi tibetan \
+            numerology gematria abjad wuge; do
+  run "只装 $leaf" --no-default-features --features "$leaf" || fail=1
+done
+
 wasm() {
   printf '\n=== %s\n' "$1"
   shift
@@ -44,6 +55,7 @@ wasm() {
 if rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown; then
   wasm "wasm32 全开"                                   || fail=1
   wasm "wasm32 轻量（无星历）"  --no-default-features    || fail=1
+  wasm "wasm32 只装四柱一片"    --no-default-features --features bazi || fail=1
 else
   printf '\n没装 wasm32-unknown-unknown，跳过 wasm 两条（rustup target add wasm32-unknown-unknown）\n'
 fi

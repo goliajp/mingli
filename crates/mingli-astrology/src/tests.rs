@@ -247,13 +247,17 @@ mod cross {
 /// （后者故每两三年换一座）。这两个数不是从本实现导出的，
 /// 所以拿它们做判据能真正验到「一日一年」这条换算有没有落对——
 /// 若误写成一日一月、或把日数当成年数乘错，两条立刻都不成立。
+///
+/// **推运不在本命盘上**（每格一次完整星历，而问本命盘的人没有要一生的运），
+/// 故这里直接调 `progression::progression`——用例层的「运」那条路调的也是它。
 #[test]
 fn secondary_progression_moves_the_sun_a_degree_and_the_moon_thirteen_per_year() {
     let m = Moment::new(1990, 6, 15, 14, 30, 8.0);
     let chart = compute_at(&m, None, HouseSystem::WholeSign);
-    let p = &chart.progression;
+    let p = progression::progression(m.jde, &chart.planets, 100, 1);
     assert_eq!(p.method, "secondary");
-    assert_eq!(p.years.len() as u32, p.max_age + 1, "0..=max_age 每岁一片");
+    assert_eq!(p.step, 1);
+    assert_eq!(u32::try_from(p.years.len()).expect("格数"), p.max_age + 1, "step = 1 时每岁一格");
     assert_eq!(p.years[0].age, 0);
 
     // 第 0 岁的推运盘就是本命盘本身（出生后第 0 日）
@@ -264,9 +268,9 @@ fn secondary_progression_moves_the_sun_a_degree_and_the_moon_thirteen_per_year()
     let lon = |age: usize, name: &str| {
         p.years[age].planets.iter().find(|x| x.name == name).expect("该星应在盘上").longitude
     };
+
     // 判据一：推运太阳约 1°/年。百年净移不足 100°，不绕圈，无须补圈记账
-    let sun_total = (lon(100, "太阳") - lon(0, "太阳")).rem_euclid(360.0);
-    let sun_rate = sun_total / 100.0;
+    let sun_rate = (lon(100, "太阳") - lon(0, "太阳")).rem_euclid(360.0) / 100.0;
     assert!(
         (0.9..=1.05).contains(&sun_rate),
         "推运太阳应约 1°/年（两源同述），实测 {sun_rate:.4}°/年",
@@ -286,4 +290,19 @@ fn secondary_progression_moves_the_sun_a_degree_and_the_moon_thirteen_per_year()
     // 「运」的着力处：推运星与本命星成角。一生百年里不该一条都没有
     let total: usize = p.years.iter().map(|y| y.to_natal.len()).sum();
     assert!(total > 0, "百年推运里竟无一处与本命成相位，说明比对那一步没接上");
+
+    // 粒度可调：十年一格恰 11 格，且与逐年那份的同岁数取值一致
+    let d = progression::decades(m.jde, &chart.planets);
+    assert_eq!(d.step, 10);
+    assert_eq!(d.years.len(), 11);
+    for (k, y) in d.years.iter().enumerate() {
+        assert_eq!(y.age, u32::try_from(k).expect("格序") * 10);
+        // 比位模式而非近似：同一岁数两种粒度算的是同一个 jde，**必须逐位相同**。
+        // 若哪天不同了，说明粒度参数漏进了计算本身，那是缺陷不是精度问题
+        assert_eq!(
+            y.planets[0].longitude.to_bits(),
+            p.years[k * 10].planets[0].longitude.to_bits(),
+            "同岁数两种粒度应给逐位相同的值",
+        );
+    }
 }
