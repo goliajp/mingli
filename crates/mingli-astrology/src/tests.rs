@@ -46,12 +46,15 @@ fn ascendant_midheaven_matches_diana() {
     let a = chart.angles.as_ref().expect("有地理坐标应出 Asc/MC");
     assert_eq!(a.asc_sign, "射手", "Asc 实得 {} @ {:.2}°", a.asc_sign, a.ascendant);
     assert_eq!(a.mc_sign, "天秤", "MC 实得 {} @ {:.2}°", a.mc_sign, a.midheaven);
-    // 角分级容差（oracle 为 arcmin、本算用平恒星时/平交角，无章动）。
-    assert!((a.ascendant - 258.40).abs() < 0.5, "Asc={:.3}°，应 ≈258.40°", a.ascendant);
-    assert!((a.midheaven - 203.05).abs() < 0.5, "MC={:.3}°，应 ≈203.05°", a.midheaven);
+    // 容差 0.05°（3′）：oracle 只给到角分（±0.008°），本算不含章动（≤0.005°），
+    // 实测 Asc 差 +0.0072°、MC +0.0047°，余量约七倍。同一对值在 `mingli-ephemeris`
+    // 的 `ascendant_and_midheaven_match_diana` 里也验一遍——那里验的是球面几何本身。
+    assert!((a.ascendant - 258.40).abs() < 0.05, "Asc={:.3}°，应 ≈258.40°", a.ascendant);
+    assert!((a.midheaven - 203.05).abs() < 0.05, "MC={:.3}°，应 ≈203.05°", a.midheaven);
     // Sun 落座经度独立交叉验证（VSOP87）。
     let sun = chart.planets.iter().find(|p| p.name == "太阳").unwrap();
-    assert!((sun.longitude - 99.667).abs() < 0.2, "Sun={:.3}°，应 ≈99.667°", sun.longitude);
+    // 容差 0.03°：Meeus 低精度太阳黄经本身约 0.01° 量级，实测差 +0.0039°。
+    assert!((sun.longitude - 99.667).abs() < 0.03, "Sun={:.3}°，应 ≈99.667°", sun.longitude);
     // 月亮落座经度独立交叉验证（ELP-2000/82， ephemeris）。
     // Astrodienst Placidus 给出 Moon @ Aquarius 25°02' ≈ 325.033°。
     let moon = chart.planets.iter().find(|p| p.name == "月亮").unwrap();

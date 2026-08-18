@@ -200,7 +200,9 @@ fn jyotish_chart_1990_sample_structure() {
 // 1990-06-15 14：30 CST（印度占星算盘示例，具体度数容差较松，只测结构 + nakshatra 月宿合理）。
 let chart = compute(BirthInput { year: 1990, month: 6, day: 15, hour: 14, minute: 30, tz: 8.0 }, None, Ayanamsa::Lahiri);
 assert_eq!(chart.ayanamsa_id, "lahiri");
-// 1990 Lahiri ~ 23.65°
+// 1990 Lahiri ~ 23.65°。这是**合理性上界**不是 oracle——真正对表的那条在
+// `lahiri_tracks_the_published_tables_to_within_the_nutation_term`，容差 20″。
+// 这里 23.65 是个取整的参照，实测差 0.074°，故留 0.10。
 assert!((chart.ayanamsa_deg - 23.65).abs() < 0.10, "got {}", chart.ayanamsa_deg);
 assert_eq!(chart.grahas.len(), 9);
 // 9 行星各自 rasi/nakshatra 在合法范围。
