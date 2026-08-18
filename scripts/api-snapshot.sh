@@ -75,6 +75,8 @@ p /api/bazi/overlay-strength "$(printf '%s' "$N" | sed 's/}$/,"extras":["丙午"
 p /api/bazi/overlay-strength "$(printf '%s' "$N" | sed 's/}$/,"extras":["不是干支"]}/')"
 p /api/fortune "{\"natal\":$N,\"t_target\":$T}"
 p /api/interpret "$(printf '%s' "$N" | sed 's/}$/,"leaf":"没有这片叶"}/')"
+# 认不出的主体要被拒，不能静默落回人盘（拼错 company 的人会以为自己看的是公司盘）
+p /api/interpret "$(printf '%s' "$N" | sed 's/}$/,"leaf":"bazi","subject":"compnay"}/')"
 p /api/team "{\"members\":[{\"year\":1990,\"month\":6,\"day\":15,\"hour\":14,\"tz\":8,\"gender\":\"male\",\"name\":\"A\"},{\"year\":1987,\"month\":3,\"day\":2,\"hour\":9,\"tz\":8,\"gender\":\"female\",\"name\":\"B\"}]}"
 p /api/team '{"members":[]}'
 p /api/team/interpret '{"members":[]}'
@@ -106,8 +108,8 @@ if grep -qE '^000$' "$out"; then
   exit 1
 fi
 n=$(grep -c '^### ' "$out")
-if [ "$n" != 36 ]; then
-  echo "✗ 只抓到 $n 个请求，应是 36" >&2
+if [ "$n" != 37 ]; then
+  echo "✗ 只抓到 $n 个请求，应是 37" >&2
   exit 1
 fi
 

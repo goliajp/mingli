@@ -65,11 +65,15 @@ pub(crate) async fn interpret_handler(State(backend): State<Interpret>, Json(req
         return bad_request(e);
     }
     let leaf_id = req.leaf.clone().unwrap_or_else(|| "bazi".to_string());
-    let subject = req
-        .subject
-        .as_deref()
-        .and_then(mingli_interpret::Subject::from_str_opt)
-        .unwrap_or(mingli_interpret::Subject::Person);
+    // 缺省是人盘；但**写了个认不出的值不能当成没写**——那正是「默默忽略」，
+    // 而拼错的人拿到的是人盘的读法却以为看的是公司盘。性别那一处修过同样的毛病
+    let subject = match req.subject.as_deref() {
+        None => mingli_interpret::Subject::Person,
+        Some(s) => match mingli_interpret::Subject::from_str_opt(s) {
+            Some(v) => v,
+            None => return bad_request(format!("subject 认不出「{s}」，须为 person / company / product / event（也收 人 / 公司 / 物 / 事）")),
+        },
+    };
     let q = engine_query(&req);
     // 释义后端是阻塞慢 I/O → 移出异步执行器；后端失败会回退离线模板（诚实标 backend）。
     let result =

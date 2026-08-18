@@ -422,3 +422,38 @@ async fn the_five_hundred_shape_matches_the_four_hundred_shape() {
     assert_eq!(v4["error"], "时窗终点早于起点");
     assert_eq!(v5["error"], "释义后端不可用");
 }
+
+/// 认不出的 `subject` 要被拒，不能当成没写。
+///
+/// 缺省是人盘，这没问题；写了个认不出的值却也落到人盘，就是「默默忽略」——
+/// 拼错 `company` 的人拿到的是人盘的读法，却以为看的是公司盘，而响应里没有任何迹象。
+/// 同一份请求里的 `gender` 早已改成拒绝拼错值，`subject` 一直没有。
+///
+/// 别名与 `gender` 对齐：首字母大写与中文都收。两处宽严不一只会让人踩坑——
+/// `gender` 收 `"Male"` 而 `subject` 不收 `"Person"`，没有道理。
+#[tokio::test]
+async fn an_unrecognised_subject_is_refused_rather_than_read_as_a_person() {
+    let ask = |subject: Option<&str>| {
+        let mut body = json!({ "year": 1990, "month": 6, "day": 15, "hour": 14, "tz": 8, "leaf": "bazi" });
+        if let Some(s) = subject {
+            body["subject"] = json!(s);
+        }
+        post("/api/interpret", body)
+    };
+
+    // 缺省与四种主体的英文、大写、中文写法都收
+    let (s, _) = ask(None).await;
+    assert_eq!(s, StatusCode::OK, "不写 subject 应落人盘");
+    for good in ["person", "Person", "人", "company", "Company", "公司", "product", "Product", "物", "产品", "object", "Object", "event", "Event", "事"] {
+        let (s, v) = ask(Some(good)).await;
+        assert_eq!(s, StatusCode::OK, "`{good}` 应被认出，实得 {v}");
+    }
+
+    // 认不出的一律拒，且说清收哪些
+    for bad in ["compnay", "PERSON", "组织", "", "human"] {
+        let (s, v) = ask(Some(bad)).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "`{bad}` 应被拒，实得 {v}");
+        let msg = v["error"].as_str().unwrap_or_default();
+        assert!(msg.contains(bad) && msg.contains("company"), "错误里要带上原值与可选值，实为「{msg}」");
+    }
+}

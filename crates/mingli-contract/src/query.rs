@@ -224,13 +224,17 @@ pub enum Subject {
 
 impl Subject {
     /// 从字符串解析(`"person"/"company"/"product"/"event"`)。
+    ///
+    /// 首字母大写与中文都收，与 [`Gender`] 的别名一致——同一份请求里
+    /// `gender` 收 `"Male"` 而 `subject` 不收 `"Person"`，宽严不一只会让人踩坑。
+    /// 认不出的一律返回 `None`，由调用方拒绝，**不当成没写**。
     #[must_use]
     pub fn from_str_opt(s: &str) -> Option<Self> {
         match s {
-            "person" | "人" => Some(Self::Person),
-            "company" | "公司" => Some(Self::Company),
-            "product" | "object" | "物" | "产品" => Some(Self::Product),
-            "event" | "事" => Some(Self::Event),
+            "person" | "Person" | "人" => Some(Self::Person),
+            "company" | "Company" | "公司" => Some(Self::Company),
+            "product" | "Product" | "object" | "Object" | "物" | "产品" => Some(Self::Product),
+            "event" | "Event" | "事" => Some(Self::Event),
             _ => None,
         }
     }

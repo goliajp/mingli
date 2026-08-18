@@ -40,7 +40,7 @@ jobs:
       #    Rust 的 HashMap 每进程换一个随机种子，遍历它就会让同一份构建在两次运行里
       #    吐出不同的字节——`/api/analysis` 当初正是这么坏的，而同一进程内跑两遍看不出来。
       #    「改动前后逐字节一致」那一半 CI 里确实做不了（没有改动前），留给本地。
-      - name: 36 个请求：无 5xx、无连不上，且两个进程给出同一份字节
+      - name: 37 个请求：无 5xx、无连不上，且两个进程给出同一份字节
         run: |
           cargo build -p mingli-api
           ./scripts/api-snapshot.sh save /tmp/snap.txt
