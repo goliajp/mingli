@@ -67,10 +67,14 @@ impl CastingEngine for AstrologyEngine {
         // 「群/国」用的是立国盘，那是本命盘的一种用法，同一份计算即可，故答。
         &[Intent::Natal, Intent::Fortune, Intent::Mundane]
     }
-    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
-        // 太阳所在星座。
-        let c = chart(self, m, q);
-        Some(Principal { label: "太阳星座", value: c.planets.first().map_or_else(String::new, |p| p.sign.clone()) })
+    fn principal(&self, m: &Moment, _q: &Query) -> Option<Principal> {
+        // 只要太阳所在星座，就**只算太阳**——不排整盘。
+        //
+        // 这一处曾是整棵树最重的一笔浪费：跨叶相关性要对 720 个样本各取一次主判据，
+        // 而本叶自加了二次推运之后，排一整盘要多算 101 年 × 9 星的星历。
+        // 于是那一路跑了 189 秒，契约快照整体从秒级变成三分钟。
+        // 主判据是「这套系统先看哪一个量」，它本来就不该要整盘。
+        Some(Principal { label: "太阳星座", value: crate::sun_sign_at(m.jde).to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
