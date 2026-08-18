@@ -110,4 +110,59 @@ async fn the_full_cast_differs_only_by_the_envelope() {
     same("/api/cast", &from_http, &enveloped);
 }
 
+/// 两扇门要拒绝同样的东西，不只是对同样的东西给出同样的答案。
+///
+/// 上面几条比的都是**成功路径**。可「拒不拒」同样是契约的一半：HTTP 在承接层收一次，
+/// wasm 吃的是裸 `Query`——本仓库给日加上「按当月实际长度收」之后，一度出现过
+/// 同一个 2 月 31 日在服务端被拒、在浏览器里照常出盘的局面。
+///
+/// 这里不直接调 wasm：它的错误路径返回 `JsValue`，在非 wasm32 目标上构造不出来，
+/// 一碰就 panic（`crates/mingli-wasm` 的测试注释里写了这件事）。故改为核**两边落到的
+/// 是不是同一段判断**：HTTP 给 400 的入参，用例层的 `validate_query` 也必须给 Err，
+/// 而 wasm 的 `parse_query` 调的正是它。
+#[tokio::test]
+async fn the_two_doors_refuse_the_same_things() {
+    // (给端点的 body, 给 Query 的等价 body)——Query 的字段没有 serde 缺省，要写全
+    let cases = [
+        (
+            r#"{"year":1990,"month":2,"day":31,"hour":14,"tz":8}"#,
+            r#"{"year":1990,"month":2,"day":31,"hour":14,"minute":0,"tz":8.0,"gender":"male","latitude":null,"longitude":null,"seed":null,"name":null,"schools":{}}"#,
+            "不存在的日期",
+        ),
+        (
+            r#"{"year":1990,"month":6,"day":15,"hour":14,"tz":99}"#,
+            r#"{"year":1990,"month":6,"day":15,"hour":14,"minute":0,"tz":99.0,"gender":"male","latitude":null,"longitude":null,"seed":null,"name":null,"schools":{}}"#,
+            "现实中不存在的时区",
+        ),
+        (
+            r#"{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"latitude":91}"#,
+            r#"{"year":1990,"month":6,"day":15,"hour":14,"minute":0,"tz":8.0,"gender":"male","latitude":91.0,"longitude":null,"seed":null,"name":null,"schools":{}}"#,
+            "球面外的纬度",
+        ),
+        (
+            r#"{"year":1899,"month":6,"day":15,"hour":14,"tz":8}"#,
+            r#"{"year":1899,"month":6,"day":15,"hour":14,"minute":0,"tz":8.0,"gender":"male","latitude":null,"longitude":null,"seed":null,"name":null,"schools":{}}"#,
+            "支持区间之外的年份",
+        ),
+    ];
+    for (http_body, query_body, what) in cases {
+        let res = mingli_api::router()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/cast")
+                    .header("content-type", "application/json")
+                    .body(Body::from(http_body.to_string()))
+                    .expect("请求应可构造"),
+            )
+            .await
+            .expect("路由应可调用");
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST, "/api/cast 应拒绝{what}");
 
+        let q: mingli_contract::Query = serde_json::from_str(query_body).expect("Query 应可解析");
+        assert!(
+            mingli_app::validate_query(&q).is_err(),
+            "用例层应拒绝{what}——wasm 那扇门只经由它收口，这里放过就是浏览器里放过"
+        );
+    }
+}

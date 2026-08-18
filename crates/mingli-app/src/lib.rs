@@ -60,32 +60,49 @@ impl Birth {
     ///
     /// 年份、月、日、时、分、时区、经度中任一越界时返回面向调用方的中文说明。
     pub fn validate(&self) -> Result<(), String> {
-        if !(1900..=2100).contains(&self.year) {
-            return Err("year 仅支持 1900–2100".into());
-        }
-        if !(1..=12).contains(&self.month) {
-            return Err("month 须 1–12".into());
-        }
-        // 日要按当月实际长度收，不能一律放到 31：2 月 31 日会被历法换算悄悄挪成 3 月 3 日，
-        // 于是打错一个数字的人拿到的是**另一天**的盘，而界面上没有任何迹象
-        let last = days_in_month(self.year, self.month);
-        if !(1..=last).contains(&self.day) {
-            return Err(format!("{} 年 {} 月只有 {last} 天", self.year, self.month));
-        }
-        if self.hour > 23 || self.minute > 59 {
-            return Err("hour/minute 越界".into());
-        }
-        // 现实中的 UTC 偏移落在 −12 到 +14 之间（+14 是 Kiritimati）
-        if !(-12.0..=14.0).contains(&self.tz) {
-            return Err("tz 须在 −12 到 +14 之间".into());
-        }
-        if let Some(lon) = self.longitude
-            && !(-180.0..=180.0).contains(&lon)
-        {
-            return Err("longitude 须在 −180 到 180 之间".into());
-        }
-        Ok(())
+        validate_instant(self.year, self.month, self.day, self.hour, self.minute, self.tz)?;
+        validate_coords(None, self.longitude)
     }
+}
+
+/// 一个时刻的取值域。两条交付路共用——HTTP 走 [`Birth::validate`]，wasm 走
+/// [`validate_query`]，两边落到的是同一段判断，不各写一份。
+///
+/// # Errors
+///
+/// 年、月、日、时、分、时区中任一越界时返回面向调用方的中文说明。
+pub fn validate_instant(year: i32, month: u32, day: u32, hour: u32, minute: u32, tz: f64) -> Result<(), String> {
+    if !(1900..=2100).contains(&year) {
+        return Err("year 仅支持 1900–2100".into());
+    }
+    if !(1..=12).contains(&month) {
+        return Err("month 须 1–12".into());
+    }
+    // 日要按当月实际长度收，不能一律放到 31：2 月 31 日会被历法换算悄悄挪成 3 月 3 日，
+    // 于是打错一个数字的人拿到的是**另一天**的盘，而界面上没有任何迹象
+    let last = days_in_month(year, month);
+    if !(1..=last).contains(&day) {
+        return Err(format!("{year} 年 {month} 月只有 {last} 天"));
+    }
+    if hour > 23 || minute > 59 {
+        return Err("hour/minute 越界".into());
+    }
+    // 现实中的 UTC 偏移落在 −12 到 +14 之间（+14 是 Kiritimati）
+    if !(-12.0..=14.0).contains(&tz) {
+        return Err("tz 须在 −12 到 +14 之间".into());
+    }
+    Ok(())
+}
+
+/// 排盘入参的取值域。wasm 那扇门吃的是 [`mingli_contract::Query`] 而非 [`Birth`]，
+/// 两者字段不同、该收的东西一样，故各有一个入口、共用同一段判断。
+///
+/// # Errors
+///
+/// 时刻或坐标越界时返回面向调用方的中文说明。
+pub fn validate_query(q: &mingli_contract::Query) -> Result<(), String> {
+    validate_instant(q.year, q.month, q.day, q.hour, q.minute, q.tz)?;
+    validate_coords(q.latitude, q.longitude)
 }
 
 /// 公历某年某月有几天。`month` 须已在 1–12 内。
