@@ -13,8 +13,16 @@ use mingli_contract::{Query, WordQuery};
 use mingli_registry::{registry, word_registry};
 use wasm_bindgen::prelude::*;
 
+/// 解析并**校验**排盘入参。
+///
+/// 校验这一步不是可选的：HTTP 那扇门在承接层收过一次（`Birth::validate`），
+/// wasm 吃的是裸 `Query`，若不在此收，同一个 2 月 31 日在服务端被拒、在浏览器里
+/// 却被历法换算悄悄挪成 3 月 3 日照常出盘——两扇门给出的不是同一个答案。
+/// 判断本身在用例层，两边落到的是同一段代码。
 fn parse_query(s: &str) -> Result<Query, JsValue> {
-    serde_json::from_str(s).map_err(|e| JsValue::from_str(&e.to_string()))
+    let q: Query = serde_json::from_str(s).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    mingli_app::validate_query(&q).map_err(|e| JsValue::from_str(&e))?;
+    Ok(q)
 }
 fn to_json<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
