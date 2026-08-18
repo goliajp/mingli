@@ -456,3 +456,127 @@ mod varga_tests {
         }
     }
 }
+
+/// Ashtakuta：拿各家都点名的**结构性事实**当判据。
+///
+/// 这套系统的逐项判定表各家不同（见 `kuta.rs` 的模块说明与本叶 `profile()`），
+/// 所以不能拿「某对男女得几分」当 oracle——那个数随选哪份表而变。
+/// 能当判据的是各家一致的结构：权重之和、Nadi 的同则零、Bhakoot 的凶位、
+/// 同宿同宫必得满分、以及三张按宿查的表各自的分布。
+#[test]
+fn ashtakuta_holds_the_structure_every_source_agrees_on() {
+    use crate::kuta::{ashtakuta, GANA, NADI, YONI, YONI_SWORN_ENEMIES};
+
+    // 八项权重之和恒为 36——这是这套系统的定义
+    let r = ashtakuta((0, 0), (0, 0));
+    assert_eq!(r.kutas.len(), 8);
+    assert_eq!(r.kutas.iter().map(|k| k.max_points).sum::<u32>(), 36);
+    assert_eq!(r.max_points, 36);
+
+    // 同宿同宫：除 Nadi 外各项皆满，而 **Nadi 必为 0**——同脉得零是各家一致的一条
+    let nadi = r.kutas.iter().find(|k| k.kuta == "Nadi").expect("应有 Nadi 一项");
+    assert_eq!((nadi.min_tenths, nadi.max_tenths), (0, 0), "同宿必同脉，Nadi 应得 0");
+    let yoni = r.kutas.iter().find(|k| k.kuta == "Yoni").expect("应有 Yoni 一项");
+    assert_eq!((yoni.min_tenths, yoni.max_tenths), (40, 40), "同宿必同兽，Yoni 应满 4 且无区间");
+    // 故同宿同宫的总分上界必不足 36（Nadi 的 8 分拿不到）
+    assert!(r.total_max_tenths <= 280, "同宿同宫应至多 28 分，实得 {}", f64::from(r.total_max_tenths) / 10.0);
+
+    // Nadi：异脉必满 8，同脉必 0
+    for (bn, gn) in [(0_usize, 1_usize), (0, 2), (3, 4)] {
+        let k = ashtakuta((bn, 0), (gn, 0));
+        let n = k.kutas.iter().find(|k| k.kuta == "Nadi").expect("Nadi");
+        let want = if NADI[bn] == NADI[gn] { 0 } else { 80 };
+        assert_eq!(n.min_tenths, want, "宿 {bn} 与 {gn} 的 Nadi");
+        assert!(n.settled, "Nadi 两源一致，不该出区间");
+    }
+
+    // Bhakoot：2/5/6/8/9/12 位为凶得 0，其余得 7——两源同表
+    for d in 0..12_usize {
+        let k = ashtakuta((0, 0), (0, d));
+        let b = k.kutas.iter().find(|k| k.kuta == "Bhakoot").expect("Bhakoot");
+        let pos = d + 1;
+        let want = if matches!(pos, 1 | 3 | 4 | 7 | 10 | 11) { 70 } else { 0 };
+        assert_eq!(b.min_tenths, want, "相隔 {pos} 位的 Bhakoot");
+    }
+
+    // Yoni 死敌七对：两源完全一致地给 0，且必不出区间
+    for (a, b) in YONI_SWORN_ENEMIES {
+        let bn = YONI.iter().position(|x| *x == a).expect("该兽应有宿");
+        let gn = YONI.iter().position(|x| *x == b).expect("该兽应有宿");
+        let k = ashtakuta((bn, 0), (gn, 0));
+        let y = k.kutas.iter().find(|k| k.kuta == "Yoni").expect("Yoni");
+        assert_eq!((y.min_tenths, y.max_tenths), (0, 0), "死敌兽对应得 0 且无区间");
+    }
+
+    // 三张按宿查的表：结构上各类等分
+    #[allow(clippy::naive_bytecount, reason = "这是分类表的计数，不是字节串搜索")]
+    for (name, t, groups) in [("Gana", &GANA, 3_u8), ("Nadi", &NADI, 3)] {
+        for g in 0..groups {
+            let n = t.iter().filter(|x| **x == g).count();
+            // clippy 的 naive_bytecount 在这里是误报：t 是分类表不是字节串
+            assert_eq!(n, 9, "{name} 第 {g} 类应辖九宿，实辖 {n}");
+        }
+    }
+    // 14 兽里十三兽各辖二宿，Uttara Ashadha 那一兽只一宿（另一宿 Abhijit 不在通行 27 宿内）
+    #[allow(clippy::naive_bytecount, reason = "同上：按兽计宿数")]
+    let ones = (0..14_u8).filter(|a| YONI.iter().filter(|x| *x == a).count() == 1).count();
+    assert_eq!(ones, 1, "只该有一兽辖单宿");
+}
+
+/// 区间的宽度只由两源不一致的那几项贡献，且不一致的只可能是 Vashya 与 Yoni。
+#[test]
+fn the_spread_comes_only_from_the_two_tables_the_sources_disagree_on() {
+    use crate::kuta::ashtakuta;
+    for bn in [0_usize, 5, 13, 26] {
+        for gn in [1_usize, 8, 20] {
+            for br in [0_usize, 4, 9] {
+                let r = ashtakuta((bn, br), (gn, (br + 5) % 12));
+                let spread = r.total_max_tenths - r.total_min_tenths;
+                let by_kuta: u32 = r.kutas.iter().map(|k| k.max_tenths - k.min_tenths).sum();
+                assert_eq!(spread, by_kuta, "总区间应等于各项区间之和");
+                for k in &r.kutas {
+                    if !k.settled {
+                        assert!(
+                            matches!(k.kuta, "Vashya" | "Yoni"),
+                            "只有 Vashya 与 Yoni 两源不一，却见到「{}」出区间",
+                            k.kuta,
+                        );
+                    }
+                }
+                assert!(r.total_max_tenths <= 360, "总分不得超 36");
+            }
+        }
+    }
+}
+
+/// Yoni 中段必须出区间——把它硬定成一个值，就是把两源的分歧藏起来。
+///
+/// 上一条只验了「不该出区间的项没出」，验不出反向：**该出区间的项被压成了定值**。
+/// 而这恰是这套实现最该防的事——两份公布的 14×14 矩阵在 72/196 格上不同（69 格差 1），
+/// 静默取其一，得出的「36 分制得几分」就随选谁而变，读的人无从知道。
+#[test]
+fn a_yoni_pair_the_sources_disagree_on_must_come_out_as_a_range() {
+    use crate::kuta::{ashtakuta, YONI, YONI_SWORN_ENEMIES};
+
+    let sworn = |a: u8, b: u8| YONI_SWORN_ENEMIES.iter().any(|&(x, y)| (x == a && y == b) || (x == b && y == a));
+    let mut ranged = 0;
+    let mut settled = 0;
+    for (bn, &ya) in YONI.iter().enumerate() {
+        for (gn, &yb) in YONI.iter().enumerate() {
+            let y = ashtakuta((bn, 0), (gn, 0))
+                .kutas
+                .into_iter()
+                .find(|k| k.kuta == "Yoni")
+                .expect("Yoni");
+            if ya == yb || sworn(ya, yb) {
+                assert!(y.settled, "同兽或死敌两源一致，不该出区间");
+                settled += 1;
+            } else {
+                assert!(!y.settled, "宿 {bn}×{gn}：中段两源不一，必须出区间而不是定值");
+                assert_eq!((y.min_tenths, y.max_tenths), (10, 30), "中段只定得下 1..3");
+                ranged += 1;
+            }
+        }
+    }
+    assert!(ranged > 0 && settled > 0, "两类都该出现过：定值 {settled} 组、区间 {ranged} 组");
+}

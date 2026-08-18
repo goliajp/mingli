@@ -147,3 +147,12 @@
 .sy-asp.conj b { color: var(--kin-bright); }
 .sy-asp.harm b { color: var(--mu); }
 .sy-asp.tens b { color: var(--shu-soft); }
+
+/* —— 合盘：八项合婚 —— */
+.sy-kuta { margin-top: 18px; }
+.sy-kuta-l { font-size: 14px; color: var(--washi-dim); margin-bottom: 9px; }
+.sy-kuta-l b { color: var(--kin-bright); font-family: var(--mono); }
+.sy-kuta-l small { color: var(--washi-faint); }
+.sy-kuta .jy-graha-table td:nth-child(2) { font-family: var(--mono); }
+.kuta-range { color: var(--kin-bright); }
+.kuta-range::after { content: ' ≈'; color: var(--washi-faint); }

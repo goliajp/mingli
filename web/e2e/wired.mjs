@@ -51,6 +51,16 @@ if (!leaves?.length) {
   process.exit(1)
 }
 
+// /api/cast 之外还有几条各自出结构的端点，它们的顶层字段同样得有人接。
+// 合盘的 ashtakuta 就是从这个盲区里漏过一次的——它不在任何一片叶的盘面上，
+// 于是只扫 /api/cast 的话看不见。
+const EXTRA = [
+  ['/api/synastry', {
+    a: { year: 1987, month: 9, day: 17, hour: 15, minute: 0, tz: 8, gender: 'male' },
+    b: { year: 1990, month: 6, day: 15, hour: 14, minute: 30, tz: 8, gender: 'female' },
+  }],
+]
+
 const src = await sources(new URL('../src/', import.meta.url).pathname)
 const gaps = []
 let fields = 0
@@ -62,6 +72,23 @@ for (const leaf of leaves) {
     if (src.includes(k)) continue
     if (EXCUSED.some(([id, f]) => (id === '*' || id === leaf.id) && f === k)) continue
     gaps.push(`${leaf.id} · ${k}`)
+  }
+}
+
+for (const [path, payload] of EXTRA) {
+  const r = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!r.ok) {
+    console.error(`✗ ${path} 返回 ${r.status}`)
+    process.exit(1)
+  }
+  const body = await r.json()
+  for (const k of Object.keys(body)) {
+    fields++
+    if (!src.includes(k)) gaps.push(`${path} · ${k}`)
   }
 }
 

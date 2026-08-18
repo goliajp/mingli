@@ -120,6 +120,20 @@ const CHECKS = {
     const [a, b] = bars.map((t) => Number(t.replace(/\D/g, '')))
     const gap = Number((await page.locator('.sy-mid-note').innerText()).replace(/\D/g, ''))
     if (Math.abs(a - b) !== gap) throw new Error(`两边 ${a}% / ${b}%，中间却写差 ${gap} 个百分点`)
+    // 八项合婚：八行，且总分等于各项之和
+    const rows = await page.locator('.sy-kuta tbody tr').count()
+    if (rows !== 8) throw new Error(`Ashtakuta 应有八项，实有 ${rows}`)
+    const cells = await page.locator('.sy-kuta tbody tr td:nth-child(2)').allInnerTexts()
+    const lows = cells.map((t) => Number(t.trim().split('–')[0].replace('≈', '')))
+    const sum = lows.reduce((a, b) => a + b, 0)
+    const head = await page.locator('.sy-kuta-l b').innerText()
+    const headLow = Number(head.trim().split('–')[0])
+    if (Math.abs(sum - headLow) > 0.05) throw new Error(`八项下界之和 ${sum}，标题却写 ${headLow}`)
+    // 满分列合计恒为 36
+    const maxes = await page.locator('.sy-kuta tbody tr td:nth-child(3)').allInnerTexts()
+    const total = maxes.reduce((a, t) => a + Number(t), 0)
+    if (total !== 36) throw new Error(`八项满分之和应为 36，实为 ${total}`)
+
     // 相位：自报几条就得画几条
     const said = Number((await page.locator('.sy-asp-l small').innerText()).match(/(\d+) 条/)?.[1])
     const drawn = await page.locator('.sy-asp').count()

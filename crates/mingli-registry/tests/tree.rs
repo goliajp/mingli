@@ -491,12 +491,17 @@ fn natal_cast_path_unchanged_regression_guard() {
 /// 改这张表就是在记录那次进展——小六壬的方位已经这么走过一次（四神可定、小吉与空亡不可）。
 /// 一条**做出来**了就从这张表上走掉——那时它不再是留白，而是该叶认领的能力，
 /// 由「认领的意图必须路由得回来」那条守着。紫微的大限 / 流年与占星的推运已这么走掉。
-const REVOKED: [(&str, &str, &str); 2] = [
-    ("astrology", "行运（transit）与太阳返照", "还没做"),
-    ("jyotish", "合婚", "还没做"),
-    // ("ziwei", "大限 / 流年")  —— 已实现，见 `mingli-ziwei` 的 `limit.rs`
-    // ("xiaoliuren", "六神配方位") —— 已查证：四定二不定，见该叶 profile
-];
+/// 这张表**已经空了**——四条当初撤下来的能力各自有了归宿：
+///
+/// - 紫微「大限 / 流年」：做出来了（`mingli-ziwei` 的 `limit.rs`），现由该叶认领「运」
+/// - 占星「行运」：做出来的是**二次推运**（`mingli-astrology` 的 `progression.rs`）——
+///   行运本身落不到叶这一层（要两个时刻），那一条改写为该叶 profile 里的 🟡 并说明缘由
+/// - 印度占星「合婚」：做出来了（`mingli-jyotish` 的 `kuta.rs`），逐项出区间
+/// - 小六壬「六神配方位」：查证了，四定二不定，故仍不认领「寻」但理由已落在该叶 profile
+///
+/// 表空着不等于这条守卫没用了——**它是为下一次撤销准备的**。哪天某片叶因事实核对
+/// 而撤下一项能力，那一项就该回到这里，并在它自己的 profile 里留下说明。
+const REVOKED: [(&str, &str, &str); 0] = [];
 
 #[test]
 fn a_capability_that_was_taken_away_is_still_accounted_for() {
