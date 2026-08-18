@@ -51,6 +51,15 @@ jobs:
       - name: README 自称的测试数
         run: ./scripts/test-count.sh
 
+      # 依赖公告。放在 Rust job 末尾而非单开定时任务：定时任务的失败没人盯，
+      # 而这条挂在每次 push 上，出了公告当场就知道。
+      # 公告库是外部的、会自己更新，所以这一步可能在没有任何改动的情况下变红——
+      # 那不是误报，是「今天这份依赖不再干净了」。
+      - name: 依赖安全公告
+        run: |
+          cargo install cargo-audit --locked || true
+          cargo audit
+
   web:
     name: 前端构建 · 截图断言
     runs-on: ubuntu-latest
