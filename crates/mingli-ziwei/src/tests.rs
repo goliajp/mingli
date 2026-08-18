@@ -197,3 +197,56 @@ fn no_gender_ok() {
     });
     assert_eq!(chart.palaces.len(), 12);
 }
+
+/// 五行局：端到端接回已验的六十甲子纳音表，而不是只验一张盘的结论。
+///
+/// 局由**命宫干支**查纳音定，水二 / 木三 / 金四 / 土五 / 火六
+/// （<https://www.ziwei.my/zi-wei-dou-shu-portfolio/wu-xing-ju-note-1/> 与
+/// <https://zhuanlan.zhihu.com/p/1893764310146200691> 两处同述；后者并记局数即大限起运岁，
+/// 本叶不出大限，故只用前一半）。
+///
+/// 原先只断言了一张 1990 年盘得「土五局」。那验的是一个结论，验不出映射本身——
+/// 把纳音的五行换个次序接到局数上，那张盘仍可能碰巧对。这里改为：
+/// 扫一批生日，逐盘拿它自己的 `ming_ganzhi` 去查纳音，再核局数与局名对不对得上。
+/// 纳音那张表已在 `mingli-ganzhi` 里逐条对过全六十条，于是这条链两端都有据。
+#[test]
+fn the_bureau_follows_the_nayin_of_the_life_palace() {
+    use mingli_ganzhi::{nayin_element, parse_ganzhi, Element};
+
+    let want_ju = |e: Element| match e {
+        Element::Water => (2, "水二局"),
+        Element::Wood => (3, "木三局"),
+        Element::Metal => (4, "金四局"),
+        Element::Earth => (5, "土五局"),
+        Element::Fire => (6, "火六局"),
+    };
+
+    let mut seen = std::collections::BTreeSet::new();
+    for (y, mo, d) in [
+        (1990, 6, 15), (1987, 9, 17), (2024, 1, 1), (2000, 2, 29), (1961, 7, 1),
+        (1955, 3, 8), (1972, 11, 30), (2011, 5, 20), (1938, 8, 4), (2043, 12, 25),
+    ] {
+        for h in [0u32, 5, 11, 17, 23] {
+            let chart = compute(BirthInput {
+                year: y, month: mo, day: d, hour: h, minute: 0, tz: 8.0, gender: Some(Gender::Male),
+            });
+            let gz = parse_ganzhi(&chart.ming_ganzhi)
+                .unwrap_or_else(|| panic!("命宫干支「{}」解析不了", chart.ming_ganzhi));
+            let (num, name) = want_ju(nayin_element(gz));
+            assert_eq!(
+                chart.ju_number, num,
+                "{y}-{mo}-{d} {h}时：命宫 {} 纳音属{}，应 {name}，实得「{}」",
+                chart.ming_ganzhi,
+                nayin_element(gz).name(),
+                chart.wuxing_ju,
+            );
+            assert_eq!(chart.wuxing_ju, name, "局数与局名对不上");
+            seen.insert(num);
+        }
+    }
+    assert_eq!(
+        seen,
+        [2, 3, 4, 5, 6].into_iter().collect::<std::collections::BTreeSet<_>>(),
+        "五个局应当都出现过，实际只见到 {seen:?}——有局取不到说明推导链上某处收窄了",
+    );
+}

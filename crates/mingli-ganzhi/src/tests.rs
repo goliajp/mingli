@@ -93,13 +93,57 @@ assert_eq!(hour_branch(0, 30), 0); // 子
 assert_eq!(hour_branch(1, 0), 1); // 丑
 }
 
+/// 纳音：六十条**逐条**对表，不是抽查几个点。
+///
+/// `nayin_element` 是个公式（天干分组 + 地支分组求和）而不是查表——公式在几个点上对，
+/// 不蕴含另外几十个点也对。原先只验了 5 条，等于 55 条没人看过。
+/// 紫微的五行局由命宫纳音得，所以这张表同时喂着两片叶，错一条就错两处。
+///
+/// 参照《六十甲子纳音歌》通行三十组，两处取源相合：
+/// 前二十四组见 <https://baike.baidu.com/item/六十甲子纳音表/3410318> 一系的通行表述，
+/// 后六组另有《三命通会》分卷可对（<https://www.zggdwx.com/sanming/19.html> 壬子癸丑桑柘木、
+/// <https://www.zggdwx.com/sanming/36.html> 壬戌癸亥大海水）。
 #[test]
-fn nayin() {
-assert_eq!(nayin_element(GanZhi { stem: 3, branch: 11 }), Element::Earth); // 丁亥 屋上土
-assert_eq!(nayin_element(GanZhi { stem: 0, branch: 0 }), Element::Metal); // 甲子 海中金
-assert_eq!(nayin_element(GanZhi { stem: 4, branch: 4 }), Element::Wood); // 戊辰 大林木
-assert_eq!(nayin_element(GanZhi { stem: 2, branch: 0 }), Element::Water); // 丙子 涧下水
-assert_eq!(nayin_element(GanZhi { stem: 2, branch: 2 }), Element::Fire); // 丙寅 炉中火
+fn nayin_matches_all_sixty_of_the_classical_table() {
+// 三十组，自甲子起，每组统辖相邻两个干支
+const TABLE: [(&str, Element); 30] = [
+    ("海中金", Element::Metal), ("炉中火", Element::Fire),  ("大林木", Element::Wood),
+    ("路旁土", Element::Earth), ("剑锋金", Element::Metal), ("山头火", Element::Fire),
+    ("涧下水", Element::Water), ("城头土", Element::Earth), ("白蜡金", Element::Metal),
+    ("杨柳木", Element::Wood),  ("泉中水", Element::Water), ("屋上土", Element::Earth),
+    ("霹雳火", Element::Fire),  ("松柏木", Element::Wood),  ("长流水", Element::Water),
+    ("沙中金", Element::Metal), ("山下火", Element::Fire),  ("平地木", Element::Wood),
+    ("壁上土", Element::Earth), ("金箔金", Element::Metal), ("覆灯火", Element::Fire),
+    ("天河水", Element::Water), ("大驿土", Element::Earth), ("钗钏金", Element::Metal),
+    ("桑柘木", Element::Wood),  ("大溪水", Element::Water), ("沙中土", Element::Earth),
+    ("天上火", Element::Fire),  ("石榴木", Element::Wood),  ("大海水", Element::Water),
+];
+for i in 0..60u8 {
+    let gz = GanZhi::from_index(i);
+    let (name, want) = TABLE[(i / 2) as usize];
+    assert_eq!(
+        nayin_element(gz),
+        want,
+        "{gz} 属第 {} 组「{name}」，应为 {}，实得 {}",
+        i / 2 + 1,
+        want.name(),
+        nayin_element(gz).name(),
+    );
+}
+// 每组的两条必须同纳音——这是「两干支共一纳音」这条结构本身
+for i in (0..60u8).step_by(2) {
+    assert_eq!(
+        nayin_element(GanZhi::from_index(i)),
+        nayin_element(GanZhi::from_index(i + 1)),
+        "第 {} 组的两个干支纳音不同",
+        i / 2 + 1,
+    );
+}
+// 五行各占六组，无一偏多偏少
+for e in [Element::Wood, Element::Fire, Element::Earth, Element::Metal, Element::Water] {
+    let n = TABLE.iter().filter(|(_, x)| *x == e).count();
+    assert_eq!(n, 6, "{} 在三十组里应占 6 组，实为 {n}", e.name());
+}
 }
 
 #[test]
