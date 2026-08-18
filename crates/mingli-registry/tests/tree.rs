@@ -513,6 +513,71 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
 }
 
 
+/// 声明了的流派选项，选上之后盘面必须真的不一样。
+///
+/// 流派是这棵树对外承诺的核心之一：某片叶说它支持早子 / 晚子两派，读的人据此以为
+/// 换一个就能拿到另一派的盘。可「声明」与「接线」是两件事——`schools()` 里多写一行、
+/// 或某个 id 在叶内的 match 里拼错一个字母，都会让选项静默落回默认，
+/// 而界面上那个选项照样亮着。这正是本仓库反复抓到的那类缺陷：**声明了但没接上**。
+///
+/// 判据是「存在性」而非「普遍性」：扫一批时刻与取机种子，只要有一处两派给出不同的盘就算接上了。
+/// 不能要求处处不同——早子 / 晚子只在 23 点后那一小时分岔，塔罗的 Marseilles 只换第 8 与第 11 张牌的名，
+/// 78 张里抽几张常常一张都不碰（实测 250 个样本里只 4 个不同，但那 4 个证明它是活的）。
+#[test]
+fn every_school_option_actually_changes_the_chart() {
+    // 取样面要盖住已知的分岔位：跨立春、跨春节、跨子时、跨年，取机种子也换几个
+    let days = [
+        (1990, 6, 15), (1987, 9, 17), (2024, 1, 1), (2024, 2, 4), (2024, 2, 10),
+        (2023, 3, 22), (2020, 4, 23), (2026, 8, 18), (2000, 12, 31), (1961, 7, 1),
+    ];
+    let clocks = [(0, 30), (7, 0), (12, 0), (15, 0), (23, 30)];
+    let seeds = [None, Some(1_u64), Some(7), Some(2024), Some(99_991)];
+
+    for e in mingli_registry::registry() {
+        let opts = e.schools();
+        if opts.is_empty() {
+            continue;
+        }
+        let defaults = opts.iter().filter(|s| s.default).count();
+        assert_eq!(defaults, 1, "叶 `{}` 应恰有一个 default=true 的流派，实有 {defaults} 个", e.id());
+
+        for opt in opts.iter().filter(|s| !s.default) {
+            let mut differs = false;
+            'sweep: for (y, mo, d) in days {
+                for (h, mi) in clocks {
+                    for seed in seeds {
+                        let mut base = mingli_contract::Query {
+                            year: y, month: mo, day: d, hour: h, minute: mi, tz: 8.0,
+                            gender: Some(mingli_contract::Gender::Male),
+                            latitude: Some(31.23), longitude: Some(121.47),
+                            seed, name: Some("Ada".into()),
+                            schools: std::collections::BTreeMap::new(),
+                        };
+                        let m = mingli_astro::Moment::new(y, mo, d, h, mi, 8.0);
+                        let a = e.cast(&m, &base);
+                        base.schools.insert(e.id().to_string(), opt.id.to_string());
+                        if e.cast(&m, &base) != a {
+                            differs = true;
+                            break 'sweep;
+                        }
+                    }
+                }
+            }
+            assert!(
+                differs,
+                "叶 `{}` 声明了流派 `{}`（{}），但在 {} 个时刻 × {} 个种子上换它一次都没改变盘面——\n\
+                 要么它没接进 cast（叶内 match 的 id 与这里声明的对不上是最常见的一种），\n\
+                 要么它的分岔位不在本测试的取样面上，那就把那个时刻补进 days / clocks",
+                e.id(),
+                opt.id,
+                opt.name,
+                days.len() * clocks.len(),
+                seeds.len(),
+            );
+        }
+    }
+}
+
 /// 每一条 Und 都要写下「查过哪些源」，不能只说各家出入很大。
 ///
 /// 铁律给 Und 留了两个归宿：找到 ≥2 独立源就落 Det 并写 oracle，找不到就留 Und，
