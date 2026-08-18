@@ -96,6 +96,28 @@ fn the_headline_counts_match_the_workspace() {
 /// 这个数写在四处：脚本里的断言、两份 README 的命令注释、CI 的步骤名。四处各写各的，
 /// 加一个请求只改脚本，其余三处就开始说假话——本测试加进来的那一轮正是如此，
 /// 三处都停在旧数上。
+/// 反例探测台种多少个错，README 说的就得是多少个。
+///
+/// 这个数会漂：补一条探测很自然，回头改 README 不自然。而它一旦漂了，
+/// 读的人拿到的是一份说得比实际少（或多）的清单——正是这份 README 想避免的那种事。
+#[test]
+fn the_number_of_planted_faults_is_what_the_script_plants() {
+    let script = read("scripts/guard-probe.sh");
+    let planted = script.lines().filter(|l| l.trim_start().starts_with("probe \"")).count();
+    assert!(planted >= 8, "只解析出 {planted} 条探测，解析方式怕是失效了");
+    for (name, text) in readmes() {
+        for phrase in [" known faults", " 个已知的错"] {
+            if let Some(n) = number_before(&text, phrase) {
+                assert_eq!(n, planted, "{name} 说种 {n} 个错，脚本实际种 {planted} 个");
+            }
+        }
+        assert!(
+            text.contains("guard-probe.sh"),
+            "{name} 的脚本表应列出 guard-probe.sh——一条没人知道的检查等于不存在"
+        );
+    }
+}
+
 #[test]
 fn the_snapshot_request_count_agrees_everywhere() {
     let script = read("scripts/api-snapshot.sh");
