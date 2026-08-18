@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 715 tests green
+> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 716 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -140,7 +140,7 @@ A type check proves the code compiles. This proves the page still agrees with it
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 715 tests
+cargo test --workspace     # 716 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
