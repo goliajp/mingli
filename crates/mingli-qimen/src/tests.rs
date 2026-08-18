@@ -808,3 +808,40 @@ fn qm5_the_empty_centre_never_matches_a_pattern() {
     assert!(p.stem_patterns.is_empty() && p.qi_de_shi.is_empty(), "中五天盘为空，不该成格");
     assert!(!p.stem_fu_yin_palaces.contains(&5), "中五也不该判干伏吟");
 }
+
+/// 值符落中五时，方位不能是「中」，附注也不能是空的。
+///
+/// 中宫不在后天八卦圆周上，星门神俱不入，故 `sky.stars[4]` / `gates.gates[4]` /
+/// `spirits.spirits[4]` / `sky.stems[4]` 全是空串——照原样组装，出来的候选是
+/// 「方位：中，附注： ·  ·  · 天盘」。「寻方位」这一类的输出形态是「位」，
+/// 一个没法面向、也不带任何结构的候选等于噪音。
+///
+/// 本叶把「中 5 寄坤 2」定为 Det（见 `profile()` 的两源），值使门落中五时
+/// `gate_plate` 正是这么归并的；方位候选走同一条。
+#[test]
+fn a_candidate_in_the_centre_follows_the_declared_substitution() {
+    // 2026 年 8 月里值符落中五的时辰共 22 个，取其中三个
+    for (day, hour) in [(1_u32, 9_u32), (2, 5), (6, 23)] {
+        let c = crate::compute_at(&mingli_astro::Moment::new(2026, 8, day, hour, 0, 8.0));
+        assert_eq!(c.zhi_fu_palace, 5, "2026-08-{day} {hour} 时的值符本应落中五");
+        let bs = crate::bearings_of(&c);
+        let zf = bs.iter().find(|b| b.element == "值符").expect("值符必在候选里");
+        assert_eq!(zf.direction, "西南", "中 5 寄坤 2，坤 2 在西南");
+        assert_eq!(zf.at, "中5寄坤2", "落点两端都要写出来");
+    }
+}
+
+/// 任何一条候选都不该出「中」这个方位，也不该带空附注。
+#[test]
+fn no_candidate_ever_points_at_the_centre() {
+    for day in 1..=28_u32 {
+        for hour in [1_u32, 5, 9, 13, 17, 21, 23] {
+            let c = crate::compute_at(&mingli_astro::Moment::new(2026, 8, day, hour, 0, 8.0));
+            for b in crate::bearings_of(&c) {
+                assert_ne!(b.direction, "中", "2026-08-{day} {hour} 时的「{}」指向中宫", b.element);
+                let bare: String = b.note.chars().filter(|c| !" ·".contains(*c)).collect();
+                assert_ne!(bare, "天盘", "2026-08-{day} {hour} 时的「{}」附注是空的", b.element);
+            }
+        }
+    }
+}

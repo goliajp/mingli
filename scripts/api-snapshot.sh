@@ -94,6 +94,9 @@ p /api/synastry/interpret '{"a":{"year":1990,"month":6,"day":15,"hour":14,"tz":8
 p /api/team/interpret '{"members":[{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"gender":"male","name":"A"},{"year":1987,"month":3,"day":2,"hour":9,"tz":8,"gender":"female","name":"B"}]}'
 p /api/interpret "$(printf '%s' "$N" | sed 's/}$/,"leaf":"bazi"}/')"
 p /api/locative "{\"t_ask\":$T,\"seed\":7,\"category\":\"财\"}"
+# 这一刻奇门的值符落中五宫。中宫不在圆周上、星门神俱不入，若不按「中 5 寄坤 2」归并，
+# 出来的候选会是「方位：中」加一条四段全空的附注
+p /api/locative '{"t_ask":{"year":2026,"month":8,"day":1,"hour":9,"minute":0,"tz":8},"seed":7,"category":"财"}'
 p /api/synastry "{\"a\":{\"year\":1990,\"month\":6,\"day\":15,\"hour\":14,\"tz\":8,\"gender\":\"male\",\"name\":\"A\"},\"b\":{\"year\":1987,\"month\":3,\"day\":2,\"hour\":9,\"tz\":8,\"gender\":\"female\",\"name\":\"B\"}}"
 p /api/mundane '{"founded_at":{"year":1949,"month":10,"day":1,"hour":15,"minute":0,"tz":8},"latitude":39.9,"longitude":116.4,"target_year":2026,"span":3}'
 
@@ -103,8 +106,8 @@ if grep -qE '^000$' "$out"; then
   exit 1
 fi
 n=$(grep -c '^### ' "$out")
-if [ "$n" != 35 ]; then
-  echo "✗ 只抓到 $n 个请求，应是 35" >&2
+if [ "$n" != 36 ]; then
+  echo "✗ 只抓到 $n 个请求，应是 36" >&2
   exit 1
 fi
 

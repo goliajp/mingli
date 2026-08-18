@@ -29,15 +29,32 @@ pub fn palace_note(cast: &Cast, palace: u8) -> String {
     )
 }
 
+/// 中宫的宫号。它不在圆周上，星门神俱不入。
+const CENTER: u8 = 5;
+/// 中宫所寄之宫：坤 2。见本叶 `profile()` 的「天禽寄坤 2（两遁通用）」一条。
+const JI_PALACE: u8 = 2;
+
 /// 由一张奇门盘抽出全部方位候选。
 #[must_use]
 pub fn bearings_of(cast: &Cast) -> Vec<Bearing> {
-    let mk = |element: String, palace: u8| Bearing {
-        leaf: "qimen",
-        element,
-        at: palace_label(cast, palace),
-        direction: direction_of(palace),
-        note: palace_note(cast, palace),
+    // 中 5 不在后天八卦圆周上，也不是可面向的方位；星门神一概不入中宫，
+    // 于是「落中五」的候选会带着一条四段全空的附注与一个没法面向的「中」出门。
+    // 本叶已把「中 5 寄坤 2」定为 Det（两源，见 `profile()`），值使门落中五时
+    // `gates.rs` 正是这么归并的——方位候选照同一条办。落点字面把两端都写出来，
+    // 不把「它本在中宫」这件事藏掉。
+    let mk = |element: String, palace: u8| {
+        let (at, dest) = if palace == CENTER {
+            (format!("{}寄{}", palace_label(cast, CENTER), palace_label(cast, JI_PALACE)), JI_PALACE)
+        } else {
+            (palace_label(cast, palace), palace)
+        };
+        Bearing {
+            leaf: "qimen",
+            element,
+            at,
+            direction: direction_of(dest),
+            note: palace_note(cast, dest),
+        }
     };
     let mut out = vec![
         mk("值符".to_string(), cast.zhi_fu_palace),
