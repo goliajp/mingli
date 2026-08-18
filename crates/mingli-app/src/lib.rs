@@ -58,7 +58,7 @@ impl Birth {
     ///
     /// # Errors
     ///
-    /// 年份越界、月/日/时/分越界时返回面向调用方的中文说明。
+    /// 年份、月、日、时、分、时区、经度中任一越界时返回面向调用方的中文说明。
     pub fn validate(&self) -> Result<(), String> {
         if !(1900..=2100).contains(&self.year) {
             return Err("year 仅支持 1900–2100".into());
@@ -66,12 +66,108 @@ impl Birth {
         if !(1..=12).contains(&self.month) {
             return Err("month 须 1–12".into());
         }
-        if !(1..=31).contains(&self.day) {
-            return Err("day 须 1–31".into());
+        // 日要按当月实际长度收，不能一律放到 31：2 月 31 日会被历法换算悄悄挪成 3 月 3 日，
+        // 于是打错一个数字的人拿到的是**另一天**的盘，而界面上没有任何迹象
+        let last = days_in_month(self.year, self.month);
+        if !(1..=last).contains(&self.day) {
+            return Err(format!("{} 年 {} 月只有 {last} 天", self.year, self.month));
         }
         if self.hour > 23 || self.minute > 59 {
             return Err("hour/minute 越界".into());
         }
+        // 现实中的 UTC 偏移落在 −12 到 +14 之间（+14 是 Kiritimati）
+        if !(-12.0..=14.0).contains(&self.tz) {
+            return Err("tz 须在 −12 到 +14 之间".into());
+        }
+        if let Some(lon) = self.longitude
+            && !(-180.0..=180.0).contains(&lon)
+        {
+            return Err("longitude 须在 −180 到 180 之间".into());
+        }
         Ok(())
+    }
+}
+
+/// 公历某年某月有几天。`month` 须已在 1–12 内。
+#[must_use]
+pub fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+/// 坐标的取值域。纬度不在 `Birth` 上（只有占星那一路要它，走 `Query`），故单独一条。
+///
+/// # Errors
+///
+/// 纬度不在 −90–90、或经度不在 −180–180 时返回说明。
+pub fn validate_coords(latitude: Option<f64>, longitude: Option<f64>) -> Result<(), String> {
+    if let Some(lat) = latitude
+        && !(-90.0..=90.0).contains(&lat)
+    {
+        return Err("latitude 须在 −90 到 90 之间".into());
+    }
+    if let Some(lon) = longitude
+        && !(-180.0..=180.0).contains(&lon)
+    {
+        return Err("longitude 须在 −180 到 180 之间".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(year: i32, month: u32, day: u32) -> Birth {
+        Birth { year, month, day, hour: 12, minute: 0, tz: 8.0, gender: None, true_solar_time: false, longitude: None }
+    }
+
+    /// 日要按当月实际长度收。
+    ///
+    /// 不收的后果不是「多算一天」而是**算成另一天**：历法换算会把 1990-02-31 悄悄挪到
+    /// 1990-03-03，两者返回的日柱同为丁卯、农历同为二月初七，打错一个数字的人
+    /// 拿到的是别人的盘，而界面上没有任何迹象。
+    #[test]
+    fn a_day_that_does_not_exist_is_refused_rather_than_slid_to_the_next_month() {
+        assert!(at(1990, 2, 31).validate().is_err());
+        assert!(at(1990, 2, 29).validate().is_err(), "1990 不是闰年");
+        assert!(at(1990, 4, 31).validate().is_err(), "四月只有 30 天");
+        assert!(at(1990, 2, 28).validate().is_ok());
+        assert!(at(1990, 1, 31).validate().is_ok());
+    }
+
+    /// 百年闰规则在支持区间的两端各踩一次：1900 与 2100 都被 400 排除，2000 没有。
+    #[test]
+    fn the_century_leap_rule_holds_at_both_ends_of_the_supported_range() {
+        assert_eq!(days_in_month(1900, 2), 28, "1900 能被 100 整除、不能被 400 整除");
+        assert_eq!(days_in_month(2000, 2), 29, "2000 能被 400 整除");
+        assert_eq!(days_in_month(2100, 2), 28);
+        assert_eq!(days_in_month(2024, 2), 29);
+        // 其余各月与年份无关
+        for y in [1900, 2000, 2024, 2100] {
+            let total: u32 = (1..=12).map(|m| days_in_month(y, m)).sum();
+            assert_eq!(total, if days_in_month(y, 2) == 29 { 366 } else { 365 }, "{y} 年各月之和");
+        }
+    }
+
+    /// 时区与坐标的取值域。+14 是 Kiritimati，真实存在，不能收得比它窄。
+    #[test]
+    fn the_offset_and_the_coordinates_stay_inside_the_real_world() {
+        let tz = |t: f64| Birth { tz: t, ..at(1990, 6, 15) };
+        assert!(tz(14.0).validate().is_ok(), "+14 是 Kiritimati 的真实偏移");
+        assert!(tz(-12.0).validate().is_ok());
+        assert!(tz(14.5).validate().is_err());
+        assert!(tz(99.0).validate().is_err());
+
+        assert!(validate_coords(Some(90.0), Some(180.0)).is_ok());
+        assert!(validate_coords(Some(-90.0), Some(-180.0)).is_ok());
+        assert!(validate_coords(Some(91.0), None).is_err());
+        assert!(validate_coords(None, Some(181.0)).is_err());
+        assert!(validate_coords(None, None).is_ok(), "两者都可缺");
     }
 }
