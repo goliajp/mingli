@@ -528,3 +528,36 @@ fn the_nine_gates_always_yield_a_transmission() {
     );
 }
 
+
+/// 十二支配八方：三支一正方、其余各支两两夹一隅。
+///
+/// `BRANCH_DIR` 原先无逐条断言。这张表不是随手可改的名单——它就是后天八卦的方位配支：
+/// 子北、卯东、午南、酉西各占一正方，寅辰夹东北？不，是**四正各一支、四隅各两支**：
+/// 丑寅夹东北、辰巳夹东南、未申夹西南、戌亥夹西北。
+/// 认领「寻」这一类问局时，方位候选就是由它得出的，错一支就把人指向别处。
+#[test]
+fn the_twelve_branches_map_onto_the_eight_directions() {
+    use crate::bearings::{BRANCH_DIR, BRANCH_NAMES};
+    // 四正各占一支
+    for (branch, dir) in [("子", "北"), ("卯", "东"), ("午", "南"), ("酉", "西")] {
+        let k = BRANCH_NAMES.iter().position(|b| *b == branch).expect("十二支应有此支");
+        assert_eq!(BRANCH_DIR[k], dir, "{branch} 应指{dir}");
+    }
+    // 四隅各占两支，且那两支在十二支上相邻
+    for (dir, pair) in [
+        ("东北", ["丑", "寅"]),
+        ("东南", ["辰", "巳"]),
+        ("西南", ["未", "申"]),
+        ("西北", ["戌", "亥"]),
+    ] {
+        let ks: Vec<usize> = (0..12).filter(|&k| BRANCH_DIR[k] == dir).collect();
+        assert_eq!(ks.len(), 2, "{dir} 应占两支，实占 {}", ks.len());
+        let got: Vec<&str> = ks.iter().map(|&k| BRANCH_NAMES[k]).collect();
+        assert_eq!(got, pair, "{dir} 应是 {pair:?}");
+        assert_eq!(ks[1], ks[0] + 1, "{dir} 的两支应在十二支上相邻");
+    }
+    // 八方各有支、无第九方
+    let dirs: std::collections::BTreeSet<&str> = BRANCH_DIR.iter().copied().collect();
+    assert_eq!(dirs.len(), 8, "只该有八个方位，实有 {}：{dirs:?}", dirs.len());
+    assert!(!dirs.contains("中"), "中宫不是可面向的方位，不该出现在支配方位里");
+}

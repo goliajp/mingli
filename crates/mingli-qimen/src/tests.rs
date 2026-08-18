@@ -845,3 +845,51 @@ fn no_candidate_ever_points_at_the_centre() {
         }
     }
 }
+
+/// 八神两套称谓：位序相同、只在第 5/6 位异名。
+///
+/// 这两张表原先没有任何逐条断言。它们不是可以随手改的名单——
+/// `BA_SHEN_ALT` 存在的全部理由就是「异名**同位**」，
+/// 出自《奇门遁甲统宗》「一值符、二腾蛇、三太阴、四六合、五勾陈、六朱雀、七九地、八九天」
+/// 与该书同卷「勾陈（下有白虎）」「朱雀（下有玄武）」的对位说明。
+/// 若两表在别处也分了岔，那就不是异名而是两套不同的神盘，本叶并出就没有道理了。
+#[test]
+fn the_two_names_for_the_eight_spirits_differ_only_at_the_fifth_and_sixth() {
+    const ORDER: [&str; 8] = ["值符", "腾蛇", "太阴", "六合", "白虎", "玄武", "九地", "九天"];
+    assert_eq!(BA_SHEN, ORDER, "通行一套的位序");
+    let diverge: Vec<usize> = (0..8).filter(|&k| BA_SHEN[k] != BA_SHEN_ALT[k]).collect();
+    assert_eq!(diverge, vec![4, 5], "两套只该在第 5、6 位异名，实为 {diverge:?}");
+    assert_eq!((BA_SHEN_ALT[4], BA_SHEN_ALT[5]), ("勾陈", "朱雀"), "《统宗》一系作勾陈 / 朱雀");
+    // 各自八名互不相同——同一盘上两个宫不能挂同一个神
+    for t in [BA_SHEN, BA_SHEN_ALT] {
+        let uniq: std::collections::BTreeSet<&str> = t.iter().copied().collect();
+        assert_eq!(uniq.len(), 8, "八神应互不相同：{t:?}");
+    }
+}
+
+/// 十干克应八格：四对反向格，方向不可颠倒。
+///
+/// 原先无逐条断言。这张表的结构本身带着判读依据：格是**有向**的（干 A 加干 B），
+/// 反向另有其名——返首 ↔ 跌穴、猖狂 ↔ 逃走、夭矫 ↔ 投江、荧入 ↔ 入荧。
+/// 方向弄反不会让吉凶颠倒（每对同吉凶），但会张冠李戴，
+/// 而盘面上「青龙返首」与「飞鸟跌穴」写出来是两回事。
+#[test]
+fn the_ten_stem_patterns_come_in_directed_pairs() {
+    assert_eq!(STEM_PATTERNS.len(), 8, "四对反向格共八条");
+    // 每条的反向必在表中，且两者同吉凶、异名
+    for (a, b, name, luck) in STEM_PATTERNS {
+        let back = STEM_PATTERNS
+            .iter()
+            .find(|(x, y, _, _)| *x == b && *y == a)
+            .unwrap_or_else(|| panic!("「{name}」（{a}加{b}）的反向 {b}加{a} 不在表里"));
+        assert_ne!(back.2, name, "反向格应另有其名，{name} 与 {} 撞名", back.2);
+        assert_eq!(back.3, luck, "同一对反向格的吉凶应相同：{name} {luck} vs {} {}", back.2, back.3);
+    }
+    // 八条互不撞名，且 (加干, 被加干) 组合互不重复
+    let names: std::collections::BTreeSet<&str> = STEM_PATTERNS.iter().map(|p| p.2).collect();
+    assert_eq!(names.len(), 8, "八格名应互不相同");
+    let pairs: std::collections::BTreeSet<(&str, &str)> = STEM_PATTERNS.iter().map(|p| (p.0, p.1)).collect();
+    assert_eq!(pairs.len(), 8, "八条的干对应互不重复");
+    // 吉凶只有两种取值，不是自由文本
+    assert!(STEM_PATTERNS.iter().all(|p| p.3 == "吉" || p.3 == "凶"), "吉凶只该是「吉」或「凶」");
+}
