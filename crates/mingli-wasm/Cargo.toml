@@ -14,6 +14,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
+# 这两个在根 manifest 里已设为 opt-in，故此处不给 features——
+# 由本 crate 下面的 feature 逐个接上，`--no-default-features` 才真的能裁掉星历。
 mingli-registry = { workspace = true }
 mingli-app = { workspace = true }
 mingli-interpret = { workspace = true }
@@ -22,9 +24,17 @@ serde_json = { workspace = true }
 wasm-bindgen = "0.2"
 
 [features]
-default = ["astrology"]
+default = ["astrology", "jyotish", "qizhengsiyu"]
 # 关掉得轻量 wasm（去掉占星 + VSOP87 星历）。
-astrology = ["mingli-registry/astrology"]
+#
+# 必须同时关掉用例层的同名 feature：`mingli-app` 也用这两片（运势的 Vimshottari、
+# 合盘的两盘相位），只关 registry 的话星历会从 app 那条路照样被拉进来，
+# 于是关了等于没关——曾经就是这样，产物两种构建一样大。
+astrology = ["mingli-registry/astrology", "mingli-app/astrology"]
+# 七政四余：只在 registry 一侧。
+qizhengsiyu = ["mingli-registry/qizhengsiyu"]
+# 印度占星：叶与用例层（运势的大运序列）同关同开。
+jyotish = ["mingli-registry/jyotish", "mingli-app/jyotish"]
 
 [lints]
 workspace = true

@@ -2,6 +2,7 @@
 
 use crate::Birth;
 use mingli_bazi::{BaziChart, BirthInput};
+#[cfg(feature = "jyotish")]
 use mingli_astro::Moment;
 use mingli_contract::{AskTime, Gender};
 use serde_json::{json, Value};
@@ -90,12 +91,16 @@ pub fn fortune(b: &Birth, t: &AskTime, timeline_max_age: Option<u32>) -> Result<
 
 /// 目标时刻所处的 Vimshottari 大运段，以及整条序列。
 ///
+/// 关掉 `jyotish` feature 时返回 `null`——与 registry 关掉该叶时它从注册表里消失是同一件事：
+/// 轻量构建里没有这套算力，说没有比给一个空壳诚实。
+///
 /// 「运」这一类问局有两片叶答得起：四柱给的是「大运十步 + 百年供给曲线」，
 /// 印度占星给的是「Mahādaśā 序列」。两者都是**势**，粒度却不同——
 /// 四柱按十年一步且与节气相关，Vimshottari 按主星各自的年数（6 至 20 年不等）。
 ///
 /// 形状上取加法：四柱那份原样留在顶层不动，这一段挂在 `dasha` 下。
 /// 硬要合成一条曲线会把两套各自的粒度都磨掉，而它们的粒度本身就是各自体系的一部分。
+#[cfg(feature = "jyotish")]
 fn vimshottari_at(b: &Birth, t: &AskTime) -> Value {
     let birth = Moment::new(b.year, b.month, b.day, b.hour, b.minute, b.tz);
     let chart = mingli_jyotish::compute_at(&birth, None, mingli_jyotish::Ayanamsa::default());
@@ -112,6 +117,12 @@ fn vimshottari_at(b: &Birth, t: &AskTime) -> Value {
         "current": current,
         "timeline": chart.mahadashas,
     })
+}
+
+/// 关掉 `jyotish` feature 时的桩：这套算力不在本次构建里。
+#[cfg(not(feature = "jyotish"))]
+fn vimshottari_at(_b: &Birth, _t: &AskTime) -> Value {
+    Value::Null
 }
 
 #[cfg(test)]

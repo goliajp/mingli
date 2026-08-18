@@ -48,6 +48,18 @@ else
   printf '\n没装 wasm32-unknown-unknown，跳过 wasm 两条（rustup target add wasm32-unknown-unknown）\n'
 fi
 
+# 「关掉即裁掉」不能只验编译得过——编译永远过，星历照样被拉进来。
+# 这一条直接查依赖图：轻量构建里 vsop87 必须不在。
+printf '\n=== 轻量构建真的裁掉了星历\n'
+if cargo tree -p mingli-wasm --no-default-features -e normal 2>/dev/null | grep -q vsop87; then
+  printf '  ✗ 关掉 feature 后 vsop87 仍在依赖图里——「轻量构建」这句话不成立\n'
+  printf '    多半是某个消费者按默认把星历叶全开了：继承来的依赖不许写 default-features=false，\n'
+  printf '    要在根 manifest 把它设成 opt-in，再由各消费者显式声明要哪几片\n'
+  fail=1
+else
+  printf '  ✓\n'
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '\nfeature 矩阵有组合未通过。\n'
   exit 1

@@ -11,8 +11,8 @@ categories = ["web-programming::http-server", "algorithms"]
 [dependencies]
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
-mingli-registry = { workspace = true }
-mingli-app = { workspace = true }
+mingli-registry = { workspace = true, features = ["astrology", "jyotish", "qizhengsiyu"] }
+mingli-app = { workspace = true, features = ["astrology", "jyotish"] }
 mingli-interpret = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

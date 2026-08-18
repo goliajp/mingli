@@ -6,6 +6,7 @@
 
 use crate::team::{self, Member};
 use crate::Birth;
+#[cfg(feature = "astrology")]
 use mingli_astro::Moment;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -59,6 +60,7 @@ pub fn compute(a: (&Birth, Option<&str>), b: (&Birth, Option<&str>)) -> Result<S
 ///
 /// 哪些相位算数、容许度多少、哪些星入合盘，各家出入很大，那属取舍不属计算，
 /// 本层按默认容许度出全量，选哪些交释义层。
+#[cfg(feature = "astrology")]
 fn cross_aspects_between(a: &Birth, b: &Birth) -> Value {
     let chart = |x: &Birth| {
         let m = Moment::new(x.year, x.month, x.day, x.hour, x.minute, x.tz);
@@ -72,6 +74,12 @@ fn cross_aspects_between(a: &Birth, b: &Birth) -> Value {
         "count": list.len(),
         "list": list,
     })
+}
+
+/// 关掉 `astrology` feature 时的桩：这套算力不在本次构建里。
+#[cfg(not(feature = "astrology"))]
+fn cross_aspects_between(_a: &Birth, _b: &Birth) -> Value {
+    Value::Null
 }
 
 impl Synastry {
