@@ -482,17 +482,21 @@ fn natal_cast_path_unchanged_regression_guard() {
 /// 而说明白的位置是该叶的确定性谱。
 ///
 /// 这里点名的四片，是把那张沿用已久的路由表按事实核对后撤下来的。
-const REVOKED: [(&str, &str); 4] = [
-    ("ziwei", "大限 / 流年"),
-    ("astrology", "行运"),
-    ("jyotish", "合婚"),
-    ("xiaoliuren", "六神配方位"),
+///
+/// 第三列是这一条**当下属于哪一类**：`还没做` 指证据未查、只差施工；
+/// `查过定不下` 指已查证而多源冲突，按铁律留白。一条从前者走到后者是**进展**，
+/// 改这张表就是在记录那次进展——小六壬的方位已经这么走过一次（四神可定、小吉与空亡不可）。
+const REVOKED: [(&str, &str, &str); 4] = [
+    ("ziwei", "大限 / 流年", "还没做"),
+    ("astrology", "行运", "还没做"),
+    ("jyotish", "合婚", "还没做"),
+    ("xiaoliuren", "六神配方位", "查过"),
 ];
 
 #[test]
 fn a_capability_that_was_taken_away_is_still_accounted_for() {
     let reg = registry();
-    for (id, topic) in REVOKED {
+    for (id, topic, kind) in REVOKED {
         let Some(e) = reg.iter().find(|e| e.id() == id) else {
             continue; // feature 关掉的叶不在注册表里
         };
@@ -507,8 +511,9 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
             "叶 `{id}` 的「{topic}」条目应标 Und",
         );
         assert!(
-            it.note.contains("还没做"),
-            "叶 `{id}` 的「{topic}」要分清是「查过定不下」还是「还没做」，本条属后者",
+            it.note.contains(kind),
+            "叶 `{id}` 的「{topic}」在本表里记作「{kind}」，note 里却看不出来——\n\
+             「查过定不下」与「还没做」是两种留白，不能混；条目改了类别就要同时改这张表",
         );
     }
 }
