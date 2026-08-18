@@ -2,20 +2,44 @@
 
 use super::*;
 
+/// Chaldean 字母表：二十六个字母**逐个**对分组，不是抽查几个。
+///
+/// 本叶取古典（Cheiro 一系）的一支：`1:AIJQY 2:BKR 3:CGLS 4:DMT 5:EHNX 6:UVW 7:OZ 8:FP`，
+/// 见 <https://www.namevibrations.com/numerology-calculator/> 与
+/// <https://thelawofattraction.com/numerology-alphabet/> 等处同述。
+///
+/// **这张表各家不同**，见本叶 `profile()` 的「Chaldean 字母表本身各家不同」一条：
+/// professionalnumerology.com 把 S 作 2、X 作 4、Q 作 8、Y 作 6；astronumero.org 另有一版
+/// 把 9 也分给字母。所以这里既要钉住取值，也要钉住**「不给 9」这条定义性特征**——
+/// 哪天有人照另一份表改了这里，两条都会红。
 #[test]
 fn chaldean_table_groups() {
-    // 1：AIJQY 2：BKR 3：CGLS 4：DMT 5：EHNX 6：UVW 7：OZ 8：FP；无 9。
-    for c in ['A', 'I', 'J', 'Q', 'Y'] {
-        assert_eq!(chaldean(c), Some(1));
+    // (数值, 该组的全部字母)——八组合起来必须恰好覆盖二十六个字母
+    const GROUPS: [(u64, &str); 8] = [
+        (1, "AIJQY"),
+        (2, "BKR"),
+        (3, "CGLS"),
+        (4, "DMT"),
+        (5, "EHNX"),
+        (6, "UVW"),
+        (7, "OZ"),
+        (8, "FP"),
+    ];
+    let mut covered = std::collections::BTreeSet::new();
+    for (value, letters) in GROUPS {
+        for c in letters.chars() {
+            assert_eq!(chaldean(c), Some(value), "{c} 应属第 {value} 组");
+            assert!(covered.insert(c), "{c} 出现在不止一组里");
+        }
     }
-    assert_eq!(chaldean('B'), Some(2));
-    assert_eq!(chaldean('F'), Some(8));
-    assert_eq!(chaldean('O'), Some(7));
-    assert_eq!(chaldean('Z'), Some(7));
-    assert_eq!(chaldean('5'), None);
-    assert_eq!(chaldean('a'), Some(1)); // 大小写一致
-    // Chaldean 永不产出 9。
-    assert!(('A'..='Z').all(|c| chaldean(c) != Some(9)));
+    assert_eq!(covered.len(), 26, "八组合起来应覆盖二十六个字母，实覆盖 {}", covered.len());
+    assert!(('A'..='Z').all(|c| covered.contains(&c)), "有字母没被任何一组覆盖");
+
+    // 「不给 9」是古典 Chaldean 的定义性特征，也是与 astronumero 那一版的分界
+    assert!(('A'..='Z').all(|c| chaldean(c) != Some(9)), "古典 Chaldean 不把 9 分给任何字母");
+
+    assert_eq!(chaldean('5'), None, "非字母无值");
+    assert_eq!(chaldean('a'), Some(1), "大小写一致");
 }
 
 /// 两个流派互为对方的 alt：选谁，谁就是主值，另一个挂在 `life_path_alt` 上。

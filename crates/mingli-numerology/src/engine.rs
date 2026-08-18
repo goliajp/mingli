@@ -62,6 +62,13 @@ impl CastingEngine for NumerologyEngine {
         use Determinism::{Det, Und};
         const { &[
             d("姓名数（双字母表并出）", Det, "Pythagorean/Chaldean 同时输出，无需选择"),
+            d("Chaldean 字母表本身各家不同", Und, "🟡 三份公布的对照表在四个字母上互不相同：\
+                本叶取的一支作 1:AIJQY 2:BKR 3:CGLS 4:DMT 5:EHNX 6:UVW 7:OZ 8:FP\
+                （namevibrations、thelawofattraction 等多处同述，即 Cheiro 一系「不给 9」的古典表）；\
+                professionalnumerology.com 的表把 S 作 2、X 作 4、Q 作 8、Y 作 6；\
+                astronumero.org 另出一版自称 improved，把 S 作 6、X 作 5、H 作 8，\
+                并把 9 分给 E 与 T——而「9 不分给字母」正是古典 Chaldean 的定义性特征。\
+                本叶只走古典一支并在此声明其余，不静默选边；要收哪一支须各自找 ≥2 源"),
             d("生命灵数（可选 Component/WholeSum）", Det, "两派算法已实现并交叉校验；每次同时给出主+alt"),
             d("Y 元音归属（三说并出）", Det, "语境派『Y 紧邻元音则作辅音』4 独立源(Decoz/World Numerology、Token Rock、Felicia Bender、Crystal Logic)，可复现 Decoz 全部八条位置细则；『跟在元音后仍算元音』一支 2 独立源(Lyn's、Astrala)；『一律辅音』1 二手源(Bender 转述 Juno Jordan)。三读同时输出，不替调用方选边"),
             d("Y 归属的按音节条款", Und, "🟡 语境两派都还带一条『该音节里没有别的元音时 Y 算元音』(如 Bryan)，须分音节才能判；本叶无音节切分器，不实现也不假装实现"),
