@@ -48,12 +48,16 @@ pub fn entropy(xs: &[i64]) -> f64 {
     for &x in xs {
         *c.entry(x).or_insert(0) += 1;
     }
-    -c.values()
+    // `+ 0.0` 不是凑数：单值分布下每项都是 `1.0 * log2(1.0)` = `-0.0`，
+    // 取负得 `0.0`，求和却仍落在 `-0.0`——熵不可能为负，而报告里印出「-0.000 bit」
+    // 会让读的人怀疑算法。加零把负零收回正零，其余取值不受影响。
+    (-c.values()
         .map(|&k| {
             let p = k as f64 / n;
             p * p.log2()
         })
-        .sum::<f64>()
+        .sum::<f64>())
+        + 0.0
 }
 
 /// 互信息 `I(X;Y)`（bit）。`xs`/`ys` 等长，按位置配对。
@@ -263,6 +267,32 @@ mod tests {
             let p = p.unwrap_or_else(|| panic!("叶 `{}` 没有声明主判据", e.id()));
             assert!(!p.label.is_empty() && !p.value.is_empty(), "{} 的主判据不该是空的", e.id());
         }
+    }
+
+    /// 主判据不能是常量——上一条只验它「说得出」，没验它「说的不总是同一句」。
+    ///
+    /// 常量列的熵是 0，与谁的 NMI 都是 0。那张矩阵上它会显示成「这套系统与其余全部毫不相干」，
+    /// 而真相是它根本没在动。这两种情形在矩阵上长得一模一样，是上一条守卫的说明里
+    /// 自己点名的失败态，却一直没有东西检查它。
+    ///
+    /// 下限取 1 bit：低于此，这一列连「两种情形」都分不开，拿它算互信息没有意义。
+    /// 实测最低的是 pawukon 的 Pancawara 2.32 bit，而 Pancawara 只有五个值、
+    /// log2(5) = 2.32——它已经顶到自己的理论上限。余量很宽，这个下限不会误伤。
+    #[test]
+    fn no_leaf_principal_is_a_constant_column() {
+        let a = cross_leaf(&registry(), &sample_grid(1980, 2009));
+        let flat: Vec<&LeafStat> = a.leaves.iter().filter(|l| l.entropy < 1.0).collect();
+        assert!(
+            flat.is_empty(),
+            "以下叶的主判据在 {} 个样本上几乎不变（熵 < 1 bit）：\n  {}\n\
+             常量列在相关性矩阵上会显示成「与其余全部毫不相干」，与「它没在动」无从分辨。\
+             要么换一个真会变的判据，要么说明为什么它本就该是常量",
+            a.n,
+            flat.iter()
+                .map(|l| format!("{} · {} · {:.3} bit", l.id, l.feature, l.entropy))
+                .collect::<Vec<_>>()
+                .join("\n  "),
+        );
     }
 
     #[test]
