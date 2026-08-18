@@ -478,3 +478,57 @@ fn every_leaf_prompt_carries_the_whole_guardrail() {
     }
     assert!(trouble.is_empty(), "护栏不是逐叶都全：\n  {}", trouble.join("\n  "));
 }
+
+/// 盘上的每个字段，读法提示要么讲了它，要么在下面这张表里点名说清为什么不讲。
+///
+/// 已有一条守着反方向（提示里写的字段名必须真在盘上）。这一条守正方向：
+/// **盘上有、提示里没有**的字段，LLM 拿到的是一串没有解释的数据——它要么略过，
+/// 要么按字面猜。本轮据此补了六片叶：四柱的日主与旬空、紫微的命宫/身宫/紫微/天府所落、
+/// 奇门的起盘要素与值符干星、印度占星的上升点、西洋占星的分宫制与宫头、择日的干支原料。
+///
+/// 判据认通配写法：提示里写 `primary_*` 配 `_upper`，就算讲过 `primary_upper`——
+/// 逐字匹配会把这种常见写法误判成漏讲。
+#[test]
+fn every_chart_field_is_either_explained_or_accounted_for() {
+    // 不讲的字段与不讲的理由。要动这张表，改的人得说清为什么——与 `scripts/coverage.sh`
+    // 的 EXPLAINED、`architecture.rs` 的两张名单同一个用法。
+    const EXCUSED: &[(&str, &str, &str)] = &[
+        ("*", "input", "入参回显，不是算出来的东西"),
+        ("*", "lunar", "入参时刻的农历写法，同为回显"),
+        ("yijing", "primary_full_name", "`_name` 已讲，全名只是它加上上下卦，读法上不多一件事"),
+        ("yijing", "resulting_full_name", "同上"),
+        ("geomancy", "judge_even", "法官点数奇偶恒为真，是排盘的纠错不变量，不是可释义的盘面事实"),
+        ("sikidy", "seer_even", "同上：C15 点数奇偶恒为真"),
+    ];
+
+    let reg = registry();
+    let leaves = cast_all_detailed(&reg, &sample_query());
+    let mut gaps = Vec::new();
+    for e in &reg {
+        let Some(notes) = e.reading_notes() else { continue };
+        let leaf = leaves.iter().find(|l| l.id == e.id()).expect("每片注册的叶都应出盘");
+        let Some(obj) = leaf.chart.as_object() else { continue };
+        for k in obj.keys() {
+            if notes.contains(k.as_str()) {
+                continue;
+            }
+            // 通配写法：`primary_*` 配 `_upper`
+            if let Some((head, tail)) = k.split_once('_')
+                && notes.contains(&format!("{head}_*"))
+                && notes.contains(&format!("_{tail}"))
+            {
+                continue;
+            }
+            if EXCUSED.iter().any(|(leaf_id, field, _)| (*leaf_id == "*" || *leaf_id == e.id()) && field == k) {
+                continue;
+            }
+            gaps.push(format!("{} · {k}", e.id()));
+        }
+    }
+    assert!(
+        gaps.is_empty(),
+        "盘上有、读法提示里没讲的字段：\n  {}\n\
+         要么在提示里讲清它是什么，要么写进本测试的 EXCUSED 并说明为什么不必讲",
+        gaps.join("\n  "),
+    );
+}
