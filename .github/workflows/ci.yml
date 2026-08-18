@@ -1,0 +1,101 @@
+# 仓库里已经有 699 条测试、五条脚本、一套截图断言——但它们此前只在有人想起来时才跑。
+# 这个 workflow 把它们全部接上，一条也不新造：每一项都是 README 与接续手册里已经写着的关卡。
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: 测试 · clippy · doc · feature 矩阵 · 契约快照
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 装工具链（含 wasm32 目标，feature 矩阵要用）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets
+      - run: cargo doc --workspace --no-deps
+
+      - name: feature 矩阵（5 种组合 + wasm32 两条 + 查依赖图）
+        run: ./scripts/feature-matrix.sh
+
+      # 契约快照守的是「改动前后逐字节一致」，CI 里没有「改动前」可比，比对留给本地改动时做。
+      # 这里只断言一件它能断言的事：这 32 个请求没有一个把服务打崩、也没有一个连不上。
+      # （`000` 是连不上——它长得跟「所有端点都变了」一模一样，必须单独拎出来认。）
+      - name: 32 个请求里没有 5xx，也没有连不上
+        run: |
+          cargo build -p mingli-api
+          ./scripts/api-snapshot.sh save /tmp/snap.txt
+          bad=$(grep -E '^(000|5[0-9]{2})$' /tmp/snap.txt || true)
+          test -z "$bad" || { echo "出现异常状态码：$bad"; grep -B2 -E '^(000|5[0-9]{2})$' /tmp/snap.txt; exit 1; }
+
+      - name: README 自称的测试数
+        run: ./scripts/test-count.sh
+
+  web:
+    name: 前端构建 · 截图断言
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: oven-sh/setup-bun@v2
+
+      - name: 装依赖与 Chromium
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+
+      - run: cargo build -p mingli-api
+
+      - name: 起后端（:6027），等它真的应答
+        run: |
+          ./target/debug/mingli-api &
+          echo $! > /tmp/api.pid
+          for _ in $(seq 1 60); do
+            curl -sf localhost:6027/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -sf localhost:6027/api/health >/dev/null
+
+      - name: 构建前端
+        working-directory: web
+        run: bun run build
+
+      - name: 起前端（:6026），等它真的应答
+        working-directory: web
+        run: |
+          bun run dev &
+          for _ in $(seq 1 60); do
+            curl -sf localhost:6026/ >/dev/null && break
+            sleep 1
+          done
+          curl -sf localhost:6026/ >/dev/null
+
+      # 30 屏 × 2 视口 + 8 屏断言 + 「静止三秒里还在不在发请求」
+      - name: 截图与断言
+        working-directory: web
+        run: bun run shots
+
+      - name: 断言不过时把截图留下
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shots
+          path: web/e2e/shots/
