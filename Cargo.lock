@@ -551,6 +551,7 @@ dependencies = [
  "mingli-engine",
  "mingli-interpret",
  "mingli-registry",
+ "mingli-wasm",
  "serde",
  "serde_json",
  "tokio",

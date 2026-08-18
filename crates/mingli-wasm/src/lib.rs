@@ -21,9 +21,13 @@ fn to_json<T: serde::Serialize>(v: &T) -> String {
 }
 
 /// 字词叶的统一取值：注册表在装配根，派发在用例层，这里只做 JSON 出口。
+///
+/// 出的是用例层的整份结果（`input` / `system` / `result` 三段），与 `POST /api/word` 一致。
+/// 早先这里只取 `result` 一段，而同族的 [`wuge`] 出整份——两个出口对不上，
+/// 且都与 HTTP 那扇门对不上；现已统一，凭据见 `services/mingli-api/tests/two_doors.rs`。
 fn word_json(system: &str, q: &WordQuery) -> String {
     mingli_app::word::compute(&word_registry(), system, q)
-        .map_or_else(|_| "null".to_string(), |v| to_json(&v["result"]))
+        .map_or_else(|_| "null".to_string(), |v| to_json(&v))
 }
 
 fn parse<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, JsValue> {
@@ -176,6 +180,8 @@ pub fn mundane(body_json: &str) -> Result<String, JsValue> {
 }
 
 /// 希伯来 gematria（七法并出：Hechrachi/Gadol/Siduri/Katan/KatanMispari/AtBash/AlBam）。
+///
+/// 出参与 `POST /api/word`（`system` 取 `"gematria"`）同形。
 #[must_use]
 #[wasm_bindgen]
 pub fn gematria(word: &str) -> String {
@@ -183,6 +189,8 @@ pub fn gematria(word: &str) -> String {
 }
 
 /// 阿拉伯 abjad（双序对照：Mashriqī 东方序 + Maghribī 西方序）。
+///
+/// 出参与 `POST /api/word`（`system` 取 `"abjad"`）同形。
 #[must_use]
 #[wasm_bindgen]
 pub fn abjad(word: &str) -> String {
@@ -190,6 +198,8 @@ pub fn abjad(word: &str) -> String {
 }
 
 /// 姓名五格：`surname_json`/`given_json` 为各字笔画的 JSON 数组（如 `"[7]"` / `"[16,9]"`）。
+///
+/// 出参与 `POST /api/word`（`system` 取 `"wuge"`）同形。
 ///
 /// # Errors
 /// 笔画 JSON 解析失败、或姓/名为空时返回错误。
