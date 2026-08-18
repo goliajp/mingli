@@ -513,6 +513,71 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
 }
 
 
+/// 取机的种子：声明会动的必须真会动，声明不动的必须真不动，两次同种子必须一样。
+///
+/// 「取机的种子入盘，故同一次占问可复现」是问局清单对「事」这一类的承诺，
+/// 而承诺落在两个方向上，此前只有易经一片被验过其中一个方向：
+///
+/// - **同种子两次必须一致**——不然「可复现」这句话不成立。每片叶都验，不限卜筮叶
+/// - **声明 Sto 的必须真吃种子**——种子没接进去，每次占问出的是同一卦，取机就是假的。
+///   按流派逐个验：梅花默认的时间起卦法本就不吃种子（它按时刻起），数字法才吃，
+///   所以判据是「至少有一个流派会动」，不是「每个流派都动」
+/// - **没声明 Sto 的必须不吃种子**——这一条是反向的，此前完全没人检查。
+///   一片自称确定的叶若暗中受种子影响，它的 Det 声明就是假的，
+///   而这种叶在盘面上看不出任何异样
+#[test]
+fn the_drawing_seed_reaches_exactly_the_leaves_that_declare_it() {
+    let mk = |seed: Option<u64>| mingli_contract::Query {
+        year: 2026, month: 8, day: 18, hour: 12, minute: 0, tz: 8.0,
+        gender: Some(mingli_contract::Gender::Male),
+        latitude: Some(31.23), longitude: Some(121.47),
+        seed, name: Some("Ada".into()),
+        schools: std::collections::BTreeMap::new(),
+    };
+    let m = mingli_astro::Moment::new(2026, 8, 18, 12, 0, 8.0);
+    // 质数步长，避开与叶内取模的周期撞车
+    let seeds: Vec<u64> = (1..=24).map(|i| i * 7919).collect();
+
+    for e in mingli_registry::registry() {
+        // 一、同种子两次一致
+        assert_eq!(
+            e.cast(&m, &mk(Some(42))),
+            e.cast(&m, &mk(Some(42))),
+            "叶 `{}` 同一时刻同一种子两次给出了不同的盘——「同一次占问可复现」不成立",
+            e.id(),
+        );
+
+        // 二、看它到底吃不吃种子（把各流派都算上）
+        let declared = e.profile().iter().any(|p| p.status == mingli_contract::Determinism::Sto);
+        let base = e.cast(&m, &mk(Some(seeds[0])));
+        let mut moves = seeds.iter().skip(1).any(|s| e.cast(&m, &mk(Some(*s))) != base);
+        if !moves {
+            for opt in e.schools().iter().filter(|x| !x.default) {
+                let with = |s: u64| {
+                    let mut q = mk(Some(s));
+                    q.schools.insert(e.id().to_string(), opt.id.to_string());
+                    e.cast(&m, &q)
+                };
+                let b = with(seeds[0]);
+                if seeds.iter().skip(1).any(|s| with(*s) != b) {
+                    moves = true;
+                    break;
+                }
+            }
+        }
+
+        assert_eq!(
+            moves, declared,
+            "叶 `{}`：profile {} Sto，实测换种子{}——\n\
+             声明 Sto 却不动 = 取机没接进去，每次占问出同一盘；\n\
+             动了却没声明 Sto = 它其实不是确定性的，Det 那条是假的",
+            e.id(),
+            if declared { "声明了" } else { "没声明" },
+            if moves { "盘面会变" } else { "盘面一动不动" },
+        );
+    }
+}
+
 /// 声称支持的年份区间，两端每片叶都要照样出得来。
 ///
 /// README 写着「支持 1900–2100」，用例层的 `Birth::validate` 也照此收口。可「不被拒绝」
