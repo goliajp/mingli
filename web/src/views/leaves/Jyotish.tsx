@@ -9,6 +9,19 @@ const AYANAMSA_LABEL: Record<string, string> = {
   raman: 'Raman',
   fagan_bradley: 'Fagan-Bradley',
 }
+// 宫名跟本叶其余各表一致，用梵文罗马化（对应 jyotish::RASI_NAMES）
+const RASI_NAMES = [
+  'Mesha', 'Vrishabha', 'Mithuna', 'Karka', 'Simha', 'Kanya',
+  'Tula', 'Vrishchika', 'Dhanu', 'Makara', 'Kumbha', 'Meena',
+]
+
+// 十二分盘：除数 → 所主。本命 D-1 与九分盘 D-9 另在上方两表。
+const VARGA_SUBJECT: [string, string][] = [
+  ['d3', '兄弟'], ['d4', '田宅'], ['d7', '子嗣'], ['d10', '事功'],
+  ['d12', '父母'], ['d16', '车乘'], ['d20', '修行'], ['d24', '学问'],
+  ['d27', '体质'], ['d40', '母系'], ['d45', '父系'], ['d60', '总述'],
+]
+
 export function Jyotish({ c }: { c: JyotishChart }) {
   return (
     <div className="lp">
@@ -58,6 +71,33 @@ export function Jyotish({ c }: { c: JyotishChart }) {
             ))}
           </tbody>
         </table>
+      </Section>
+      <Section title="十六分盘（Ṣoḍaśavarga）· 取十二" wide>
+        <div className="lp-note">
+          看某一事就看对应分盘上的落宫，不是看本命盘。🟡 D-2 与 D-30 原典未定落宫，本盘不出。
+        </div>
+        <div className="jy-varga-wrap">
+        <table className="jy-graha-table jy-varga">
+          <thead>
+            <tr>
+              <th>曜</th>
+              {VARGA_SUBJECT.map(([id, subj]) => (
+                <th key={id}>{id.toUpperCase()}<br /><small>{subj}</small></th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {c.grahas.map((g) => (
+              <tr key={`v-${g.graha}`}>
+                <td><b>{g.name}</b></td>
+                {VARGA_SUBJECT.map(([id]) => (
+                  <td key={id}>{RASI_NAMES[g.vargas?.[id] ?? 0]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
       </Section>
     </div>
   )

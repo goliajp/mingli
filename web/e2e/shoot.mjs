@@ -20,6 +20,42 @@ const OUT = new URL('./shots/', import.meta.url).pathname
 
 /** 每屏的断言。拿到 page，抛异常即为不过。 */
 const CHECKS = {
+  '04-印度占星': async (page) => {
+    // 分盘表：每曜一行、每盘一列。列数写死 12（本盘 D-1 与九分盘 D-9 在上面两表，不在此）
+    const cols = await page.locator('.jy-varga thead th').count()
+    if (cols !== 13) throw new Error(`分盘表应有 1 + 12 列，实有 ${cols}`)
+    const rows = await page.locator('.jy-varga tbody tr').count()
+    const grahas = await page.locator('.jy-graha-table').first().locator('tbody tr').count()
+    if (rows !== grahas) throw new Error(`九曜表 ${grahas} 行，分盘表 ${rows} 行`)
+    // D-3 是独立可验的：三分盘落宫只可能是本宫 / 第 5 / 第 9，与九曜表的 Rasi 对得上
+    const rasi = await page.locator('.jy-graha-table').first().locator('tbody tr td:nth-child(3)').allInnerTexts()
+    const d3 = await page.locator('.jy-varga tbody tr td:nth-child(2)').allInnerTexts()
+    const ORDER = ['Mesha', 'Vrishabha', 'Mithuna', 'Karka', 'Simha', 'Kanya',
+      'Tula', 'Vrishchika', 'Dhanu', 'Makara', 'Kumbha', 'Meena']
+    for (const [i, r] of rasi.entries()) {
+      const from = ORDER.indexOf(r.trim())
+      const to = ORDER.indexOf(d3[i].trim())
+      if (from < 0 || to < 0) throw new Error(`第 ${i + 1} 行宫名认不出：本命「${r}」/ D-3「${d3[i]}」`)
+      const step = (to - from + 12) % 12
+      if (step !== 0 && step !== 4 && step !== 8) {
+        throw new Error(`第 ${i + 1} 行 D-3 从「${ORDER[from]}」落到「${ORDER[to]}」，跳了 ${step} 宫——三分盘只能跳 0/4/8`)
+      }
+    }
+  },
+  '20-藏历循环': async (page) => {
+    const PARKHA = ['Li', 'Khon', 'Da', 'Khen', 'Kham', 'Gin', 'Zin', 'Zon']
+    const t = await page.getByText('历日卦 parkha').locator('..').innerText()
+    if (!PARKHA.some((k) => t.includes(k))) throw new Error(`历日卦写的是「${t.replace(/\n/g, ' ')}」，不在八卦名里`)
+  },
+  '30-运势': async (page) => {
+    // Vimshottari 九主星共 120 年；当前段的小运也是九步
+    const segs = await page.locator('.fd-seg').count()
+    if (segs !== 9) throw new Error(`大运条应有 9 段，实有 ${segs}`)
+    const chips = await page.locator('.fd-chip').count()
+    if (chips !== 9) throw new Error(`当前大运的小运应有 9 步，实有 ${chips}`)
+    const on = await page.locator('.fd-chip.on').count()
+    if (on !== 1) throw new Error(`当前小运应恰好高亮 1 步，实有 ${on}`)
+  },
   '18-奇门遁甲': async (page) => {
     const n = await page.locator('.qm-cell').count()
     if (n !== 9) throw new Error(`九宫应有 9 格，实有 ${n}`)
@@ -51,6 +87,10 @@ const CHECKS = {
     const [a, b] = bars.map((t) => Number(t.replace(/\D/g, '')))
     const gap = Number((await page.locator('.sy-mid-note').innerText()).replace(/\D/g, ''))
     if (Math.abs(a - b) !== gap) throw new Error(`两边 ${a}% / ${b}%，中间却写差 ${gap} 个百分点`)
+    // 相位：自报几条就得画几条
+    const said = Number((await page.locator('.sy-asp-l small').innerText()).match(/(\d+) 条/)?.[1])
+    const drawn = await page.locator('.sy-asp').count()
+    if (said !== drawn) throw new Error(`相位自报 ${said} 条，画出 ${drawn} 条`)
   },
   '29-国运': async (page) => {
     const n = await page.locator('.mu-tl-year').count()
@@ -84,6 +124,7 @@ const SCREENS = [
   { name: '27-寻方位', intent: '寻（寻方位）', wait: '.ev-draw', action: '起 课', result: '.lc-top' },
   { name: '28-合盘', intent: '合（合盘）', wait: '.sy-forms', action: '合 盘', result: '.sy-pair' },
   { name: '29-国运', intent: '群/国（国运）', wait: '.ev-form', action: '推 演', result: '.mu-tl' },
+  { name: '30-运势', intent: '运（运势/流年/大运）', wait: '.fortune-chart' },
 ]
 
 const problems = []
@@ -109,6 +150,10 @@ for (const vp of VIEWPORTS) {
   page.on('console', (m) => { if (m.type() === 'error') note(`console error: ${m.text()}`) })
   page.on('pageerror', (e) => note(`page error: ${e.message}`))
   page.on('requestfailed', (r) => note(`request failed: ${r.url()} — ${r.failure()?.errorText}`))
+  // 界面静止时后端调用也该静止。曾有一处在渲染里读时钟，使全叶排盘以近 10 次/秒
+  // 自循环重发；画面看起来正常，只有数请求才看得见。
+  let apiCalls = 0
+  page.on('request', (r) => { if (r.url().includes('/api/')) apiCalls++ })
 
   // dev server 的 HMR 长连接让 networkidle 永远不到，改等 DOM + 首屏元素
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
@@ -163,6 +208,14 @@ for (const vp of VIEWPORTS) {
       console.log(`拍下 ${s.name}`)
     }
   }
+  // —— 收尾：没人操作的三秒里，还在发几个请求？ ——
+  await page.waitForTimeout(1200)
+  const before = apiCalls
+  await page.waitForTimeout(3000)
+  const idle = apiCalls - before
+  if (idle > 2) note(`界面静止的 3 秒里发了 ${idle} 次 /api 调用——有东西在自循环`)
+  else console.log(`静止 3 秒 · /api 调用 ${idle} 次`)
+
   await page.close()
 }
 

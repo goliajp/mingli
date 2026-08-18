@@ -19,7 +19,15 @@ export function useTimeline(form: ChartRequest) {
     () => new Date(form.year, form.month - 1, form.day, form.hour, form.minute).getTime(),
     [form],
   )
-  const nowAge = Math.max(0, Math.min(MAX_AGE, (Date.now() - birthMs) / MS_PER_YEAR))
+  // 「此刻」是外部时钟，不能在渲染里读：每渲染一次就是一个新值，下游的 memo 与 effect
+  // 会跟着永远失效——曾使全叶排盘以每秒近十次的频率自循环重发，而运势的防抖窗口
+  // 永远等不到安静的 120ms，「运」这一屏因此始终停在加载态。取一次存进 state，按分钟续。
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const nowAge = Math.max(0, Math.min(MAX_AGE, (nowMs - birthMs) / MS_PER_YEAR))
   const age = playAge ?? nowAge
   const playDate = useMemo(() => new Date(birthMs + age * MS_PER_YEAR), [birthMs, age])
   useEffect(() => { setPlayAge(null) }, [birthMs]) // 换人重排 → 拨杆收回此刻

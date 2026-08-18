@@ -133,3 +133,17 @@
 .ty-mu-h { font-size: 15px; color: var(--washi); letter-spacing: .04em; }
 .ty-mu-h i { font-style: normal; font-family: var(--mono); font-size: 13px; color: var(--washi-faint); margin-left: 8px; }
 .ty-mu-b { font-family: var(--mono); font-size: 14px; color: var(--washi-dim); margin-top: 4px; }
+
+/* —— 合盘：两盘之间的相位（几何事实，着色只分同相/异相） —— */
+.sy-aspects { margin-top: 16px; }
+.sy-asp-l { font-size: 14px; color: var(--washi-dim); margin-bottom: 9px; }
+.sy-asp-l small { color: var(--washi-faint); font-family: var(--mono); font-size: 12px; }
+.sy-asp-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.sy-asp { display: inline-flex; align-items: baseline; gap: 3px; font-size: 13px; padding: 3px 9px;
+  border: 1px solid var(--line); border-radius: 12px; background: rgba(0,0,0,.2); color: var(--washi-soft); }
+.sy-asp b { font-weight: 700; padding: 0 1px; }
+.sy-asp small { font-family: var(--mono); font-size: 11px; color: var(--washi-faint); margin-left: 3px; }
+.sy-asp.conj { border-color: var(--line-strong); }
+.sy-asp.conj b { color: var(--kin-bright); }
+.sy-asp.harm b { color: var(--mu); }
+.sy-asp.tens b { color: var(--shu-soft); }

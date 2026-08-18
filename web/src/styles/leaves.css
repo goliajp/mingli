@@ -516,3 +516,12 @@
 .qm-key.is-zhishi { border-color: var(--teal); color: var(--teal); }
 .qm-key.is-yi { background: rgba(212, 168, 67, .07); }
 .qm-key-note { color: var(--washi-faint); }
+
+/* —— 印度占星：十二分盘矩阵（列多，横向自滚） —— */
+.jy-varga-wrap { overflow-x: auto; }
+.jy-varga { min-width: 640px; font-size: 13px; }
+.jy-varga th { text-align: center; padding: 5px 4px; line-height: 1.35; white-space: nowrap; }
+.jy-varga th small { display: block; font-family: var(--serif); font-weight: 400; font-size: 11px; color: var(--washi-faint); }
+.jy-varga th:first-child, .jy-varga td:first-child { text-align: left; padding-left: 8px; }
+.jy-varga td { text-align: center; padding: 5px 4px; font-family: var(--serif); }
+.jy-varga td:nth-child(2) { font-family: var(--serif); color: var(--washi); }

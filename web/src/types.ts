@@ -96,6 +96,18 @@ export interface FortuneResponse {
   at: FortuneAt
   timeline: FortuneTimelinePoint[]
   max_age: number
+  /** Vimshottari 大运/小运。构建未含 jyotish 时为 null。 */
+  dasha: DashaSlice | null
+}
+
+/** /api/fortune 里的 Vimshottari 切片。 */
+export interface DashaSlice {
+  system: string
+  birth_lord: string
+  age_years: number
+  /** 目标时刻所在的那一段大运；时刻落在 120 年之外时为 null */
+  current: Mahadasha | null
+  timeline: Mahadasha[]
 }
 
 // /api/interpret LLM 释义（INT，非计算）
@@ -290,12 +302,26 @@ export interface JyotishGraha {
   nakshatra_lord: string
   navamsa: number
   navamsa_name: string
+  /** 其余十二个分盘的落宫（分盘 id → rasi 索引 0..11）。D-9 见 navamsa。 */
+  vargas: Record<string, number>
 }
 
 export interface Mahadasha {
   lord: string
   years: number
   effective_years: number
+  start_jd: number
+  end_jd: number
+  start_age_years: number
+  end_age_years: number
+  /** 本段内的九步小运 */
+  antardashas: Antardasha[]
+}
+
+/** 一段大运内的小运（对应 jyotish::Antardasha）。 */
+export interface Antardasha {
+  lord: string
+  years: number
   start_jd: number
   end_jd: number
   start_age_years: number
@@ -414,6 +440,28 @@ export interface Synastry {
   a_supplies_b: number
   b_supplies_a: number
   detail: TeamResult
+  aspects: CrossAspects
+}
+
+/** 两张本命盘之间的相位一条（对应 astrology::CrossAspect）。 */
+export interface CrossAspect {
+  /** 甲盘上的星 */
+  a: string
+  /** 乙盘上的星 */
+  b: string
+  /** 相位名（合 / 冲 / 拱 / 刑 / 六分） */
+  kind: string
+  /** 实测夹角（度） */
+  angle: number
+}
+
+/** 合盘相位全量。哪些算数、容许度多少属取舍，本层出全量。 */
+export interface CrossAspects {
+  system: string
+  /** 容许度（度） */
+  orb: number
+  count: number
+  list: CrossAspect[]
 }
 
 /** 太乙时间线上的一年（对应 app::mundane::YearStep）。 */
