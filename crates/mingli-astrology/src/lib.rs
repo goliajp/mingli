@@ -208,6 +208,16 @@ pub struct NatalChart {
     pub progression: progression::Progression,
 }
 
+/// 某时刻太阳所在星座名——只算太阳，不排整盘。
+///
+/// 供 [`CastingEngine::principal`](mingli_contract::CastingEngine::principal) 用：
+/// 主判据要的是「先看哪一个量」，排整盘属于浪费，且本叶的整盘含百年推运，代价可观。
+#[must_use]
+pub fn sun_sign_at(jde: f64) -> &'static str {
+    let lon = geocentric_ecliptic_longitude(Body::Sun, jde);
+    SIGNS[quantizer::sector(lon, 12) as usize]
+}
+
 /// 两黄经的最短夹角（度，0..=180）。
 #[must_use]
 pub fn separation(a: f64, b: f64) -> f64 {
