@@ -9,7 +9,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 720 个测试全绿
+> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 723 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -134,7 +134,7 @@ cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走�
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 720 个测试
+cargo test --workspace     # 723 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
