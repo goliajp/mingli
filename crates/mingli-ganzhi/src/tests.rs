@@ -38,11 +38,37 @@ for n in 0..60u8 {
 }
 }
 
+/// 日柱锚点。**这是全树放大半径最大的一个常数**——四柱、择日、大六壬、奇门、
+/// 七政四余的日柱全从它推，错一天就整片错，且错得很像对的。
+///
+/// 三源交叉确认，且第三源不是同类互抄：
+///
+/// 1. 万年历 <https://wannianrili.bmcx.com/2024-01-01__wannianrili/>：
+///    「癸卯年 甲子月 **甲子日**」，农历十一月二十
+/// 2. 不亦居老黄历 <https://www.buyiju.com/lhl/2024-1-1.html>：同日同作甲子
+/// 3. **另一条路**：Yuk Tung Liu《Sexagenary Cycle》给的算法
+///    <https://ytliu0.github.io/ChineseCalendar/sexagenary.html> 作
+///    `S = 1 + mod(JDnoon − 11, 60)`，甲子为 `S = 1`，其自身锚在
+///    **2019-01-27（JD 2458511）**——与本仓库的锚点是不同的一天。
+///    代入 `JDN 2460311` 得 `S = 1 + (2460300 mod 60) = 1` → 甲子，与前两源相合。
+///
+/// JDN 本身也自核过：Fliegel–Van Flandern 式算 2024-01-01 得 2460311。
 #[test]
 fn day_pillar_anchors() {
 assert_eq!(day_ganzhi(DAY_ANCHOR_JDN).to_string(), "甲子"); // 2024-01-01
 assert_eq!(day_ganzhi_index(DAY_ANCHOR_JDN + 1), 1); // 乙丑
 assert_eq!(day_ganzhi_index(2_451_545), 54); // 2000-01-01 = 戊午#54
+
+// 把第三源的公式原样跑一遍：它与本仓库各自独立地由自己的锚点推出同一个答案。
+// 只要两边的推法有一处系统性偏差，这里就会分道扬镳。
+for jdn in [DAY_ANCHOR_JDN, 2_451_545, 2_458_511, 2_460_311 + 12_345, 2_400_000] {
+    let s = 1 + (jdn - 11).rem_euclid(60); // ytliu：甲子 = 1
+    assert_eq!(
+        day_ganzhi_index(jdn),
+        u8::try_from(s - 1).expect("S∈1..=60"),
+        "JDN {jdn}：本仓库与 ytliu 的公式给出不同的干支序",
+    );
+}
 }
 
 #[test]
