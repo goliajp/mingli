@@ -33,6 +33,7 @@ impl CastingEngine for ZeriEngine {
         Some("\n【字段语义提示（择日要素）】\n\
             - `jianchu` / `jianchu_pos`：建除十二神（建除满平定执破危成收开闭），由日支与月建相减得。\
               这是分档的依据：除危定执为黄道、成开可用、建满平收为黑道、破闭不可当。\n\
+            - `day_stem` / `day_branch` / `month_branch`：日干、日支、月建的序号（子=0、甲=0），`day_ganzhi_name` 是日干支的字面。上面几条都由它们算出——建除取日支与月建之差、百忌按日干与日支各取一句，故它们是本盘的原料而非结论。\n\
             - `grade` / `grade_label`：本日所属档次，即上面那条的结论。\n\
             - `mansion` / `mansion_index`：二十八宿值日，与建除是两套并行的分法。\n\
             - `tianyi_branches` / `tianyi_names`：天乙贵人所临之支（两支）。\n\

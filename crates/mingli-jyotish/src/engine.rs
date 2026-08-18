@@ -42,7 +42,7 @@ impl CastingEngine for JyotishEngine {
             - `grahas[]`：九曜。`rasi` / `rasi_name` 所落宫、`nakshatra` / `nakshatra_name` 所落宿（27 宿）、\
               `nakshatra_lord` 该宿主星、`navamsa` D-9 分盘落宫、`vargas` 其余十二个分盘落宫。\
               Rahu / Ketu 是月亮交点，恒相对 180°，主业力主题。\n\
-            - `lagna_rasi` / `lagna_rasi_name` / `lagna_navamsa`：上升宫与其九分盘落宫，需出生坐标。\n\
+            - `lagna_lon` / `lagna_rasi` / `lagna_rasi_name` / `lagna_navamsa` / `lagna_navamsa_name`：上升点的恒星黄经、所落宫与宫名，以及它在九分盘上的落宫与宫名。需出生坐标，缺则不出。\n\
             - `mahadashas[]`：Vimshottari 大运序列，`lord` 主星、`start_age_years` / `end_age_years` 起讫年龄，\
               内含 `antardashas` 子运。**这是本系统看时间的主路**——某段时期的主题由当时的大运主星定。\n\
             - `birth_dasha_lord`：出生时所处大运的主星，由月宿定。\n\
