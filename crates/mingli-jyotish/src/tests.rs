@@ -15,21 +15,43 @@ let v = ayanamsa(LAHIRI_T0_JDE, Ayanamsa::Lahiri);
 assert!((v - 23.245_524_743).abs() < 1e-9, "got {v}");
 }
 
+/// 与公布的 Lahiri 表值逐年对照，容差由**章动**定，不是随手放宽的。
+///
+/// 这里有一处必须先说清，否则整条对照会读错：本 crate 算的是**平** ayanamsa。
+/// Swiss Ephemeris 的锚点写作 `23.250182778 - 0.004658035`，而它自己的注释讲明
+/// 「the subtracted value is nutation」——减掉的就是章动。各家表与排盘软件公布的
+/// 则是**含章动的真值**。两者之差恒等于当日的 Δψ，量级 ≤ 17.2″ 且**来回摆动**。
+///
+/// 参照取 Jagannath Hora 的历史表（Swiss Ephemeris 所算，各年 1 月 1 日 00:00 UT）：
+/// <https://jagannathhora.com/historical-lahiri-ayanamsa-values-tables/>。
+/// 实测四个年份的差为 +7.9″ / +13.4″ / **−12.2″** / +13.7″——符号会翻，
+/// 这正是章动在摆而不是本算在漂。故容差取 20″（0.0056°）：够容下整个章动包络，
+/// 又比它紧得多，真出现系统性漂移就会红。
+///
+/// **这条测试是重写的。** 原先两条各验一个时点、容差 ±0.1°（6′），比实际吻合度松约 25 倍，
+/// 于是其中一条引的参照值 `1985-09-04 = 23°41'27"` 错了约 2.2′ 也照样通过——
+/// 表值实为 1985-01-01 = 23°38'38"，折到 9 月约 23.653°。
 #[test]
-fn lahiri_j2000_within_tolerance() {
-// J2000.0 = JDE 2451545.0 → 23°51'11" ≈ 23.85306° (Wikipedia/Jagannath Hora)
-let v = ayanamsa(2_451_545.0, Ayanamsa::Lahiri);
-// 线性近似，容差 6'(0.1°)；实测约 23.853 vs 23.852+ → 差 < 0.005°
-assert!((v - 23.853).abs() < 0.10, "Lahiri @ J2000 got {v}");
+fn lahiri_tracks_the_published_tables_to_within_the_nutation_term() {
+// 章动 Δψ 的振幅上界（Meeus AA 第 22 章主项 17.20″，余项合计不足 2″）
+const NUTATION_ENVELOPE_ARCSEC: f64 = 20.0;
+// (年, 该年 1 月 1 日 00:00 UT 的 JD, 表值 度/分/秒)
+let table = [
+    (1980, 2_444_239.5_f64, (23, 34, 32)),
+    (1985, 2_446_066.5, (23, 38, 38)),
+    (1990, 2_447_892.5, (23, 43, 15)),
+    (2000, 2_451_544.5, (23, 51, 12)),
+];
+for (year, jd, (d, m, s)) in table {
+    let want = f64::from(d) + f64::from(m) / 60.0 + f64::from(s) / 3600.0;
+    let got = ayanamsa(jd, Ayanamsa::Lahiri);
+    let diff = (got - want) * 3600.0;
+    assert!(
+        diff.abs() < NUTATION_ENVELOPE_ARCSEC,
+        "{year}-01-01：本算（平）{got:.6}° vs 表值（真）{want:.6}°，差 {diff:+.1}″，\
+         超出章动包络 ±{NUTATION_ENVELOPE_ARCSEC}″——那就不是章动了，是本算漂了",
+    );
 }
-
-#[test]
-fn lahiri_1985_within_two_arcmin() {
-// 1985-09-04 02:00 IST = 1985-09-03 20:30 UTC,Jagannath Hora ≈ 23°41'27" = 23.6908°
-// 容差 ±0.1°（线性近似）
-let m = Moment::new(1985, 9, 4, 2, 0, 5.5);
-let v = ayanamsa(m.jde, Ayanamsa::Lahiri);
-assert!((v - 23.6908).abs() < 0.10, "Lahiri @ 1985-09-04 got {v}");
 }
 
 #[test]
