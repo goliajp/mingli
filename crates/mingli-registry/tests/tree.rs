@@ -543,3 +543,77 @@ fn a_leaf_that_offers_reading_notes_offers_enough_of_them() {
         assert!(notes.contains('`'), "叶 `{}` 的读法要用反引号写出真实的 JSON 路径", e.id());
     }
 }
+
+/// 读法提示里用反引号写出的字段名，必须真的在这片叶的盘面上。
+///
+/// 这些提示是交给语言模型读的。写错一个字段名不会报错，模型只会去找一个不存在的键，
+/// 然后要么略过、要么编——两种都比空着糟。而这件事恰好机械可查：把盘面的键收集起来，
+/// 逐个比对提示里反引号包住的标识符。
+///
+/// 审计时用这个办法扫出七处错：占星把 `midheaven` 写成 `mc`、易经把 `changing_mask`
+/// 写成 `moving_lines`、紫微把 `ju_number` 写成 `ju`，还有三处提到了盘面根本不出的 `seed`。
+///
+/// 只查**像字段名**的记号（ASCII 起头、可带点与方括号）。像 `primary_*` 这种通配写法、
+/// 或反引号里的中文与散文，不在此列——它们是行文，不是路径。
+#[test]
+fn every_field_name_in_the_reading_notes_exists_on_the_chart() {
+    fn collect(v: &Value, acc: &mut std::collections::BTreeSet<String>) {
+        match v {
+            Value::Object(m) => {
+                for (k, x) in m {
+                    acc.insert(k.clone());
+                    collect(x, acc);
+                }
+            }
+            Value::Array(a) => {
+                for x in a.iter().take(3) {
+                    collect(x, acc);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // 入参要**带全原子**：占星的上升 / 中天要坐标，数字学的姓名数要姓名。
+    // 拿缺原子的样本去查，会把「这次没给坐标」误判成「字段名写错了」。
+    let m = mingli_contract::Moment::new(1990, 6, 15, 14, 30, 8.0);
+    let q = Query {
+        latitude: Some(31.23),
+        longitude: Some(121.47),
+        name: Some("Ada Lovelace".to_string()),
+        ..sample()
+    };
+    let mut problems = Vec::new();
+    for e in &registry() {
+        let Some(notes) = e.reading_notes() else { continue };
+        let mut keys = std::collections::BTreeSet::new();
+        collect(&e.cast(&m, &q), &mut keys);
+
+        for token in notes.split('`').skip(1).step_by(2) {
+            // 只认「像字段名」的：ASCII 字母起头，其余是字母数字下划线点方括号
+            if !token.starts_with(|c: char| c.is_ascii_alphabetic()) {
+                continue;
+            }
+            if !token
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "_.[]".contains(c))
+            {
+                continue;
+            }
+            for seg in token.split(['.', '[', ']']) {
+                // 空段、纯数字下标、以及 `heaven[i]` 这种单字母占位符都跳过
+                if seg.is_empty() || seg.len() == 1 || seg.chars().all(|c| c.is_ascii_digit()) {
+                    continue;
+                }
+                if !keys.contains(seg) {
+                    problems.push(format!("[{}] `{token}` —— 盘面上没有 `{seg}`", e.id()));
+                }
+            }
+        }
+    }
+    assert!(
+        problems.is_empty(),
+        "读法提示写了盘面上不存在的字段名。模型只有那份 JSON，找不到就只能略过或者编：\n  {}",
+        problems.join("\n  ")
+    );
+}
