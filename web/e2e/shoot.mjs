@@ -130,6 +130,20 @@ const SCREENS = [
 const problems = []
 const only = process.argv.slice(2)
 
+// README 自称拍多少屏。屏表是由叶表切片拼出来的，只有这里算得准，所以由这里来对。
+// 认的是「N screens」/「N 屏」这句话本身，不是「文中出现过 N」——后者会被别处的数字蒙混过去。
+if (!only.length) {
+  const { readFile } = await import('node:fs/promises')
+  for (const [f, re] of [
+    ['../../README.md', /(\d+) screens/],
+    ['../../README.zh-CN.md', /(\d+) 屏/],
+  ]) {
+    const said = (await readFile(new URL(f, import.meta.url), 'utf8')).match(re)?.[1]
+    if (said === undefined) problems.push(`${f.slice(6)} 里找不到「N 屏」那句话——句式改过了，本处要跟着改`)
+    else if (Number(said) !== SCREENS.length) problems.push(`${f.slice(6)} 自称 ${said} 屏，实为 ${SCREENS.length} 屏`)
+  }
+}
+
 /** 常态宽屏 + 窄屏。窄屏那套 grid 换列数，只有真按那个宽度渲染才看得见。 */
 const VIEWPORTS = [
   { tag: '1440', width: 1440, height: 1000 },
