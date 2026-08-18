@@ -722,6 +722,58 @@ fn the_drawing_seed_reaches_exactly_the_leaves_that_declare_it() {
     }
 }
 
+/// 一片叶排一盘的代价，不该比其余全树加起来还大。
+///
+/// 这条是被一次真回退逼出来的：占星叶把逐年的百年推运（101 格 × 9 星 + 相位）
+/// 直接挂在本命盘上，于是**排一盘 35.6 ms、盘面 276 KB**，而其余二十片叶合起来
+/// 是 0.5 ms、33 KB。跨叶相关性要对 720 个样本各取一次主判据，那一路因此跑了 189 秒。
+/// 问本命盘的人并没有要一生的推运——「运」的时间序列属于「运」，不属于「命」。
+///
+/// 判据取**相对量**而非绝对毫秒：绝对值随机器与构建配置浮动，而「一片叶不该独占全树」
+/// 是与机器无关的。上限取 60%——单片占到六成，就说明它在盘面里塞了本不属于那里的东西。
+/// 星历叶天然比查表叶重（VSOP87 是真算），故不苛求均分，只拦「一片压倒全树」。
+#[test]
+fn no_single_leaf_dominates_the_cost_of_casting_the_whole_tree() {
+    let q = sample();
+    let m = mingli_astro::Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+    let reg = registry();
+    // 预热：首次调用含各叶的惰性初始化，计进去会失真
+    for e in &reg {
+        let _ = e.cast(&m, &q);
+    }
+    let mut cost: Vec<(&str, u128)> = Vec::new();
+    for e in &reg {
+        let t = std::time::Instant::now();
+        for _ in 0..5 {
+            let _ = e.cast(&m, &q);
+        }
+        cost.push((e.id(), t.elapsed().as_micros()));
+    }
+    let total: u128 = cost.iter().map(|(_, c)| *c).sum();
+    assert!(total > 0, "全树耗时量到 0，计时方式怕是失效了");
+    let (worst, worst_cost) = *cost.iter().max_by_key(|(_, c)| *c).expect("注册表非空");
+    let share = (worst_cost * 100) / total;
+    assert!(
+        share < 60,
+        "叶 `{worst}` 一片占全树排盘耗时的 {share}%（{worst_cost} / {total} µs）——\n\
+         盘面里多半塞了本不属于「命」的东西（一生的时间序列、逐年的展开之类）。\n\
+         对照：四柱的盘面出十步大运，逐年的供给时序在用例层另算",
+    );
+
+    // 载荷同理：一片叶的盘面不该独占整份 JSON
+    let sizes: Vec<(&str, usize)> = reg
+        .iter()
+        .map(|e| (e.id(), serde_json::to_string(&e.cast(&m, &q)).map_or(0, |s| s.len())))
+        .collect();
+    let bytes: usize = sizes.iter().map(|(_, n)| *n).sum();
+    let (fat, fat_bytes) = *sizes.iter().max_by_key(|(_, n)| *n).expect("注册表非空");
+    let fat_share = fat_bytes * 100 / bytes.max(1);
+    assert!(
+        fat_share < 60,
+        "叶 `{fat}` 的盘面占整份 JSON 的 {fat_share}%（{fat_bytes} / {bytes} 字节）——同上",
+    );
+}
+
 /// 声称支持的年份区间，两端每片叶都要照样出得来。
 ///
 /// README 写着「支持 1900–2100」，用例层的 `Birth::validate` 也照此收口。可「不被拒绝」

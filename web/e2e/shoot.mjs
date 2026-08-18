@@ -35,14 +35,7 @@ const CHECKS = {
     const ju = Number(head.match(/(\d+) 岁起运/)?.[1])
     if (spans[0][0] !== ju) throw new Error(`首步应自 ${ju} 岁起，实自 ${spans[0][0]}`)
   },
-  '03-西洋占星': async (page) => {
-    // 二次推运一日一年：表里每十年一格，0..100 共 11 行
-    const rows = await page.locator('table').last().locator('tbody tr').count()
-    if (rows !== 11) throw new Error(`推运表应有 11 行（0..100 每十年一格），实有 ${rows}`)
-    // 推运太阳每年约 1°，故十年约 10°——同一星座里连走两格即可验，跨座则度数回卷，故只看首尾两格的座
-    const first = await page.locator('table').last().locator('tbody tr').first().innerText()
-    if (!/^0\b/.test(first.trim())) throw new Error(`首行应是 0 岁，实为「${first.replace(/\s+/g, ' ')}」`)
-  },
+
   '21-数字学': async (page) => {
     // 生命灵数两派算法不同，本盘出主值并把另一派并列——两个数都得在屏幕上
     const here = await page.locator('.nm-here').innerText()
@@ -84,10 +77,18 @@ const CHECKS = {
     // Vimshottari 九主星共 120 年；当前段的小运也是九步
     const segs = await page.locator('.fd-seg').count()
     if (segs !== 9) throw new Error(`大运条应有 9 段，实有 ${segs}`)
-    const chips = await page.locator('.fd-chip').count()
+    const chips = await page.locator('.fd-antar:not(.prog) .fd-chip').count()
     if (chips !== 9) throw new Error(`当前大运的小运应有 9 步，实有 ${chips}`)
-    const on = await page.locator('.fd-chip.on').count()
+    const on = await page.locator('.fd-antar:not(.prog) .fd-chip.on').count()
     if (on !== 1) throw new Error(`当前小运应恰好高亮 1 步，实有 ${on}`)
+    // 推运每五年一格，0..100 共 21 格
+    const prog = await page.locator('.fd-antar.prog .fd-chip').count()
+    if (prog !== 21) throw new Error(`推运应有 21 格（0..100 每五年），实有 ${prog}`)
+    // 第三条时间线：二次推运。三套各自说各自的时间，缺一条就是少了一路
+    const lines = await page.locator('.fortune-mile-l').allInnerTexts()
+    if (!lines.some((t) => t.includes('二次推运'))) {
+      throw new Error(`运势屏应有三条时间线（大运 / Vimshottari / 二次推运），实见「${lines.join(' | ')}」`)
+    }
   },
   '18-奇门遁甲': async (page) => {
     const n = await page.locator('.qm-cell').count()

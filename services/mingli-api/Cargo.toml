@@ -11,7 +11,8 @@ categories = ["web-programming::http-server", "algorithms"]
 [dependencies]
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
-mingli-registry = { workspace = true, features = ["astrology", "jyotish", "qizhengsiyu"] }
+# 本服务装全部二十四片叶——「全都要」在这里是显式声明，不是缺省
+mingli-registry = { workspace = true, features = ["full"] }
 mingli-app = { workspace = true, features = ["astrology", "jyotish"] }
 mingli-interpret = { workspace = true }
 serde = { workspace = true }

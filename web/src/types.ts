@@ -98,6 +98,25 @@ export interface FortuneResponse {
   max_age: number
   /** Vimshottari 大运/小运。构建未含 jyotish 时为 null。 */
   dasha: DashaSlice | null
+  /** 西洋占星的二次推运（一日一年）。构建未含 astrology 时为 null */
+  progression: Progression | null
+}
+
+/** 一格推运（对应 astrology::progression::ProgressedYear）。 */
+export interface ProgressedYear {
+  age: number
+  planets: { name: string; sign: string; degree: number; longitude: number }[]
+  /** 推运星与本命星之间的相位——「运」的着力处 */
+  to_natal: { a: string; b: string; kind: string; angle: number }[]
+}
+
+/** 二次推运时间线（对应 astrology::progression::Progression）。 */
+export interface Progression {
+  method: string
+  max_age: number
+  /** 相邻两格相差几岁 */
+  step: number
+  years: ProgressedYear[]
 }
 
 /** /api/fortune 里的 Vimshottari 切片。 */

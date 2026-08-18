@@ -422,6 +422,50 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
     );
 }
 
+/// 交付层要显式说明它装哪几片叶，而「全都要」有个名字。
+///
+/// 叶改成逐片 feature 之后，清单里漏一个名字就少一片叶——**而那种漏法不会报错**，
+/// 端点照常 200，只是某几套术数安静消失。
+///
+/// 这条**只能读清单**，不能靠跑测试来验：`mingli-api` 的 dev-dependencies 含 `mingli-wasm`，
+/// 而 Cargo 会在依赖图上合并 feature，于是测试构建里 registry 照样拿到全部 feature——
+/// 一条「叶数应为 21」的断言在那种环境下永远绿，看起来在守却什么都没守。
+/// 第一版正是这么写的。
+#[test]
+fn the_delivery_layer_says_which_leaves_it_ships() {
+    let root = workspace_root();
+    for (who, manifest) in [
+        ("mingli-api", root.join("services/mingli-api/Cargo.toml")),
+        ("mingli-wasm", root.join("crates/mingli-wasm/Cargo.toml")),
+    ] {
+        let text = std::fs::read_to_string(&manifest).expect("清单应可读");
+        let line = text
+            .lines()
+            .find(|l| l.starts_with("mingli-registry ="))
+            .unwrap_or_else(|| panic!("{who} 应依赖装配根"));
+        // wasm 自己就是一层可裁的交付物，它按自身 feature 转发；api 是完整服务，装全部
+        if who == "mingli-api" {
+            assert!(
+                line.contains("\"full\""),
+                "{who} 应写明 `features = [\"full\"]`——装全部二十四个叶 crate（二十一片时刻叶 + 三片字词叶）是个显式决定，\n\
+                 而不是把名字抄一遍（抄漏一个不会报错，只会静默少一片叶）。现为：{line}",
+            );
+        }
+        assert!(
+            text.contains("[features]") || who == "mingli-api",
+            "{who} 应有 [features] 段以便逐片裁剪",
+        );
+    }
+    // 装配根与 wasm 都要有 `full`，否则上面那句「全都要」没处可指。
+    // 这一半的红法与上一半不同：拿掉 `full` 定义时，依赖它的 `mingli-api` 直接构建失败，
+    // 断言根本跑不到——红在编译期而非断言期。两种红都拦得住，机制不一样，记在这里免得
+    // 下次有人以为这行没被验过。
+    for c in ["crates/mingli-registry", "crates/mingli-wasm"] {
+        let text = std::fs::read_to_string(root.join(c).join("Cargo.toml")).expect("清单应可读");
+        assert!(text.contains("\nfull = ["), "{c} 应提供 `full` feature");
+    }
+}
+
 #[test]
 fn the_package_metadata_is_complete_and_not_redundant() {
     // 发布物的元数据是给「还不知道这个仓库存在的人」看的，仓库内部读不出它对不对。

@@ -14,7 +14,7 @@ export function FortuneView({ fortune, age, onBackToNatal }: {
   onBackToNatal: () => void
 }) {
   if (!fortune) return <section className="card fortune"><div className="fortune-load">运势切片加载中…</div></section>
-  const { at, timeline, dasha } = fortune
+  const { at, timeline, dasha, progression } = fortune
   const ys = at.natal.yongshen
   const primaryColor = WUXING_COLOR[ys.primary_wuxing] ?? '#888'
   const secondaryColor = ys.secondary_wuxing ? (WUXING_COLOR[ys.secondary_wuxing] ?? '#888') : '#888'
@@ -240,6 +240,30 @@ export function FortuneView({ fortune, age, onBackToNatal }: {
           <div className="fortune-note">
             九主星按固定年数循环 120 年，起点由出生时月亮所在 nakshatra 已行比例定；上方一行是当前大运的九步小运。
             本层只出周期位置，不出吉凶
+          </div>
+        </div>
+      )}
+
+      {/* —— 第三条「运」：西洋占星的二次推运。与上面两条并列，不合成 —— */}
+      {progression && progression.years.length > 0 && (
+        <div className="fortune-dasha">
+          <div className="fortune-mile-l">
+            二次推运 · 一日一年 <small>（出生后第 N 日的天象代表第 N 年；每 {progression.step} 年一格）</small>
+          </div>
+          <div className="fd-antar prog">
+            {progression.years.map((y) => {
+              const sun = y.planets.find((p) => p.name === '太阳')
+              const on = Math.abs(y.age - age) < progression.step / 2
+              return (
+                <span key={y.age} className={on ? 'fd-chip on' : 'fd-chip'} title={`与本命成角 ${y.to_natal.length} 条`}>
+                  {y.age} 岁 <small>{sun ? sun.sign : '—'}</small>
+                </span>
+              )
+            })}
+          </div>
+          <div className="fortune-note">
+            推运太阳约 1°/年、推运月亮约 13°/年（故每两三年换一座），所以日主大势、月主节奏。
+            这一条与四柱大运、Vimshottari 并列而不合成——三套各自说各自的时间，合成等于替读者选边
           </div>
         </div>
       )}

@@ -86,11 +86,34 @@ pub fn fortune(b: &Birth, t: &AskTime, timeline_max_age: Option<u32>) -> Result<
         "timeline": timeline,
         "max_age": max_age,
         "dasha": vimshottari_at(b, t),
+        "progression": progression_of(b, max_age),
     }))
 }
 
 /// 目标时刻所处的 Vimshottari 大运段，以及整条序列。
 ///
+/// 西洋占星的二次推运（一日一年）——「运」的第三条时间线，与四柱大运、Vimshottari 并列。
+///
+/// **它不在本命盘上**：推运每一格是一次完整星历求值，而问本命盘的人没有要一生的运。
+/// 这与四柱同一处置——那一片的盘面出十步大运（干支算术，近乎免费），
+/// 逐年的供给时序在本层另算。
+#[cfg(feature = "astrology")]
+fn progression_of(b: &Birth, max_age: u32) -> Value {
+    use mingli_astro::Moment;
+    let m = Moment::new(b.year, b.month, b.day, b.hour, b.minute, b.tz);
+    let natal = mingli_astrology::compute_at(&m, None, mingli_astrology::HouseSystem::WholeSign);
+    // 每五年一格：逐年那份 101 格 × 9 星在线上过重，而推运太阳约 1°/年，
+    // 五年一格已足以看出它走到哪一座；要更细的自行调 `progression` 传 step = 1
+    let p = mingli_astrology::progression::progression(m.jde, &natal.planets, max_age, 5);
+    serde_json::to_value(p).unwrap_or(Value::Null)
+}
+
+/// 关掉 `astrology` feature 时的桩。
+#[cfg(not(feature = "astrology"))]
+fn progression_of(_b: &Birth, _max_age: u32) -> Value {
+    Value::Null
+}
+
 /// 关掉 `jyotish` feature 时返回 `null`——与 registry 关掉该叶时它从注册表里消失是同一件事：
 /// 轻量构建里没有这套算力，说没有比给一个空壳诚实。
 ///

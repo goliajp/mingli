@@ -15,7 +15,9 @@ use mingli_contract::{CastingEngine, WordEngine};
 #[must_use]
 pub fn registry() -> Vec<Box<dyn CastingEngine>> {
     vec![
+        #[cfg(feature = "bazi")]
         Box::new(mingli_bazi::BaziEngine),
+        #[cfg(feature = "ziwei")]
         Box::new(mingli_ziwei::ZiweiEngine),
         #[cfg(feature = "astrology")]
         Box::new(mingli_astrology::AstrologyEngine),
@@ -23,21 +25,37 @@ pub fn registry() -> Vec<Box<dyn CastingEngine>> {
         Box::new(mingli_jyotish::JyotishEngine),
         #[cfg(feature = "qizhengsiyu")]
         Box::new(mingli_qizhengsiyu::QizhengsiyuEngine),
+        #[cfg(feature = "yijing")]
         Box::new(mingli_yijing::YijingEngine),
+        #[cfg(feature = "geomancy")]
         Box::new(mingli_geomancy::GeomancyEngine),
+        #[cfg(feature = "sikidy")]
         Box::new(mingli_sikidy::SikidyEngine),
+        #[cfg(feature = "ifa")]
         Box::new(mingli_ifa::IfaEngine),
+        #[cfg(feature = "cartomancy")]
         Box::new(mingli_cartomancy::TarotEngine),
+        #[cfg(feature = "meihua")]
         Box::new(mingli_meihua::MeihuaEngine),
+        #[cfg(feature = "xiaoliuren")]
         Box::new(mingli_xiaoliuren::XiaoliurenEngine),
+        #[cfg(feature = "zeri")]
         Box::new(mingli_zeri::ZeriEngine),
+        #[cfg(feature = "maya")]
         Box::new(mingli_maya::MayaEngine),
+        #[cfg(feature = "pawukon")]
         Box::new(mingli_pawukon::PawukonEngine),
+        #[cfg(feature = "mahabote")]
         Box::new(mingli_mahabote::MahaboteEngine),
+        #[cfg(feature = "liuren")]
         Box::new(mingli_liuren::LiurenEngine),
+        #[cfg(feature = "qimen")]
         Box::new(mingli_qimen::QimenEngine),
+        #[cfg(feature = "taiyi")]
         Box::new(mingli_taiyi::TaiyiEngine),
+        #[cfg(feature = "tibetan")]
         Box::new(mingli_tibetan::TibetanEngine),
+        #[cfg(feature = "numerology")]
         Box::new(mingli_numerology::NumerologyEngine),
     ]
 }
@@ -46,8 +64,11 @@ pub fn registry() -> Vec<Box<dyn CastingEngine>> {
 #[must_use]
 pub fn word_registry() -> Vec<Box<dyn WordEngine>> {
     vec![
+        #[cfg(feature = "gematria")]
         Box::new(mingli_gematria::GematriaEngine),
+        #[cfg(feature = "abjad")]
         Box::new(mingli_abjad::AbjadEngine),
+        #[cfg(feature = "wuge")]
         Box::new(mingli_wuge::WugeEngine),
     ]
 }
