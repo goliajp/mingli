@@ -120,6 +120,43 @@ export function SynastryView() {
               </div>
             </div>
           )}
+          {res.ashtakuta.kutas.length > 0 && (
+            <div className="sy-kuta">
+              <div className="sy-kuta-l">
+                Ashtakuta 八项 ·{' '}
+                <b>
+                  {(res.ashtakuta.total_min_tenths / 10).toFixed(1)}
+                  {res.ashtakuta.total_max_tenths !== res.ashtakuta.total_min_tenths &&
+                    `–${(res.ashtakuta.total_max_tenths / 10).toFixed(1)}`}
+                </b>{' '}
+                / {res.ashtakuta.max_points}
+                {res.ashtakuta.unsettled_count > 0 && <small> · {res.ashtakuta.unsettled_count} 项各家不一，故出区间</small>}
+              </div>
+              <table className="jy-graha-table">
+                <thead>
+                  <tr><th>项</th><th>得分</th><th>满分</th><th>依据</th></tr>
+                </thead>
+                <tbody>
+                  {res.ashtakuta.kutas.map((k) => (
+                    <tr key={k.kuta}>
+                      <td><b>{k.kuta}</b></td>
+                      <td className={k.settled ? '' : 'kuta-range'}>
+                        {(k.min_tenths / 10).toFixed(1)}
+                        {!k.settled && `–${(k.max_tenths / 10).toFixed(1)}`}
+                      </td>
+                      <td>{k.max_points}</td>
+                      <td><small>{k.basis}</small></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="lp-note">
+                八项的名目与权重各家一致（合 36），**逐项的判定表却不一致**：实测两份独立公布表在
+                Vashya 上 8/25 格不同、Yoni 中段 72/196 格不同。本盘因此逐项出区间而非单值——
+                静默取其中一派，「36 分制得几分」会随选谁而变，而读的人无从知道
+              </div>
+            </div>
+          )}
           <div className="ev-verdict">
             <button className="go interp-btn" onClick={() => void ask()} disabled={aBusy}>
               {aBusy ? '斟酌中…' : '🔮 配（由 LLM 生成）'}

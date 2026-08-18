@@ -462,6 +462,30 @@ export interface Synastry {
   b_supplies_a: number
   detail: TeamResult
   aspects: CrossAspects
+  /** 印度占星八项合婚。逐项给区间——各家判定表不一 */
+  ashtakuta: Ashtakuta
+}
+
+/** 八项合婚里的一项（对应 jyotish::kuta::KutaScore）。 */
+export interface KutaScore {
+  kuta: string
+  max_points: number
+  /** 得分下界（×10，避开浮点） */
+  min_tenths: number
+  max_tenths: number
+  /** 两源是否给出同一个值 */
+  settled: boolean
+  basis: string
+}
+
+/** 八项合婚（对应 jyotish::kuta::Ashtakuta）。 */
+export interface Ashtakuta {
+  kutas: KutaScore[]
+  total_min_tenths: number
+  total_max_tenths: number
+  max_points: number
+  /** 有几项两源不一致——区间宽度全由它们贡献 */
+  unsettled_count: number
 }
 
 /** 两张本命盘之间的相位一条（对应 astrology::CrossAspect）。 */

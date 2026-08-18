@@ -55,9 +55,10 @@ impl CastingEngine for JyotishEngine {
               挑最值得一说的 2-3 处。")
     }
     fn answers(&self) -> &'static [Intent] {
-        // 「运」答得起：本叶算 Vimshottari 大运时间线（dasha.rs 的 `vimshottari_timeline`），
-        // 那正是「势」要的时间序列。「合」不答——kuta / porutham 一类的合婚计算本叶没有。
-        &[Intent::Natal, Intent::Fortune]
+        // 「运」答得起：Vimshottari 大运时间线（`dasha.rs`），那正是「势」要的时间序列。
+        // 「合」也答得起：Ashtakuta 八项（`kuta.rs`），以两人月宿月宫比对，出「配」这个形态。
+        // 但它出的是**区间**不是单值——各家判定表不一，见 profile 里那条 🟡。
+        &[Intent::Natal, Intent::Fortune, Intent::Synastry]
     }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 月亮所在宿——印度占星以月宿定本命。
@@ -68,10 +69,22 @@ impl CastingEngine for JyotishEngine {
         use Determinism::{Det, Und};
         const { &[
             d(
-                "合婚（kuta / porutham，未实现）",
+                "合婚 Ashtakuta 八项",
+                Det,
+                "八项名目与权重（Varna 1 / Vashya 2 / Tara 3 / Yoni 4 / Graha Maitri 5 / Gana 6 / \
+                 Bhakoot 7 / Nadi 8，合 36）多源一致；27 宿→三性、→三脉、→14 兽三张表两源逐宿相同；\
+                 Varna 4×4 与 Bhakoot 的吉凶位两源全同；Nadi「同脉得零」两源同述。\
+                 判据取各家一致的结构而非某对男女的得分——那个数随选哪份表而变",
+            ),
+            d(
+                "Ashtakuta 的总分不是一个确定的数",
                 Und,
-                "🟡 这不是定不下，是还没做——南北两系判据不同（北印 Ashtakuta 八项、南印 Porutham 十项），\
-                 各项取值表须逐项找 ≥2 源。本叶目前不出任何两盘比对，故不认领「合」这一类问局",
+                "🟡 逐项判定表各家不同，实测两份独立公布表：**Vashya 5×5 有 8/25 格不同**，\
+                 **Yoni 14×14 中段有 72/196 格不同**（69 格差 1）。Yoni 的结构倒是一致的——\
+                 对角恒 4、同样那 14 个零格（七对死敌完全相同），分歧只在 1/2/3 的中段。\
+                 故本叶**逐项出区间而非单值**，总分随之是区间：静默取其中一派，\
+                 得出的「36 分制得几分」会随选谁而变，而读的人无从知道。区间宽度即分歧对结论的影响。\
+                 另：南印 Porutham 十项一系未实现；摩羯前半属四足、后半属水生，本叶按整宫取四足",
             ),
             d("9 行星 navagraha 恒星黄经", Det, "7 真行星走 VSOP87/ELP-2000/82（Lahiri J2000 容差<0.005°）；Rahu/Ketu 走 Meeus 22.4 月升交点公式"),
             d("27 nakshatra + Vimshottari 主星", Det, "Wikipedia/GrahaGuru/Vedicka 3 源完全一致"),

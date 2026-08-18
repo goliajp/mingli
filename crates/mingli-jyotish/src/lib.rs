@@ -40,6 +40,7 @@
 
 pub mod varga;
 mod engine;
+pub mod kuta;
 pub use varga::{all_vargas, varga_rasi, Varga, VargaPositions};
 pub use engine::JyotishEngine;
 
