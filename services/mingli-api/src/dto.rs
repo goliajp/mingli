@@ -80,7 +80,9 @@ pub(crate) fn engine_query(req: &ChartRequest) -> Query {
 }
 
 pub(crate) fn validate(req: &ChartRequest) -> Result<(), String> {
-    birth(req).validate()
+    birth(req).validate()?;
+    // 纬度只在这一层的形状上（`Birth` 没有它），故在这里补一条；经度两处都收，重复无害
+    mingli_app::validate_coords(req.latitude, req.longitude)
 }
 
 /// 岁运叠加旺衰：本命 + extras（大运柱、流年柱等）。

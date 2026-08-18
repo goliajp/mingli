@@ -91,6 +91,36 @@ fn the_headline_counts_match_the_workspace() {
     }
 }
 
+/// 契约快照抓多少个请求，README 与 CI 的说法要跟脚本自己的数一致。
+///
+/// 这个数写在四处：脚本里的断言、两份 README 的命令注释、CI 的步骤名。四处各写各的，
+/// 加一个请求只改脚本，其余三处就开始说假话——本测试加进来的那一轮正是如此，
+/// 三处都停在旧数上。
+#[test]
+fn the_snapshot_request_count_agrees_everywhere() {
+    let script = read("scripts/api-snapshot.sh");
+    let at = script.find("\"$n\" != ").expect("脚本里应有一处请求数断言");
+    let n: String = script[at + 8..].chars().take_while(char::is_ascii_digit).collect();
+    assert!(!n.is_empty(), "没能从脚本读出请求数——断言的写法改了，本测试要跟着改");
+
+    // 脚本自称的数，与它真正发出的请求行数（g/p 两个函数各一行）要对上
+    let calls = script
+        .lines()
+        .filter(|l| l.starts_with("g /api") || l.starts_with("p /api"))
+        .count();
+    assert_eq!(
+        calls.to_string(),
+        n,
+        "脚本自称抓 {n} 个请求，实际列了 {calls} 行 g/p 调用"
+    );
+
+    let ci = read(".github/workflows/ci.yml");
+    assert!(ci.contains(&format!("{n} 个请求")), "CI 的步骤名没写对请求数（应为 {n}）");
+    for (name, text) in readmes() {
+        assert!(text.contains(&format!("# {n} ")), "{name} 的命令注释没写对请求数（应为 {n}）");
+    }
+}
+
 /// README 写的支持年份区间，要与用例层真正收口的那一对数字一致。
 ///
 /// 「支持 1900–2100」是对外的承诺，而真正决定收不收的是 `Birth::validate` 里的常量。

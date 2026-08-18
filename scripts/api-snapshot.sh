@@ -64,6 +64,10 @@ g /api/analysis
 p /api/route "$(printf '%s' "$N" | sed 's/^{/{"kind":"natal",/')"
 p /api/bazi "$N"
 p /api/bazi '{"year":1990}'
+# 三类「看着像合法、其实不存在」的输入。不收的话，历法换算会把 2 月 31 日悄悄挪成 3 月 3 日
+p /api/bazi '{"year":1990,"month":2,"day":31,"hour":14,"tz":8}'
+p /api/bazi '{"year":1990,"month":6,"day":15,"hour":14,"tz":99}'
+p /api/bazi '{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"latitude":91}'
 p /api/ziwei "$N"
 p /api/ziwei '{"year":1800,"month":1,"day":1,"hour":0,"tz":8}'
 p /api/cast "$N"
@@ -99,8 +103,8 @@ if grep -qE '^000$' "$out"; then
   exit 1
 fi
 n=$(grep -c '^### ' "$out")
-if [ "$n" != 32 ]; then
-  echo "✗ 只抓到 $n 个请求，应是 32" >&2
+if [ "$n" != 35 ]; then
+  echo "✗ 只抓到 $n 个请求，应是 35" >&2
   exit 1
 fi
 
