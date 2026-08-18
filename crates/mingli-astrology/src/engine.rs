@@ -48,6 +48,10 @@ impl CastingEngine for AstrologyEngine {
             - `angles`：`ascendant` / `asc_sign` 上升（呈现于外的样子）、`midheaven` / `mc_sign` 中天（事业与公众面）。\
               两者依出生地与时刻而定，缺坐标时不出。\n\
             - `cusp_system` / `cusp_houses[12]`：所选分宫制及其十二宫头的黄经。分宫制是取舍不是对错——同一张盘换一制，行星的落宫会变，故本盘把用的是哪一制写在旁边。整宫制不出宫头（宫界即星座界），无坐标时两者皆不出。\n\
+            - `progression`：**二次推运**时间序列（一日一年——出生后第 N 日的天象代表第 N 年）。\n\
+              `years[].planets` 是该年的推运星位，`years[].to_natal` 是推运星与**本命星**之间的相位——\
+              「运」的着力处在后者：某年推运日/月走到本命某星的角上，那一年的主题由这条角说起。\
+              推运太阳约 1°/年、推运月亮约 13°/年（每两三年换一座），故日主大势、月主节奏。\n\
             - `aspects[]`：行星间的角度关系，`kind` 为合 / 冲 / 拱 / 刑 / 六分。\
               合主融合、拱与六分主顺畅、冲与刑主张力——**张力不等于坏**，是需要处理的动力。\n\
             - `cusp_system`：宫位制（本盘所用）。各制分宫线不同，同一行星可能落在不同宫，\
@@ -56,10 +60,12 @@ impl CastingEngine for AstrologyEngine {
               最后看行星集中在哪几宫；挑最值得一说的几处，不必逐颗铺陈。")
     }
     fn answers(&self) -> &'static [Intent] {
-        // 「运」要行运（transit / 推运 / 太阳返照），「合」要两盘之间的几何关系，
-        // 本叶两者都还没有——只有本命盘与盘内相位。「群/国」用的是立国盘，那是本命盘的一种用法，
-        // 同一份计算即可，故答。
-        &[Intent::Natal, Intent::Mundane]
+        // 「运」答得起：本叶算二次推运时间线（`progression.rs`，一日一年），那正是「势」要的时间序列，
+        // 且它由出生时刻单独可导出——端口层的 `cast(&Moment, &Query)` 只给一个时刻，
+        // 而行运（transit）要「本命 + 另一个当下」两个入参，落不到这一层，故走推运这一路。
+        // 「合」仍不答：本叶出的是两盘之间的几何（`cross_aspects`），而「配」要的是契合度那个形态。
+        // 「群/国」用的是立国盘，那是本命盘的一种用法，同一份计算即可，故答。
+        &[Intent::Natal, Intent::Fortune, Intent::Mundane]
     }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
         // 太阳所在星座。
@@ -70,10 +76,22 @@ impl CastingEngine for AstrologyEngine {
         use Determinism::{Det, Und};
         const { &[
             d(
-                "行运（transit / 推运 / 太阳返照，未实现）",
+                "二次推运（一日一年）",
+                Det,
+                "出生后第 N 日的天象代表人生第 N 年。Cafe Astrology《Secondary Progressions》与 \
+                 Kepler College《An Introduction to Secondary Progressions》两源同述\
+                 「one day after birth equals one year of life」，并各自点出两个可独立核对的量：\
+                 推运太阳约 1°/年、推运月亮约 13°/年（故每两三年换一座）——本叶拿这两条作 oracle 校验百年序列。\
+                 相位比对复用盘内那套判定，出的是推运星与本命星之间的角",
+            ),
+            d(
+                "行运（transit）与太阳返照未实现",
                 Und,
-                "🟡 这不是定不下，是还没做——星历层已能给任意时刻的行星位置，缺的是「与本命盘比对」\
-                 这一步及各法的容许度约定。本叶只出本命盘与盘内相位，故不认领「运」这一类问局",
+                "🟡 这不是定不下，是还没做，且**落不到这一层**——行运要「本命 + 另一个当下时刻」两个入参，\
+                 而端口层的 `cast(&Moment, &Query)` 只给一个时刻；太阳返照同理要先解出返照时刻再另排一盘。\
+                 二者属用例层的编排（像 `mingli_app::bazi::fortune` 那样吃两个时刻），\
+                 本叶已把「由出生时刻单独可导出」的那一路（二次推运）出全。\
+                 另：各家对推运与行运孰重、容许度取多少出入很大，那属取舍不属计算",
             ),
             d(
                 "两盘之间的相位（几何）",

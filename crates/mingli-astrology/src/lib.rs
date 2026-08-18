@@ -19,6 +19,11 @@
 )]
 
 pub mod koch;
+pub mod progression;
+
+/// 推运时间序列覆盖到第几岁。取 100——与四柱大运的百年时间线同尺度，
+/// 前端的时间拨杆也是 0–100 岁。
+pub const PROGRESSION_MAX_AGE: u32 = 100;
 pub mod placidus;
 
 mod engine;
@@ -199,6 +204,8 @@ pub struct NatalChart {
     pub cusp_system: Option<String>,
     /// 所选分宫制的十二宫（WholeSign 时为 `None`；Placidus 极区时回落，见 doc）。
     pub cusp_houses: Option<Vec<CuspHouseEntry>>,
+    /// 二次推运时间序列（一日一年）——本叶答「运」这一类靠的就是它。
+    pub progression: progression::Progression,
 }
 
 /// 两黄经的最短夹角（度，0..=180）。
@@ -308,6 +315,7 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
     let Some(g) = geo else {
         let planets = compute_planets(m.jde, None);
         let aspects = compute_aspects(&planets);
+        let progression = progression::progression(m.jde, &planets, PROGRESSION_MAX_AGE);
         return NatalChart {
             planets,
             aspects,
@@ -315,6 +323,7 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
             houses: None,
             cusp_system: None,
             cusp_houses: None,
+            progression,
         };
     };
 
@@ -381,7 +390,9 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
             .collect()
     });
 
+    let progression = progression::progression(m.jde, &planets, PROGRESSION_MAX_AGE);
     NatalChart {
+        progression,
         planets,
         aspects,
         angles: Some(Angles {
