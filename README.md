@@ -2,6 +2,8 @@
 
 [中文](README.zh-CN.md)
 
+[![CI](https://github.com/goliajp/mingli/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/goliajp/mingli/actions/workflows/ci.yml)
+
 Divination systems, implemented as **algorithms**: deterministic casting engines in Rust, an axum service, and a React 19 frontend.
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
@@ -138,7 +140,11 @@ cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
 ./scripts/api-snapshot.sh check snap.txt   # 32 requests, byte for byte
+./scripts/test-count.sh    # the count in this README, against a real run
+./scripts/feature-matrix.sh  # 5 feature combinations, two wasm32 builds, one dependency-graph check
 ```
+
+All of the above, plus the screenshot pass, run on every push — see the badge at the top.
 
 Every authoritative reference value is **confirmed against multiple independent sources** and lives in a `#[test]` in the relevant crate. For example:
 

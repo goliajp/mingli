@@ -2,6 +2,8 @@
 
 [English](README.md)
 
+[![CI](https://github.com/goliajp/mingli/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/goliajp/mingli/actions/workflows/ci.yml)
+
 　　把全世界的术数当作**算法**来实现：确定性排盘引擎（Rust）+ axum 服务 + React 19 前端。
 
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
@@ -132,7 +134,13 @@ cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走�
 cargo test --workspace     # 699 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
+./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
+./scripts/api-snapshot.sh check snap.txt   # 32 个请求逐字节
+./scripts/test-count.sh    # 本文自称的测试数，对回真跑一遍的结果
+./scripts/feature-matrix.sh  # 5 种 feature 组合 + 两条 wasm32 + 一条查依赖图
 ```
+
+　　以上连同截图断言，每次 push 都会跑一遍——见顶部徽章。
 
 　　引擎校验的权威参照值均经**多源交叉确认**，全部落在各 crate 的 `#[test]` 里，例如：
 
