@@ -20,6 +20,21 @@ const OUT = new URL('./shots/', import.meta.url).pathname
 
 /** 每屏的断言。拿到 page，抛异常即为不过。 */
 const CHECKS = {
+  '02-紫微斗数': async (page) => {
+    // 大限十二步走满一轮，起运岁即五行局数，且相邻两步差十年
+    const cells = await page.locator('.zw-limit b').allInnerTexts()
+    if (cells.length !== 12) throw new Error(`大限应有 12 步，实有 ${cells.length}`)
+    const spans = cells.map((t) => t.split('–').map(Number))
+    for (const [lo, hi] of spans) {
+      if (hi - lo !== 9) throw new Error(`每步应含十年（首尾各含），实得 ${lo}–${hi}`)
+    }
+    for (let i = 1; i < spans.length; i++) {
+      if (spans[i][0] - spans[i - 1][0] !== 10) throw new Error(`相邻两步应差十岁：${spans[i - 1][0]} → ${spans[i][0]}`)
+    }
+    const head = await page.locator('.zw-limits .lp-sec-t').innerText()
+    const ju = Number(head.match(/(\d+) 岁起运/)?.[1])
+    if (spans[0][0] !== ju) throw new Error(`首步应自 ${ju} 岁起，实自 ${spans[0][0]}`)
+  },
   '03-西洋占星': async (page) => {
     // 二次推运一日一年：表里每十年一格，0..100 共 11 行
     const rows = await page.locator('table').last().locator('tbody tr').count()

@@ -24,9 +24,11 @@ use mingli_ganzhi::{
 use serde::Serialize;
 
 /// 十二宫名（自命宫起，逆时针即地支递减方向）。
-const PALACE_NAMES: [&str; 12] = [
+pub(crate) const PALACE_NAMES: [&str; 12] = [
     "命宫", "兄弟", "夫妻", "子女", "财帛", "疾厄", "迁移", "交友", "官禄", "田宅", "福德", "父母",
 ];
+
+pub mod limit;
 
 /// 四化星流派。
 ///
@@ -218,6 +220,8 @@ pub struct ZiweiChart {
     pub lunar: LunarChart,
     /// 命宫地支。
     pub ming_branch: String,
+    /// 大限盘（十年一宫）。性别缺省时为 `None`——顺逆由「年干阴阳 + 性别」定，缺一不可。
+    pub major_limits: Option<limit::MajorLimits>,
     /// 身宫地支。
     pub shen_branch: String,
     /// 命宫干支。
@@ -406,6 +410,9 @@ pub fn compute_at_with(moment: &Moment, gender: Option<Gender>, school: SihuaSch
             day: lunar.day,
         },
         ming_branch: BRANCHES[ming as usize].to_string(),
+        major_limits: gender.map(|g| {
+            limit::major_limits(ming, ju, year_gz.stem, matches!(g, Gender::Male))
+        }),
         shen_branch: BRANCHES[shen as usize].to_string(),
         ming_ganzhi: ming_gz.to_string(),
         wuxing_ju: ju_name(ju).to_string(),

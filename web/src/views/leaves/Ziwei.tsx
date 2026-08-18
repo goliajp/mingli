@@ -40,6 +40,26 @@ export function ZiweiView({ c }: { c: ZiweiChart }) {
           <Stat k="化忌" v={`${c.sihua.ji_star}${c.sihua.ji_branch ? ` · ${c.sihua.ji_branch}宫` : ''}`} hi />
         </div>
       </Section>
+      {c.major_limits && (
+        <div className="zw-limits">
+          <div className="lp-sec-t">
+            大限 · 十年一宫 · {c.major_limits.forward ? '顺行' : '逆行'} · {c.major_limits.start_age} 岁起运
+          </div>
+          <div className="lp-note">
+            起运岁即五行局数（{c.wuxing_ju}）；第一大限固定在命宫，此后每十年推进一宫。
+            顺逆由「年干阴阳 + 性别」定——阳男阴女顺、阴男阳女逆
+          </div>
+          <div className="zw-limit-row">
+            {c.major_limits.steps.map((s) => (
+              <span className="zw-limit" key={s.step}>
+                <b>{s.start_age}–{s.end_age}</b>
+                <span>{s.palace}</span>
+                <small>{s.branch}</small>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
