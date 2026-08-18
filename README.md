@@ -130,6 +130,11 @@ has rows, a graha's third-divisional sign sits 0, 4 or 8 signs from its natal on
 counts requests over three idle seconds — a page that keeps talking to the backend while nobody
 touches it is looping. Any of that failing exits non-zero.
 
+Before the screens, one more pass compares what `/api/cast` returns against every
+source file under `web/src`: a field the backend computes that no file so much as
+names is a field nobody can see. Five had slipped through that way before the
+check existed.
+
 A type check proves the code compiles. This proves the page still agrees with itself.
 
 ## Tests and cross-checks

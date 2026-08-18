@@ -20,6 +20,16 @@ const OUT = new URL('./shots/', import.meta.url).pathname
 
 /** 每屏的断言。拿到 page，抛异常即为不过。 */
 const CHECKS = {
+  '21-数字学': async (page) => {
+    // 生命灵数两派算法不同，本盘出主值并把另一派并列——两个数都得在屏幕上
+    const here = await page.locator('.nm-here').innerText()
+    if (!['分量约化', '全数字直加'].includes(here.trim())) throw new Error(`算法名写的是「${here}」，不是两派之一`)
+    const alt = await page.locator('.nm-alt').innerText()
+    const n = alt.match(/得\s*(\d+)/)?.[1]
+    if (!n) throw new Error(`另一派的数没写出来：「${alt}」`)
+    const main = (await page.locator('.num-big .nb b').first().innerText()).trim()
+    if (!/^\d+$/.test(main)) throw new Error(`主值不是个数：「${main}」`)
+  },
   '04-印度占星': async (page) => {
     // 分盘表：每曜一行、每盘一列。列数写死 12（本盘 D-1 与九分盘 D-9 在上面两表，不在此）
     const cols = await page.locator('.jy-varga thead th').count()
