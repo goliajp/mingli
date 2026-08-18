@@ -444,3 +444,37 @@ fn the_intent_ids_line_up_with_the_contract() {
         assert!(declared.contains(id), "意图 {id} 不在 contract 的 intents() 清单里");
     }
 }
+
+/// 护栏要在**每一片叶**的提示词里，不能只在抽查的那一片里。
+///
+/// 上面 `prompt_has_guardrails_and_chart` 只验大六壬一片。护栏是送进 LLM 的那段话——
+/// 缺了「绝不修改」，模型就可能重算或补数；缺了「引擎诚实留空」，它会替欠定项杜撰；
+/// 缺了免责句，输出会显得像断言。这些都是逐叶生效的事，抽一片验不出另一片的组装出了问题。
+///
+/// 确定性标记按叶自己的 `profile()` 对：有 UND 项的必须出现 UND 标记，有 DET 项的必须出现
+/// DET 标记——不是一律都要，而是**与它声明的相符**。
+#[test]
+fn every_leaf_prompt_carries_the_whole_guardrail() {
+    let reg = registry();
+    let leaves = cast_all_detailed(&reg, &sample_query());
+    let mut trouble = Vec::new();
+    for e in &reg {
+        let leaf = leaves.iter().find(|l| l.id == e.id()).expect("每片注册的叶都应出盘");
+        let p = build_prompt(e.as_ref(), leaf);
+        let declares = |s: Determinism| e.profile().iter().any(|x| x.status == s);
+        for (what, ok) in [
+            ("「绝不修改」这条硬约束", p.contains("绝不修改")),
+            ("免责句「仅供研究与娱乐」", p.contains("仅供研究与娱乐")),
+            ("欠定项不许杜撰的交代", p.contains("引擎诚实留空")),
+            ("本叶的名字", p.contains(e.name())),
+            ("与声明相符的 UND 标记", !declares(Determinism::Und) || p.contains(det_mark(Determinism::Und))),
+            ("与声明相符的 DET 标记", !declares(Determinism::Det) || p.contains(det_mark(Determinism::Det))),
+            ("盘面 JSON", p.contains('{')),
+        ] {
+            if !ok {
+                trouble.push(format!("{} 的提示词缺{what}", e.id()));
+            }
+        }
+    }
+    assert!(trouble.is_empty(), "护栏不是逐叶都全：\n  {}", trouble.join("\n  "));
+}
