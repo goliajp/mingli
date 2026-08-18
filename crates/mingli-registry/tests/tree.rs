@@ -11,6 +11,7 @@ use mingli_engine::{cast_all, cast_all_detailed, cast_one, route};
 use mingli_registry::registry;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 /// 契约层性别 → 八字叶性别（测试内自用）。
 fn leaf_gender_male(g: Option<Gender>) -> Option<mingli_bazi::Gender> {
@@ -512,6 +513,134 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
     }
 }
 
+
+/// 仓库根：本文件在 `crates/mingli-registry/tests/`。
+fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("crates/").parent().expect("仓库根").to_path_buf()
+}
+
+/// `profile()` 里写「校验 X」的，X 必须在测试代码里真的出现。
+///
+/// 确定性谱是这棵树对外最硬的一句话：某一项标 Det 并注明「校验 甲子」「校验 Meeus 0.02」，
+/// 读的人据此相信有一条测试在盯着那个值。可这两件事之间没有任何机械联系——
+/// 改测试时删掉一条 oracle、或写声称时把值记错一位，`profile()` 照样这么印，
+/// 而它是 `/api/cast` 与提示词都会带出去的东西。
+///
+/// 判据是「点名的字面量得在测试里找得到」：ISO 日期、干支、拉丁专名、带小数的容差。
+/// 找的范围是**整个工作区的测试代码**而非该叶自己——七政四余的「校验 Meeus 0.02」
+/// 落在 `mingli-ephemeris`（VSOP87 归它管），只搜本叶会误判成没有。
+/// `engine.rs` 自身排除在外：声称不能拿自己作佐证。
+#[test]
+fn a_verification_claim_names_a_value_the_tests_actually_use() {
+    let root = workspace_root();
+    let mut corpus = String::new();
+    let mut engines = Vec::new();
+    for entry in std::fs::read_dir(root.join("crates")).expect("crates/ 应可读") {
+        let dir = entry.expect("目录项应可读").path();
+        collect_rs(&dir, &mut corpus, &mut engines);
+    }
+    collect_rs(&root.join("services"), &mut corpus, &mut engines);
+    assert!(engines.len() > 15, "只找到 {} 个 engine.rs，扫描方式怕是失效了", engines.len());
+    assert!(corpus.len() > 100_000, "测试语料只有 {} 字节，扫描方式怕是失效了", corpus.len());
+
+    let mut bad = Vec::new();
+    for (leaf, src) in &engines {
+        // 干支只在本叶自己的测试里找：共享的 `mingli-ganzhi` 把六十甲子全枚举了一遍，
+        // 拿它当佐证的话，任何一个干支都「找得到」，这一路就成了空判
+        let own = own_tests(&root, leaf);
+        for claim in src.split("校验").skip(1) {
+            let claim: String = claim.chars().take_while(|c| *c != '"').take(60).collect();
+            for tok in literals(&claim) {
+                let is_ganzhi = tok.chars().count() == 2 && "甲乙丙丁戊己庚辛壬癸".contains(tok.chars().next().unwrap_or(' '));
+                let found = if is_ganzhi { own.contains(&tok) } else { corpus.contains(&tok) };
+                if !found {
+                    let scope = if is_ganzhi { "本叶的测试" } else { "工作区的测试代码" };
+                    bad.push(format!("{leaf} 声称「校验…{tok}…」，{scope}里找不到 `{tok}`"));
+                }
+            }
+        }
+    }
+    assert!(
+        bad.is_empty(),
+        "确定性谱里的校验声称没有对应的测试：\n  {}\n\
+         要么补上那条 oracle，要么把声称改成它真正验过的东西",
+        bad.join("\n  "),
+    );
+}
+
+/// 某片叶自己的测试代码（不含 `engine.rs`）。
+fn own_tests(root: &Path, leaf: &str) -> String {
+    let mut s = String::new();
+    let mut engines = Vec::new();
+    collect_rs(&root.join("crates").join(leaf), &mut s, &mut engines);
+    s
+}
+
+/// 递归收集 `.rs`：`engine.rs` 单独留作「声称」，其余并进「佐证」语料。
+fn collect_rs(dir: &Path, corpus: &mut String, engines: &mut Vec<(String, String)>) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            collect_rs(&p, corpus, engines);
+        } else if p.extension().is_some_and(|e| e == "rs") {
+            let Ok(text) = std::fs::read_to_string(&p) else { continue };
+            if p.file_name().is_some_and(|n| n == "engine.rs") {
+                let leaf = p.components().rev().nth(2).map_or_else(String::new, |c| c.as_os_str().to_string_lossy().into_owned());
+                engines.push((leaf, text));
+            } else {
+                corpus.push_str(&text);
+                corpus.push('\n');
+            }
+        }
+    }
+}
+
+/// 一句声称里可核对的字面量：ISO 日期、干支、拉丁专名、带小数的数。
+fn literals(claim: &str) -> Vec<String> {
+    const GAN: &str = "甲乙丙丁戊己庚辛壬癸";
+    const ZHI: &str = "子丑寅卯辰巳午未申酉戌亥";
+    let ch: Vec<char> = claim.chars().collect();
+    let mut out = Vec::new();
+    for (i, c) in ch.iter().enumerate() {
+        // 干支：一个天干紧跟一个地支
+        if GAN.contains(*c) && ch.get(i + 1).is_some_and(|n| ZHI.contains(*n)) {
+            out.push(format!("{c}{}", ch[i + 1]));
+        }
+    }
+    // ISO 日期与带小数的数
+    let bytes: Vec<char> = ch.clone();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_digit() {
+            let start = i;
+            while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == '-' || bytes[i] == '.') {
+                i += 1;
+            }
+            let tok: String = bytes[start..i].iter().collect();
+            let tok = tok.trim_end_matches(['-', '.']).to_string();
+            if tok.len() == 10 && tok.matches('-').count() == 2 {
+                out.push(tok); // ISO 日期
+            } else if tok.contains('.') && tok.matches('.').count() == 1 && !tok.starts_with('0') {
+                out.push(tok); // 容差之类；0.x 太常见，容易误判为「到处都有」
+            }
+        } else if bytes[i].is_ascii_uppercase() {
+            let start = i;
+            while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+                i += 1;
+            }
+            let tok: String = bytes[start..i].iter().collect();
+            if tok.len() >= 4 {
+                out.push(tok); // 拉丁专名
+            }
+        } else {
+            i += 1;
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
+}
 
 /// 取机的种子：声明会动的必须真会动，声明不动的必须真不动，两次同种子必须一样。
 ///
