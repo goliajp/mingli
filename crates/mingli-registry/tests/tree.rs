@@ -326,13 +326,17 @@ fn every_leaf_answers_the_natal_intent() {
     }
 }
 
+/// 声明与路由必须对得上：认领了哪一类，路由到那一类时就得把它算进去，且它排得出盘。
+///
+/// **这条验的是往返一致，不是能力。** 一片叶谎称能答某一类时，这条不会红——
+/// 路由本来就照着声明走，于是「路由包含它」在谎称时自动成立，实测过（让玛雅历认领「号」，
+/// 本条照绿）。留着它是因为它仍能抓住另一类错：声明与路由脱节（如日后有人在 route 里加特例）。
+///
+/// 「答不答得起」本身只在**逐意图**上机械可查，且只有部分意图查得了——
+/// 「寻」要真给得出方位候选，那条在 `claiming_the_locative_intent_means_actually_producing_bearings`。
+/// 其余各类（如「运」要时间序列）没有同样干净的判据，靠的是各叶 `answers` 注释里写明的依据与复核。
 #[test]
-fn a_leaf_that_claims_an_intent_can_actually_answer_it() {
-    // 声明的判定标准是「当下算得出」，不是「传统上该答」（见 `CastingEngine::answers` 的说明）。
-    // 标准既然是事实，就该能验：认领了哪一类，路由到那一类时就得真出得来东西。
-    //
-    // 从前这层关系写在端口层的一张「意图 → 叶 id」表里，那张表没有任何东西验证过——
-    // 表里多一个不存在的 id 会静默地少路由一片叶，少一个则新叶永远不入路由。
+fn a_claimed_intent_routes_back_to_the_leaf_that_claimed_it() {
     let reg = registry();
     let m = mingli_contract::Moment::new(2026, 6, 16, 10, 0, 8.0);
     let q = sample();
