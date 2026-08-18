@@ -513,6 +513,58 @@ fn a_capability_that_was_taken_away_is_still_accounted_for() {
 }
 
 
+/// 声称支持的年份区间，两端每片叶都要照样出得来。
+///
+/// README 写着「支持 1900–2100」，用例层的 `Birth::validate` 也照此收口。可「不被拒绝」
+/// 与「算得对」是两件事：叶各自的锚点、查表、天文近似都有自己的适用范围，
+/// 区间两端最容易碰到没人走过的分支——多数输入落在近几十年，端点从来没被跑过。
+///
+/// 判据取两条，都不涉及具体数值（那属各叶自己的 oracle）：不许 panic，
+/// 且字段集要与区间中段的一致——少一个字段就是某条分支在端点上悄悄没走到。
+/// 闰日一并扫，它是另一处只在特定日子才走到的分支。
+#[test]
+fn every_leaf_holds_up_at_both_ends_of_the_supported_range() {
+    let edges = [
+        (1900, 1, 1, 0, 0), (1900, 2, 4, 23, 59), (1900, 12, 31, 23, 59),
+        (2100, 1, 1, 0, 0), (2100, 6, 15, 12, 0), (2100, 12, 31, 23, 59),
+        (2000, 2, 29, 12, 0), (2024, 2, 29, 0, 0),
+    ];
+    let mk = |y, mo, d, h, mi| mingli_contract::Query {
+        year: y, month: mo, day: d, hour: h, minute: mi, tz: 8.0,
+        gender: Some(mingli_contract::Gender::Male),
+        latitude: Some(31.23), longitude: Some(121.47),
+        seed: Some(7), name: Some("Ada".into()),
+        schools: std::collections::BTreeMap::new(),
+    };
+    let mid_q = mk(1990, 6, 15, 12, 0);
+    let mid_m = mingli_astro::Moment::new(1990, 6, 15, 12, 0, 8.0);
+
+    let mut trouble = Vec::new();
+    for e in mingli_registry::registry() {
+        let mid = e.cast(&mid_m, &mid_q);
+        for (y, mo, d, h, mi) in edges {
+            let q = mk(y, mo, d, h, mi);
+            let m = mingli_astro::Moment::new(y, mo, d, h, mi, 8.0);
+            let cast = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| e.cast(&m, &q)));
+            let Ok(v) = cast else {
+                trouble.push(format!("{} 在 {y}-{mo}-{d} 上 panic 了", e.id()));
+                continue;
+            };
+            if let (Some(got), Some(want)) = (v.as_object(), mid.as_object()) {
+                let miss: Vec<&str> = want.keys().filter(|k| !got.contains_key(*k)).map(String::as_str).collect();
+                if !miss.is_empty() {
+                    trouble.push(format!("{} 在 {y}-{mo}-{d} 上少了字段 {miss:?}", e.id()));
+                }
+            }
+        }
+    }
+    assert!(
+        trouble.is_empty(),
+        "声称支持 1900–2100，但区间端点上出了问题：\n  {}",
+        trouble.join("\n  "),
+    );
+}
+
 /// 声明了的流派选项，选上之后盘面必须真的不一样。
 ///
 /// 流派是这棵树对外承诺的核心之一：某片叶说它支持早子 / 晚子两派，读的人据此以为

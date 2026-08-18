@@ -91,6 +91,31 @@ fn the_headline_counts_match_the_workspace() {
     }
 }
 
+/// README 写的支持年份区间，要与用例层真正收口的那一对数字一致。
+///
+/// 「支持 1900–2100」是对外的承诺，而真正决定收不收的是 `Birth::validate` 里的常量。
+/// 两处各写各的，改了一边不会有任何反应——把区间放宽到 1800 而 README 不动，
+/// 读的人就会以为 1800 不受支持，反之则会拿着被拒的请求找不着北。
+#[test]
+fn the_supported_year_range_says_what_the_code_enforces() {
+    let src = read("crates/mingli-app/src/lib.rs");
+    let at = src.find("..=").expect("用例层应有一处年份区间收口");
+    let lo: String = src[..at].chars().rev().take_while(char::is_ascii_digit).collect();
+    let lo: String = lo.chars().rev().collect();
+    let hi: String = src[at + 3..].chars().take_while(char::is_ascii_digit).collect();
+    assert!(
+        lo.len() == 4 && hi.len() == 4,
+        "没能从用例层读出年份区间（读到 `{lo}..={hi}`）——收口的写法改了，本测试要跟着改"
+    );
+    for (name, text) in readmes() {
+        let claim = format!("{lo}–{hi}");
+        assert!(
+            text.contains(&claim),
+            "{name} 没有写出代码真正收口的年份区间 `{claim}`——两处必须一致"
+        );
+    }
+}
+
 #[test]
 fn every_workspace_member_appears_in_the_layer_tree() {
     let members: BTreeSet<String> = {
