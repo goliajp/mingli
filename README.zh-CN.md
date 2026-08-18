@@ -7,7 +7,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 691 个测试全绿
+> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 8 类问局（HTTP 与 wasm 都接）· 699 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -118,16 +118,18 @@ cd web && bun install && bun run dev
 cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走一遍界面
 ```
 
-　　29 屏（21 片叶 + 横切页 + 各意图页）× 两个视口（1440 与 1024），产物在 `web/e2e/shots/<宽度>/`。
-除汇总 console 报错、页面异常与失败请求外，五屏带断言：九宫恰 9 格、分档标题自报的天数等于表里行数、
-罗盘 pin 数等于列表行数。任一条不过即非零退出。跑之前先对一遍 CSS 变量——用到的有没有来源、定义的有没有人读。
+　　30 屏（21 片叶 + 横切页 + 各意图页）× 两个视口（1440 与 1024），产物在 `web/e2e/shots/<宽度>/`。
+除汇总 console 报错、页面异常与失败请求外，八屏带断言：九宫恰 9 格、分档标题自报的天数等于表里行数、
+罗盘 pin 数等于列表行数、某曜的三分盘落宫与本命宫只相隔 0 / 4 / 8 宫。收尾另有一条：无人操作的三秒里
+还在发请求，就是有东西在自循环。任一条不过即非零退出。跑之前先对一遍 CSS 变量——用到的有没有来源、
+定义的有没有人读。
 
 　　类型检查证明代码编得过，这个证明画面还自洽。
 
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 691 个测试
+cargo test --workspace     # 699 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ```

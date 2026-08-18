@@ -6,7 +6,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 37 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 691 tests green
+> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 8 intents, over HTTP and wasm alike · 699 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -120,18 +120,20 @@ cd web && bun install && bun run dev
 cd web && bun run shots     # reconcile the CSS variables, then walk the UI in headless Chromium
 ```
 
-Twenty-nine screens — all twenty-one leaves, the cross-cutting tabs, every intent — at 1440 and
-again at 1024, landing in `web/e2e/shots/<width>/`. Console errors, page exceptions and failed
-requests are collected, and five screens assert on what they rendered: the nine-palace grid has
-nine cells, each group heading's count matches the rows beneath it, the compass plots as many
-pins as the table has rows. Any of that failing exits non-zero.
+30 screens — all twenty-one leaves, the cross-cutting tabs, every intent — at 1440 and again at
+1024, landing in `web/e2e/shots/<width>/`. Console errors, page exceptions and failed requests are
+collected, and eight screens assert on what they rendered: the nine-palace grid has nine cells,
+each group heading's count matches the rows beneath it, the compass plots as many pins as the table
+has rows, a graha's third-divisional sign sits 0, 4 or 8 signs from its natal one. A final check
+counts requests over three idle seconds — a page that keeps talking to the backend while nobody
+touches it is looping. Any of that failing exits non-zero.
 
 A type check proves the code compiles. This proves the page still agrees with itself.
 
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 691 tests
+cargo test --workspace     # 699 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
