@@ -9,6 +9,16 @@ export interface AstroChart {
   cusp_system?: string
   cusp_houses?: { number: number; cusp_longitude: number; cusp_sign: string; cusp_degree: number; planets: string[] }[]
   planets: { name: string; sign: string; degree: number; longitude: number; house: number }[]
+  /** 二次推运（一日一年）：出生后第 N 日的天象代表第 N 年 */
+  progression: {
+    method: string
+    max_age: number
+    years: {
+      age: number
+      planets: { name: string; sign: string; degree: number; longitude: number }[]
+      to_natal: { a: string; b: string; kind: string; angle: number }[]
+    }[]
+  }
 }
 const CUSP_SYSTEM_LABEL: Record<string, string> = {
   placidus: 'Placidus 半弧三分',
@@ -105,6 +115,32 @@ export function Astrology({ c }: { c: AstroChart }) {
           ))}
         </div>
       </Section>}
+      <Section title={`二次推运 · 一日一年 · 0—${c.progression.max_age} 岁`} wide>
+        <div className="lp-note">
+          出生后第 N 日的天象代表人生第 N 年。推运太阳约 1°/年、推运月亮约 13°/年，故月亮每两三年换一座。
+          下表每十年取一格，「与本命成角」是推运星走到本命星角上的条数
+        </div>
+        <table className="jy-graha-table">
+          <thead>
+            <tr><th>岁</th><th>推运日</th><th>推运月</th><th>与本命成角</th></tr>
+          </thead>
+          <tbody>
+            {c.progression.years.filter((y) => y.age % 10 === 0).map((y) => {
+              const at = (n: string) => y.planets.find((p) => p.name === n)
+              const sun = at('太阳')
+              const moon = at('月亮')
+              return (
+                <tr key={y.age}>
+                  <td><b>{y.age}</b></td>
+                  <td>{sun ? `${sun.sign} ${sun.degree.toFixed(1)}°` : '—'}</td>
+                  <td>{moon ? `${moon.sign} ${moon.degree.toFixed(1)}°` : '—'}</td>
+                  <td>{y.to_natal.length} 条</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </Section>
     </div>
   )
 }

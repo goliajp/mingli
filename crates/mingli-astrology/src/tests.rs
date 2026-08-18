@@ -238,3 +238,52 @@ mod cross {
         }
     }
 }
+
+/// 二次推运：**用两条各家都点名的性质当 oracle**，而不是拿本算的输出当参照。
+///
+/// 「一日一年」两源同述（Cafe Astrology《Secondary Progressions》、
+/// Kepler College《An Introduction to Secondary Progressions》），
+/// 而它们同时给出了两个可独立核对的量：推运太阳约 **1°/年**、推运月亮约 **13°/年**
+/// （后者故每两三年换一座）。这两个数不是从本实现导出的，
+/// 所以拿它们做判据能真正验到「一日一年」这条换算有没有落对——
+/// 若误写成一日一月、或把日数当成年数乘错，两条立刻都不成立。
+#[test]
+fn secondary_progression_moves_the_sun_a_degree_and_the_moon_thirteen_per_year() {
+    let m = Moment::new(1990, 6, 15, 14, 30, 8.0);
+    let chart = compute_at(&m, None, HouseSystem::WholeSign);
+    let p = &chart.progression;
+    assert_eq!(p.method, "secondary");
+    assert_eq!(p.years.len() as u32, p.max_age + 1, "0..=max_age 每岁一片");
+    assert_eq!(p.years[0].age, 0);
+
+    // 第 0 岁的推运盘就是本命盘本身（出生后第 0 日）
+    for (a, b) in p.years[0].planets.iter().zip(&chart.planets) {
+        assert!((a.longitude - b.longitude).abs() < 1e-9, "第 0 岁应与本命同盘：{} ", a.name);
+    }
+
+    let lon = |age: usize, name: &str| {
+        p.years[age].planets.iter().find(|x| x.name == name).expect("该星应在盘上").longitude
+    };
+    // 判据一：推运太阳约 1°/年。百年净移不足 100°，不绕圈，无须补圈记账
+    let sun_total = (lon(100, "太阳") - lon(0, "太阳")).rem_euclid(360.0);
+    let sun_rate = sun_total / 100.0;
+    assert!(
+        (0.9..=1.05).contains(&sun_rate),
+        "推运太阳应约 1°/年（两源同述），实测 {sun_rate:.4}°/年",
+    );
+
+    // 判据二：**推运月亮每两三年换一座**——两源都是这么写的，且它不必补圈，
+    // 比「13°/年」更适合做判据：月行度在 11.8–15.4°/日间摆，跨度取多长都留几分残差，
+    // 而「几年换一座」是把那点残差吸收掉之后仍成立的说法
+    let sign_of = |age: usize| (lon(age, "月亮") / 30.0).floor() as i32;
+    let changes = (1..=100).filter(|&a| sign_of(a) != sign_of(a - 1)).count();
+    let years_per_sign = 100.0 / f64::from(u32::try_from(changes).expect("百年内换座次数不会溢出"));
+    assert!(
+        (2.0..=3.0).contains(&years_per_sign),
+        "推运月亮应每 2–3 年换一座，实测每 {years_per_sign:.2} 年一次（百年内换了 {changes} 次）",
+    );
+
+    // 「运」的着力处：推运星与本命星成角。一生百年里不该一条都没有
+    let total: usize = p.years.iter().map(|y| y.to_natal.len()).sum();
+    assert!(total > 0, "百年推运里竟无一处与本命成相位，说明比对那一步没接上");
+}

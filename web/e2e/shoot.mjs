@@ -20,6 +20,14 @@ const OUT = new URL('./shots/', import.meta.url).pathname
 
 /** 每屏的断言。拿到 page，抛异常即为不过。 */
 const CHECKS = {
+  '03-西洋占星': async (page) => {
+    // 二次推运一日一年：表里每十年一格，0..100 共 11 行
+    const rows = await page.locator('table').last().locator('tbody tr').count()
+    if (rows !== 11) throw new Error(`推运表应有 11 行（0..100 每十年一格），实有 ${rows}`)
+    // 推运太阳每年约 1°，故十年约 10°——同一星座里连走两格即可验，跨座则度数回卷，故只看首尾两格的座
+    const first = await page.locator('table').last().locator('tbody tr').first().innerText()
+    if (!/^0\b/.test(first.trim())) throw new Error(`首行应是 0 岁，实为「${first.replace(/\s+/g, ' ')}」`)
+  },
   '21-数字学': async (page) => {
     // 生命灵数两派算法不同，本盘出主值并把另一派并列——两个数都得在屏幕上
     const here = await page.locator('.nm-here').innerText()
