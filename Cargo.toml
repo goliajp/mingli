@@ -60,8 +60,11 @@ mingli-astrology = { path = "crates/mingli-astrology" }
 mingli-jyotish = { path = "crates/mingli-jyotish" }
 mingli-qizhengsiyu = { path = "crates/mingli-qizhengsiyu" }
 mingli-engine = { path = "crates/mingli-engine" }
-mingli-registry = { path = "crates/mingli-registry" }
-mingli-app = { path = "crates/mingli-app" }
+# registry 与 app 的星历叶按 feature 可裁，故在此设为 opt-in：
+# 各消费者显式声明它要哪几片。若在这里留默认全开，下游写 `default-features = false`
+# 会被 Cargo 拒（继承来的依赖不许覆盖它），于是「轻量构建」这句话就永远不成立。
+mingli-registry = { path = "crates/mingli-registry", default-features = false }
+mingli-app = { path = "crates/mingli-app", default-features = false }
 mingli-analysis = { path = "crates/mingli-analysis" }
 mingli-interpret = { path = "crates/mingli-interpret" }
 mingli-wasm = { path = "crates/mingli-wasm" }
