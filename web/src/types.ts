@@ -381,6 +381,27 @@ export interface ZiweiChart {
   tianfu_branch: string
   palaces: Palace[]
   sihua: Sihua
+  /** 大限盘（十年一宫）。性别缺省时为 null——顺逆由「年干阴阳 + 性别」定，缺一不可 */
+  major_limits: MajorLimits | null
+}
+
+/** 一步大限（对应 ziwei::limit::MajorLimit）。 */
+export interface MajorLimit {
+  step: number
+  start_age: number
+  end_age: number
+  branch_index: number
+  branch: string
+  palace: string
+}
+
+/** 大限盘（对应 ziwei::limit::MajorLimits）。 */
+export interface MajorLimits {
+  /** 起运岁 = 五行局数 */
+  start_age: number
+  /** 阳男阴女为真 */
+  forward: boolean
+  steps: MajorLimit[]
 }
 
 /** 占事结果（对应 app::event::EventCast）。 */

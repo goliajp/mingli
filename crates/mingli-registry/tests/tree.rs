@@ -420,12 +420,15 @@ fn route_natal_returns_full_registry_in_order() {
 
 #[test]
 fn route_non_natal_dispatches_to_declared_leaves() {
-    // Fortune → 真有时间序列的叶：四柱的大运/流年，印度占星的 Vimshottari。
-    // 紫微与西洋占星曾在这张名单上，但它们的大限/流年与行运都还没实现。
+    // Fortune → 真有时间序列的叶。四片各有各的一路，且都由出生时刻单独可导出：
+    // 四柱的大运/流年、印度占星的 Vimshottari、紫微的大限、西洋占星的二次推运。
+    // 这四片曾只有前两片——后两片是把各自那条时间线做出来之后才回到这张名单上的。
     let r = route(&registry(), &QueryKind::Fortune { natal: sample(), t_target: ask_2026() });
-    assert!(r.contains(&"bazi"));
-    assert!(r.contains(&"jyotish"));
-    assert!(!r.contains(&"ziwei"), "紫微没有大限/流年，不该被路由到「运」");
+    for id in ["bazi", "jyotish", "ziwei", "astrology"] {
+        assert!(r.contains(&id), "叶 `{id}` 有自己的时间序列，应被路由到「运」");
+    }
+    // 反过来：没有时间序列的叶不该混进来
+    assert!(!r.contains(&"maya"), "玛雅历只出某日的历法坐标，没有一生的时间线");
     // Event → 卜筮叶。
     let r = route(&registry(), &QueryKind::Event { t_ask: ask_2026(), seed: 42, q_text: None });
     assert!(r.contains(&"yijing"));
@@ -486,11 +489,13 @@ fn natal_cast_path_unchanged_regression_guard() {
 /// 第三列是这一条**当下属于哪一类**：`还没做` 指证据未查、只差施工；
 /// `查过定不下` 指已查证而多源冲突，按铁律留白。一条从前者走到后者是**进展**，
 /// 改这张表就是在记录那次进展——小六壬的方位已经这么走过一次（四神可定、小吉与空亡不可）。
-const REVOKED: [(&str, &str, &str); 4] = [
-    ("ziwei", "大限 / 流年", "还没做"),
-    ("astrology", "行运", "还没做"),
+/// 一条**做出来**了就从这张表上走掉——那时它不再是留白，而是该叶认领的能力，
+/// 由「认领的意图必须路由得回来」那条守着。紫微的大限 / 流年与占星的推运已这么走掉。
+const REVOKED: [(&str, &str, &str); 2] = [
+    ("astrology", "行运（transit）与太阳返照", "还没做"),
     ("jyotish", "合婚", "还没做"),
-    ("xiaoliuren", "六神配方位", "查过"),
+    // ("ziwei", "大限 / 流年")  —— 已实现，见 `mingli-ziwei` 的 `limit.rs`
+    // ("xiaoliuren", "六神配方位") —— 已查证：四定二不定，见该叶 profile
 ];
 
 #[test]

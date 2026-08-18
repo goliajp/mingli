@@ -338,3 +338,67 @@ fn the_zhongzhou_school_diverges_on_exactly_three_stems() {
         }
     }
 }
+
+/// 大限：起运岁、顺逆、宫名串三条都对源，而不是只验一张盘。
+///
+/// 两源同述（<https://iztro.com/learn/basis>、<https://zhuanlan.zhihu.com/p/718987833>）：
+/// 起运岁 = 五行局数；第一大限固定在命宫；顺逆由「年干阴阳 + 性别」定，阳男阴女顺、阴男阳女逆。
+///
+/// 判据取**两源都逐宫列出的那两串宫名**，比只验起岁强得多：
+/// 顺行作 命→父母→福德→田宅→官禄→交友，逆行作 命→兄弟→夫妻→子女→财帛→疾厄。
+/// 把顺逆判反、或把宫名的排布方向弄反，这两串立刻不成立，而起运岁仍会是对的。
+#[test]
+fn the_major_limits_walk_the_palaces_both_sources_list() {
+    use crate::limit::major_limits;
+
+    // 阳年（甲=0）+ 男 → 顺行；命宫取子（0）便于逐宫核对
+    let f = major_limits(0, 3, 0, true);
+    assert!(f.forward, "阳男应顺行");
+    assert_eq!(f.start_age, 3, "木三局 3 岁起运");
+    assert_eq!(f.steps[0].start_age, 3);
+    assert_eq!(f.steps[0].end_age, 12, "十年一限，含两端");
+    assert_eq!(f.steps[1].start_age, 13);
+    let names: Vec<&str> = f.steps.iter().take(6).map(|s| s.palace).collect();
+    assert_eq!(
+        names,
+        ["命宫", "父母", "福德", "田宅", "官禄", "交友"],
+        "顺行的宫名串（两源同列）",
+    );
+
+    // 阴年（乙=1）+ 男 → 逆行
+    let b = major_limits(0, 2, 1, true);
+    assert!(!b.forward, "阴男应逆行");
+    assert_eq!(b.start_age, 2, "水二局 2 岁起运");
+    let names: Vec<&str> = b.steps.iter().take(6).map(|s| s.palace).collect();
+    assert_eq!(
+        names,
+        ["命宫", "兄弟", "夫妻", "子女", "财帛", "疾厄"],
+        "逆行的宫名串（两源同列）",
+    );
+
+    // 四种组合的顺逆：阳男顺、阴女顺、阴男逆、阳女逆
+    for (stem, male, want) in [(0, true, true), (1, false, true), (1, true, false), (0, false, false)] {
+        let g = major_limits(0, 5, stem, male);
+        assert_eq!(g.forward, want, "年干{stem} 性别男={male} 的顺逆");
+    }
+
+    // 十二步走满一轮：地支不重不漏
+    let seen: std::collections::BTreeSet<u8> = f.steps.iter().map(|s| s.branch_index).collect();
+    assert_eq!(seen.len(), 12, "十二步应走遍十二宫");
+}
+
+/// 流年：太岁支入宫，不涉顺逆也不涉性别。
+#[test]
+fn the_annual_palace_follows_the_year_branch() {
+    use crate::limit::annual_palace;
+    // 2024 甲辰年 → 年支辰（4）
+    assert_eq!(annual_palace(0, 2024).0, 4, "2024 为辰年");
+    assert_eq!(annual_palace(0, 2020).0, 0, "2020 为子年");
+    assert_eq!(annual_palace(0, 1990).0, 6, "1990 为午年");
+    // 同一年、不同命宫 → 支序不变，宫名随命宫移
+    assert_eq!(annual_palace(0, 2024).0, annual_palace(5, 2024).0);
+    assert_ne!(annual_palace(0, 2024).1, annual_palace(5, 2024).1);
+    // 十二年走遍十二宫
+    let seen: std::collections::BTreeSet<u8> = (2020..2032).map(|y| annual_palace(0, y).0).collect();
+    assert_eq!(seen.len(), 12);
+}
