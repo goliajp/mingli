@@ -33,15 +33,20 @@ jobs:
       - name: feature 矩阵（5 种组合 + wasm32 两条 + 查依赖图）
         run: ./scripts/feature-matrix.sh
 
-      # 契约快照守的是「改动前后逐字节一致」，CI 里没有「改动前」可比，比对留给本地改动时做。
-      # 这里只断言一件它能断言的事：这 36 个请求没有一个把服务打崩、也没有一个连不上。
-      # （`000` 是连不上——它长得跟「所有端点都变了」一模一样，必须单独拎出来认。）
-      - name: 36 个请求里没有 5xx，也没有连不上
+      # 两件事，都不是同义反复：
+      # 1. 36 个请求没有一个把服务打崩、也没有一个连不上（`000` 是连不上——
+      #    它长得跟「所有端点都变了」一模一样，必须单独拎出来认）
+      # 2. save 与 check 各自起一个**新进程**，于是这一步顺带是一次跨进程确定性检查。
+      #    Rust 的 HashMap 每进程换一个随机种子，遍历它就会让同一份构建在两次运行里
+      #    吐出不同的字节——`/api/analysis` 当初正是这么坏的，而同一进程内跑两遍看不出来。
+      #    「改动前后逐字节一致」那一半 CI 里确实做不了（没有改动前），留给本地。
+      - name: 36 个请求：无 5xx、无连不上，且两个进程给出同一份字节
         run: |
           cargo build -p mingli-api
           ./scripts/api-snapshot.sh save /tmp/snap.txt
           bad=$(grep -E '^(000|5[0-9]{2})$' /tmp/snap.txt || true)
           test -z "$bad" || { echo "出现异常状态码：$bad"; grep -B2 -E '^(000|5[0-9]{2})$' /tmp/snap.txt; exit 1; }
+          ./scripts/api-snapshot.sh check /tmp/snap.txt
 
       - name: README 自称的测试数
         run: ./scripts/test-count.sh
