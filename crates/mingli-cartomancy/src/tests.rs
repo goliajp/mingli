@@ -206,13 +206,72 @@ assert_eq!(en.len(), 22);
 assert_eq!(zh.len(), 22);
 }
 
-/// Lenormand 36 名英唯一 + 中文唯一 + 非空。
+/// Elder Futhark 24：名与字符**逐条对顺序**。
+///
+/// 原先只验了「字符落在 Runic 区块 U+16A0..U+16FF」——那连两个卢恩对调都看不出来。
+/// 而顺序在这里是实义的：这套字母表按三个 ætt（各八个）排，抽签的 index → 卢恩
+/// 这条映射错一位，整副就错了位。
+///
+/// 参照 en.wikipedia《Elder Futhark》的 ætt 表逐条对过：24 个字符与顺序全同，
+/// 名字 22 个逐字相同，两个属异名而字符不变——第 14 个本表作 Perthro、维基作 Peordh，
+/// 第 24 个本表作 Othala、维基作 Othalan。
 #[test]
-fn lenormand_names_unique() {
-let en: HashSet<&str> = LENORMAND_NAMES.iter().map(|p| p.0).collect();
+fn elder_futhark_follows_the_three_aettir() {
+const ORDER: [(&str, &str); 24] = [
+    ("Fehu", "ᚠ"), ("Uruz", "ᚢ"), ("Thurisaz", "ᚦ"), ("Ansuz", "ᚨ"),
+    ("Raido", "ᚱ"), ("Kaunan", "ᚲ"), ("Gebo", "ᚷ"), ("Wunjo", "ᚹ"),
+    ("Hagalaz", "ᚺ"), ("Naudiz", "ᚾ"), ("Isaz", "ᛁ"), ("Jeran", "ᛃ"),
+    ("Eihwaz", "ᛇ"), ("Perthro", "ᛈ"), ("Algiz", "ᛉ"), ("Sowilo", "ᛊ"),
+    ("Tiwaz", "ᛏ"), ("Berkanan", "ᛒ"), ("Ehwaz", "ᛖ"), ("Mannaz", "ᛗ"),
+    ("Laguz", "ᛚ"), ("Ingwaz", "ᛜ"), ("Dagaz", "ᛞ"), ("Othala", "ᛟ"),
+];
+for (i, (name, glyph)) in ORDER.iter().enumerate() {
+    assert_eq!(
+        ELDER_FUTHARK_NAMES[i], (*name, *glyph),
+        "第 {} 个应为「{name} {glyph}」，实为「{} {}」",
+        i + 1,
+        ELDER_FUTHARK_NAMES[i].0,
+        ELDER_FUTHARK_NAMES[i].1,
+    );
+}
+// 三个 ætt 各八个，是这套字母表的结构
+assert_eq!(ELDER_FUTHARK_NAMES.len() % 8, 0, "24 应能分成三个各八个的 ætt");
+assert_eq!(ELDER_FUTHARK_NAMES.len() / 8, 3);
+// 「Futhark」这个名字取自前六个卢恩的首音：f-u-th-a-r-k
+let initials: Vec<char> = ELDER_FUTHARK_NAMES[..6].iter().filter_map(|p| p.0.chars().next()).collect();
+assert_eq!(initials, ['F', 'U', 'T', 'A', 'R', 'K'], "前六个的首字母应拼出 FUThARK");
+}
+
+/// Lenormand 36 名：**逐条对牌序**，不是只验唯一性。
+///
+/// 顺序本身就是内容——牌是按 1..36 固定编号的，index → 牌名这条映射错一位，
+/// 整副牌就全错了位，而「36 个名字互不相同」对此完全无感（原先只验了这个）。
+///
+/// 参照 en.wikipedia《Lenormand cards》的编号表逐条对过，34 张字面相同或属其所列异体
+/// （Trefoil/Clover、Cloud/Clouds 这类）。第 28、29 两张本表作 Gentleman / Lady，
+/// 维基作 Man / Woman——两套名并行且都有据：本叶所引的 globalspiritualstudies
+/// 正作「The Lady · Lenormand Card 29」，两名同指人事象征牌（significator）。
+#[test]
+fn lenormand_names_follow_the_numbered_order() {
+// 1..36，与 en.wikipedia 的编号表逐条对应
+const ORDER: [&str; 36] = [
+    "Rider", "Clover", "Ship", "House", "Tree", "Clouds", "Snake", "Coffin", "Bouquet",
+    "Scythe", "Whip", "Birds", "Child", "Fox", "Bear", "Stars", "Stork", "Dog",
+    "Tower", "Garden", "Mountain", "Crossroads", "Mice", "Heart", "Ring", "Book", "Letter",
+    "Gentleman", "Lady", "Lilies", "Sun", "Moon", "Key", "Fish", "Anchor", "Cross",
+];
+for (i, want) in ORDER.iter().enumerate() {
+    assert_eq!(
+        LENORMAND_NAMES[i].0, *want,
+        "第 {} 张应为「{want}」，实为「{}」",
+        i + 1,
+        LENORMAND_NAMES[i].0,
+    );
+}
+// 中文译名一一配齐且互不相同
 let zh: HashSet<&str> = LENORMAND_NAMES.iter().map(|p| p.1).collect();
-assert_eq!(en.len(), 36);
-assert_eq!(zh.len(), 36);
+assert_eq!(zh.len(), 36, "中文译名应 36 个互不相同");
+assert!(LENORMAND_NAMES.iter().all(|p| !p.1.is_empty()), "中文译名不许留空");
 }
 
 /// Elder Futhark 24 + Younger Futhark 16 古北欧名唯一 + Unicode 字符在 Runic block(U+16A0..U+16FF)。
