@@ -13,7 +13,7 @@ mingli-contract = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
-mingli-registry = { workspace = true, features = ["astrology", "jyotish", "qizhengsiyu"] }
+mingli-registry = { workspace = true, features = ["full"] }
 criterion = { version = "0.8", default-features = false }
 
 [lints]

@@ -434,26 +434,28 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
 #[test]
 fn the_delivery_layer_says_which_leaves_it_ships() {
     let root = workspace_root();
-    for (who, manifest) in [
-        ("mingli-api", root.join("services/mingli-api/Cargo.toml")),
-        ("mingli-wasm", root.join("crates/mingli-wasm/Cargo.toml")),
-    ] {
-        let text = std::fs::read_to_string(&manifest).expect("清单应可读");
+    // 凡是取整套注册表的地方——交付层的正式依赖，以及各层测试里的 dev-dependency。
+    // 后者一样会咬人：`mingli-app` 的 dev-dependency 停在旧的三个 feature 名上，
+    // 于是 `cargo test -p mingli-app` 单独跑时占卜那几片根本不在注册表里，八条测试全挂；
+    // 而整仓一起跑时 Cargo 把 feature 沿依赖图合并，`mingli-api` 的 `full` 替它补齐了，
+    // 于是那八条照常绿。**单独跑才露馅的东西，日常是看不见的**。
+    let manifests = [
+        "services/mingli-api",
+        "crates/mingli-app",
+        "crates/mingli-analysis",
+        "crates/mingli-interpret",
+    ];
+    for who in manifests {
+        let text = std::fs::read_to_string(root.join(who).join("Cargo.toml")).expect("清单应可读");
         let line = text
             .lines()
             .find(|l| l.starts_with("mingli-registry ="))
             .unwrap_or_else(|| panic!("{who} 应依赖装配根"));
-        // wasm 自己就是一层可裁的交付物，它按自身 feature 转发；api 是完整服务，装全部
-        if who == "mingli-api" {
-            assert!(
-                line.contains("\"full\""),
-                "{who} 应写明 `features = [\"full\"]`——装全部二十四个叶 crate（二十一片时刻叶 + 三片字词叶）是个显式决定，\n\
-                 而不是把名字抄一遍（抄漏一个不会报错，只会静默少一片叶）。现为：{line}",
-            );
-        }
         assert!(
-            text.contains("[features]") || who == "mingli-api",
-            "{who} 应有 [features] 段以便逐片裁剪",
+            line.contains("\"full\""),
+            "{who} 应写明 `features = [\"full\"]`——装全部二十四个叶 crate 是个显式决定，\n\
+             而不是把名字抄一遍。抄漏一个不会报错，只会让某几套术数静默消失，\n\
+             且整仓一起跑时 feature 合并还会替你把它补上，于是连测试都看不见。现为：{line}",
         );
     }
     // 装配根与 wasm 都要有 `full`，否则上面那句「全都要」没处可指。
@@ -464,6 +466,9 @@ fn the_delivery_layer_says_which_leaves_it_ships() {
         let text = std::fs::read_to_string(root.join(c).join("Cargo.toml")).expect("清单应可读");
         assert!(text.contains("\nfull = ["), "{c} 应提供 `full` feature");
     }
+    // wasm 自己就是一层可裁的交付物，它按自身 feature 转发，故不在上面那张表里
+    let wasm = std::fs::read_to_string(root.join("crates/mingli-wasm/Cargo.toml")).expect("清单应可读");
+    assert!(wasm.contains("[features]"), "mingli-wasm 应有 [features] 段以便逐片裁剪");
 }
 
 #[test]

@@ -140,15 +140,20 @@ probe() {
 }
 
 
-# probe_cmd <组名> <要跑的命令> <文件> <sed 表达式>
+# probe_cmd <组名> <要跑的命令> <文件> <sed 表达式> [确认命令]
 #
 # 前端那几条守卫不是 cargo 测试，是 node 脚本，所以另走一条：不认测试名，认命令的退出码。
 # 代价是少了「配错对」那一栏——命令要么红要么不红，无从分辨是不是别人替它红的。
 # 换来的是这一族能被探到，而在此之前它们一条也没有。
 #
 # 需要 :6026 与 :6027 都在应答；不在就跳过并说一声（当成绿是这类脚本最坏的坏法）。
+#
+# 「确认命令」是给经由 dev server 生效的种错用的：改的是磁盘上的文件，跑的却是浏览器里
+# 那份模块，中间隔着 Vite 的文件监视。监视漏掉一次，页面拿到的还是旧代码，于是断言照常
+# 绿——而那个绿说的是「没测到」，不是「守卫失效」。CI 上就这么报过一次假的失守。
+# 给了确认命令就先轮询它，确认不上则报跳过，不下结论。
 probe_cmd() {
-  local group=$1 cmd=$2 file=$3 expr=$4
+  local group=$1 cmd=$2 file=$3 expr=$4 confirm=${5:-}
   wanted "$group" || return 0
 
   printf '  %-46s ' "$group"
@@ -162,6 +167,19 @@ probe_cmd() {
 
   if ! plant "$file" "$expr"; then
     printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
+  fi
+
+  if [ -n "$confirm" ]; then
+    local ok=0 i=0
+    while [ "$i" -lt 30 ]; do
+      if ( cd web && eval "$confirm" ) >/dev/null 2>&1; then ok=1; break; fi
+      i=$((i+1)); sleep 1
+    done
+    if [ "$ok" -ne 1 ]; then
+      restore
+      printf '⊘ 服务没在供应种下的错（dev server 的文件监视没跟上），不下结论\n'
+      skipped=$((skipped+1)); return 0
+    fi
   fi
 
   local rc=0
@@ -198,6 +216,10 @@ probe "架构：承接层绕过装配根直连叶" mingli-registry the_compositi
   services/mingli-api/Cargo.toml \
   's|^\[dependencies\]|[dependencies]\nmingli-bazi = { workspace = true }|'
 
+probe "架构：测试用的注册表少装了几片" mingli-registry the_delivery_layer_says_which_leaves_it_ships \
+  crates/mingli-app/Cargo.toml \
+  's|mingli-registry = { workspace = true, features = \["full"\] }|mingli-registry = { workspace = true, features = ["astrology", "jyotish"] }|'
+
 # ── 契约 ──────────────────────────────────────────────────────────
 probe "契约：一片叶悄悄从注册表消失" mingli-registry cast_all_has_all_leaves \
   crates/mingli-registry/src/lib.rs \
@@ -232,7 +254,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 19 known faults|plants 18 known faults|'
+  's|plants 20 known faults|plants 19 known faults|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
@@ -263,7 +285,8 @@ probe_cmd "前端：新字段没有任何一处显示" \
 probe_cmd "前端：渲染里又读起了时钟" \
   'node e2e/shoot.mjs 30-运势' \
   web/src/hooks/useTimeline.ts \
-  's|  const nowAge = Math.max(0, Math.min(MAX_AGE, (nowMs - birthMs) / MS_PER_YEAR))|  const nowAge = Math.max(0, Math.min(MAX_AGE, (Date.now() - birthMs) / MS_PER_YEAR))|'
+  's|  const nowAge = Math.max(0, Math.min(MAX_AGE, (nowMs - birthMs) / MS_PER_YEAR))|  const nowAge = Math.max(0, Math.min(MAX_AGE, (Date.now() - birthMs) / MS_PER_YEAR))|' \
+  'curl -s http://127.0.0.1:6026/src/hooks/useTimeline.ts | grep -q "Date.now() - birthMs"'
 
 printf '\n%d 条红了，%d 条配错对，%d 条一个也没拦，%d 条跳过\n' \
   "$pass" "$mismatched" "$fail" "$skipped"

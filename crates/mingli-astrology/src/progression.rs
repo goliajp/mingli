@@ -43,8 +43,12 @@ pub struct Progression {
 ///
 /// `natal` 为本命行星位置（相位的另一端）。每个切片是出生后第 N 日的天象。
 ///
-/// `step = 1` 得逐年全分辨率；盘面出的是 `step = 10`（见 [`decades`]），
-/// 因为逐年那份**不该塞进本命盘**——理由见 [`decades`] 的说明。
+/// `step = 1` 得逐年全分辨率；「运」那条用例取 `step = 5`。
+///
+/// 本命盘上**一格都不出**。逐年那份（101 格 × 9 星 + 相位）曾直接挂在盘上，
+/// 代价是每问一次本命盘就要付一遍百年星历——排一盘 35.6 ms、盘面 276 KB，
+/// 而其余二十片叶合起来是 0.5 ms、33 KB。问本命盘的人并没有要一生的推运。
+/// 这与四柱的处置一致：那一片的盘面出十步大运，逐年的供给时序在用例层另算。
 #[must_use]
 pub fn progression(natal_jde: f64, natal: &[PlanetPos], max_age: u32, step: u32) -> Progression {
     let step = step.max(1);
@@ -60,17 +64,3 @@ pub fn progression(natal_jde: f64, natal: &[PlanetPos], max_age: u32, step: u32)
     Progression { method: "secondary", max_age, step, years }
 }
 
-/// 盘面所出的那一份：**每十年一格**。
-///
-/// 逐年那份（101 格 × 9 星 + 相位）曾直接挂在本命盘上，代价是每问一次本命盘就要付
-/// 一遍百年星历——**排一盘 35.6 ms、盘面 276 KB，而其余二十片叶合起来是 0.5 ms、33 KB**。
-/// 问本命盘的人并没有要一生的推运。
-///
-/// 这与四柱的处置一致：那一片的盘面出十步大运（十格），逐年的供给时序在用例层另算。
-/// 十年刻度也正是界面在显示的粒度，中间九十格从来没被读过。
-///
-/// 要全分辨率的调 [`progression`] 并传 `step = 1`。
-#[must_use]
-pub fn decades(natal_jde: f64, natal: &[PlanetPos]) -> Progression {
-    progression(natal_jde, natal, crate::PROGRESSION_MAX_AGE, 10)
-}
