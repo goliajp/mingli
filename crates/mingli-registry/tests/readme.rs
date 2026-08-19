@@ -134,6 +134,52 @@ fn the_number_of_planted_faults_is_what_the_script_plants() {
     }
 }
 
+/// README 的 wasm 体积表与 `feature-matrix.sh` 里那张期望表，逐格对上。
+///
+/// 真正去量体积的是脚本（要 wasm32 目标，跑一遍几分钟），这里只管**两张表说的是不是同一件事**。
+/// 少了这条，改 README 的人不会知道脚本还按旧数在验，改脚本的人也不会想起 README——
+/// 于是「实测」二字慢慢变成两份互不相干的旧账。
+#[test]
+fn the_wasm_size_table_and_the_script_agree() {
+    let script = read("scripts/feature-matrix.sh");
+    // 脚本里的行长这样：`只四柱|0.57|--no-default-features --features bazi`
+    let rows: Vec<(String, String)> = script
+        .lines()
+        .filter_map(|l| {
+            let mut it = l.splitn(3, '|');
+            let (label, mb) = (it.next()?, it.next()?);
+            it.next()?;
+            let mb: f64 = mb.trim().parse().ok()?;
+            Some((label.trim().to_string(), format!("{mb:.2}")))
+        })
+        .collect();
+    assert_eq!(rows.len(), 5, "脚本里只解析出 {} 行体积期望，解析方式怕是失效了", rows.len());
+
+    for (name, text) in readmes() {
+        let listed: Vec<String> = text
+            .lines()
+            .filter(|l| l.starts_with('|') && l.contains(" MB |"))
+            .filter_map(|l| l.split('|').nth(2).map(|c| c.trim().trim_end_matches(" MB").to_string()))
+            .collect();
+        assert_eq!(
+            listed.len(),
+            rows.len(),
+            "{name} 的体积表有 {} 行，脚本里有 {} 行——两边的行数就该一样",
+            listed.len(),
+            rows.len()
+        );
+        for (i, (label, want)) in rows.iter().enumerate() {
+            assert_eq!(
+                &listed[i], want,
+                "{name} 体积表第 {} 行写的是 {} MB，而脚本按 {} MB 在验（那一行是 `{label}`）",
+                i + 1,
+                listed[i],
+                want
+            );
+        }
+    }
+}
+
 #[test]
 fn the_snapshot_request_count_agrees_everywhere() {
     let script = read("scripts/api-snapshot.sh");
