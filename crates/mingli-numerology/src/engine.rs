@@ -1,7 +1,10 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
+use mingli_contract::{
+    d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem, WordEngine,
+    WordQuery,
+};
 use serde_json::Value;
 
 /// 数字学叶（D 族·哈希环）。日期生命灵数 + 生日数；给出姓名时附表达/灵魂/人格数（两套字母表）。
@@ -13,7 +16,8 @@ pub struct NumerologyEngine;
 /// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
 /// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
 fn chart(e: &NumerologyEngine, m: &Moment, q: &Query) -> crate::Cast {
-    let method = match q.school_of(e.id(), "component") {
+    // 本叶同时长在两条端口上（时刻 + 字词），两者都有 `id`，故点明取哪一条
+    let method = match q.school_of(<NumerologyEngine as CastingEngine>::id(e), "component") {
         "whole_sum" => crate::LifePathMethod::WholeSum,
         _ => crate::LifePathMethod::Component,
     };
@@ -83,22 +87,93 @@ impl CastingEngine for NumerologyEngine {
     }
 }
 
+/// 字词端口：数字学的**姓名**那一半。
+///
+/// 这一片同时长在两条契约上，因为它本来就吃两种输入：生命灵数由出生日期得（时刻叶那一半），
+/// 姓名三数只吃字（字词叶这一半）。`answers()` 里的 `Intent::Onomancy` 一直写着本叶答「字」，
+/// 而在此之前本叶只实现了时刻那一条端口——认领了一类问局，却没有能答它的入口。
+///
+/// 两套字母表（Pythagorean / Chaldean）都出，不替调用方选边——这与本叶的确定性谱一致：
+/// 两套各有传承且给出不同的数，静默选一套等于替读者拍板。
+impl WordEngine for NumerologyEngine {
+    fn id(&self) -> &'static str {
+        "numerology"
+    }
+    fn name(&self) -> &'static str {
+        // 与时刻端口同名：这是**同一套术数**，模态由端点决定，不是两样东西
+        "数字学"
+    }
+    fn compute(&self, q: &WordQuery) -> Result<Value, String> {
+        let name = q.text.clone().unwrap_or_default();
+        if name.trim().is_empty() {
+            return Err("姓名数需要 text（拉丁字母姓名）".into());
+        }
+        // 形状与其余字词叶一致：`system` / `input` / `result`——三片都这样，
+        // 承接层与前端才不必为第四片另开一条分支
+        Ok(serde_json::json!({
+            "system": "numerology",
+            "input": name,
+            "result": {
+                "pythagorean": crate::name_numbers(&name, crate::System::Pythagorean),
+                "chaldean": crate::name_numbers(&name, crate::System::Chaldean),
+            },
+        }))
+    }
+    fn profile(&self) -> &'static [DetItem] {
+        <Self as CastingEngine>::profile(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     /// 适配器把本叶接到统一契约上：元数据齐备、能出盘、确定性谱已声明、
     /// 有流派时恰有一个默认。
+    ///
+    /// 本叶长在**两条**端口上，故方法要点名走哪一条——两边都有 `id` / `name` / `profile`。
+    /// 这不是消歧义的权宜：两条端口答的是两类问局（「命」吃出生日期，「字」吃姓名），
+    /// 各自的元数据本来就该各自成立。
     #[test]
     fn adapter_is_wired_to_the_contract() {
         let e = NumerologyEngine;
-        assert!(!e.id().is_empty() && !e.name().is_empty());
+        assert!(!CastingEngine::id(&e).is_empty() && !CastingEngine::name(&e).is_empty());
+        assert!(!WordEngine::id(&e).is_empty() && !WordEngine::name(&e).is_empty());
         let m = Moment::new(1990, 6, 15, 14, 30, 8.0);
         let q = Query::at(1990, 6, 15, 14, 30, 8.0);
         assert!(!e.cast(&m, &q).is_null(), "每片叶都应产出非空盘面");
-        assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
+        assert!(!CastingEngine::profile(&e).is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
         assert!(!e.family().label().is_empty());
+    }
+
+    /// 字词端口：姓名三数出得来，两套字母表都给，缺 text 时明确报错而不是给个空壳。
+    #[test]
+    fn the_word_port_gives_both_alphabets_and_refuses_an_empty_name() {
+        let e = NumerologyEngine;
+        let out = WordEngine::compute(&e, &WordQuery { text: Some("John Smith".into()), ..WordQuery::default() })
+            .expect("给了姓名就该算得出");
+        for k in ["pythagorean", "chaldean"] {
+            assert!(!out["result"][k].is_null(), "两套字母表都要给，缺了 `{k}`");
+            assert!(
+                out["result"][k]["expression"].as_u64().is_some_and(|n| n > 0),
+                "`{k}` 的表达数应是正数"
+            );
+        }
+        // 两套是两套，不是一套的转发。单个姓名上撞出同一个数是常事——表达数要归约到 1..9，
+        // 九分之一的概率而已（"John Smith" 两套都得 8，第一版就栽在这个巧合上）。
+        // 真正的性质是「存在分歧」：若一套只是转发另一套，它们会**处处**相同。
+        let names = ["John Smith", "Ada Lovelace", "Rachel Carson", "Kurt Godel", "Emmy Noether"];
+        let differs = names.iter().any(|n| {
+            let v = WordEngine::compute(&e, &WordQuery { text: Some((*n).to_string()), ..WordQuery::default() })
+                .expect("给了姓名就该算得出");
+            v["result"]["pythagorean"] != v["result"]["chaldean"]
+        });
+        assert!(differs, "五个姓名上两套字母表给出完全相同的读数，其中一套多半只是转发");
+        assert!(
+            WordEngine::compute(&e, &WordQuery::default()).is_err(),
+            "缺 text 应明确报错——给个空壳等于让调用方以为算过了"
+        );
     }
 }

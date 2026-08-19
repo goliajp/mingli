@@ -54,6 +54,14 @@ fn the_headline_counts_match_the_workspace() {
     let crates = member_count();
     let leaves = mingli_registry::registry().len();
     let words = mingli_registry::word_registry().len();
+    // 叶总数数的是**不同的术数**，不是两张表长度相加：数字学同时长在两条端口上，
+    // 相加会把它数两遍，于是 README 会声称有 25 片而实际只有 24 个叶 crate
+    let distinct: BTreeSet<&str> = mingli_registry::registry()
+        .iter()
+        .map(|e| e.id())
+        .chain(mingli_registry::word_registry().iter().map(|e| e.id()))
+        .collect();
+    let distinct = distinct.len();
     let intents = mingli_contract::intents().len();
 
     // 每份 README 的开头一行，各自的说法
@@ -62,7 +70,7 @@ fn the_headline_counts_match_the_workspace() {
             "README.md",
             [
                 ("crate 数", " crates ", crates),
-                ("叶总数", " leaves (", leaves + words),
+                ("叶总数", " leaves (", distinct),
                 ("时刻叶数", " time-driven", leaves),
                 ("字词叶数", " word-driven", words),
                 ("问局数", " intents,", intents),
@@ -72,7 +80,7 @@ fn the_headline_counts_match_the_workspace() {
             "README.zh-CN.md",
             [
                 ("crate 数", " 个 crate ", crates),
-                ("叶总数", " 片叶（", leaves + words),
+                ("叶总数", " 片叶（", distinct),
                 ("时刻叶数", " 片时刻叶", leaves),
                 ("字词叶数", " 片字词叶", words),
                 ("问局数", " 类问局", intents),

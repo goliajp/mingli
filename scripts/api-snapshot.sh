@@ -81,6 +81,10 @@ p /api/team "{\"members\":[{\"year\":1990,\"month\":6,\"day\":15,\"hour\":14,\"t
 p /api/team '{"members":[]}'
 p /api/team/interpret '{"members":[]}'
 p /api/word '{"system":"gematria","text":"chai"}'
+# 数字学同时长在两条端口上：这一条打的是它的字词那一半（姓名三数），
+# 与 `/api/cast` 里同名那片的生命灵数是两类问局
+p /api/word '{"system":"numerology","text":"Ada Lovelace"}'
+p /api/word '{"system":"numerology"}'
 p /api/word '{"system":"没有这个系统","text":"x"}'
 p /api/event "{\"t_ask\":$T,\"seed\":7,\"question\":\"能成吗\"}"
 p /api/election "{\"window_start\":$T,\"window_end\":$T2,\"category\":\"婚\"}"
@@ -108,8 +112,8 @@ if grep -qE '^000$' "$out"; then
   exit 1
 fi
 n=$(grep -c '^### ' "$out")
-if [ "$n" != 37 ]; then
-  echo "✗ 只抓到 $n 个请求，应是 37" >&2
+if [ "$n" != 39 ]; then
+  echo "✗ 只抓到 $n 个请求，应是 39" >&2
   exit 1
 fi
 
