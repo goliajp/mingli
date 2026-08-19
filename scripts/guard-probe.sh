@@ -111,18 +111,33 @@ probe() {
   case "$file" in
     *.toml) ;;
     *)
-      if cargo build -p "$pkg" --tests 2>&1 | grep -qE '^error(\[|:)|could not compile'; then
+      # 先收进变量再判，**不要** `cargo … | grep -q`：本脚本开着 pipefail，
+      # 那种写法的退出码取自 cargo 那一端的非零，于是「构建真的挂了」时这个 if 反而不成立——
+      # 闸只在构建成功时才可能触发，等于形同虚设。第一版就是这么写的，
+      # 三条源码类种错因此带着编译错跑完全程，还被记成了「✓ 红了」。
+      local bo
+      bo=$(cargo build -p "$pkg" --tests 2>&1 || true)
+      if grep -qE '^error\[|^error: |could not compile' <<<"$bo"; then
         restore
         printf '⊘ 种下去的错编译不过（表达式写坏了，这一跑证明不了守卫）\n'
         skipped=$((skipped+1)); return 0
       fi
       ;;
   esac
-  local out
+  local out t0 dt
+  t0=$SECONDS
   out=$(cargo test -p "$pkg" "$test" 2>&1 || true)
+  dt=$((SECONDS - t0))
 
   if grep -qE "$red" <<<"$out"; then
-    restore; printf '✓ 红了\n'; pass=$((pass+1)); return 0
+    # 「怎么红的」跟「红没红」一样重要：断言红说明守卫真的在看，
+    # 编译红说明是构建拦下的（清单类种错的正当拦法，源码类则该在上面的闸就被挡住）
+    # 只有 `error[E….]` 与 `could not compile` 才是编译错。cargo 在**测试失败**时
+    # 也会打一行 `error: test failed, to rerun pass …`——拿 `^error:` 去判会把断言红
+    # 全部认成编译红，第一版正是这么把六条架构探测都标错了
+    local how=断言
+    grep -qE '^error\[|could not compile' <<<"$out" && how=编译
+    restore; printf '✓ 红了（%s · %ss）\n' "$how" "$dt"; pass=$((pass+1)); return 0
   fi
 
   # 点名的那条没红。再问一句：**别人拦住了吗**——这两件事完全不同。
@@ -182,12 +197,14 @@ probe_cmd() {
     fi
   fi
 
-  local rc=0
+  local rc=0 t0 dt
+  t0=$SECONDS
   ( cd web && eval "$cmd" ) >/dev/null 2>&1 || rc=$?
+  dt=$((SECONDS - t0))
   restore
 
   if [ "$rc" -ne 0 ]; then
-    printf '✓ 红了\n'; pass=$((pass+1))
+    printf '✓ 红了（断言 · %ss）\n' "$dt"; pass=$((pass+1))
   else
     printf '✗ 种了错它还是绿的\n'; fail=$((fail+1))
   fi
@@ -227,7 +244,7 @@ probe "契约：一片叶悄悄从注册表消失" mingli-registry cast_all_has_
 
 probe "契约：占卜类的种子不再抵达叶" mingli-registry the_drawing_seed_reaches_exactly_the_leaves_that_declare_it \
   crates/mingli-yijing/src/engine.rs \
-  's|effective_seed(|0u64.wrapping_add(0 * effective_seed(|'
+  's|crate::cast(method, effective_seed(m, q))|crate::cast(method, 42)|'
 
 # ── 数值 ──────────────────────────────────────────────────────────
 probe "数值：日柱错一位" mingli-registry natal_cast_path_unchanged_regression_guard \
@@ -254,7 +271,11 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 20 known faults|plants 19 known faults|'
+  's|plants 21 known faults|plants 20 known faults|'
+
+probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
+  crates/mingli-ziwei/src/limit.rs \
+  's|^/// 某公历年的流年宫：太岁支入宫。|/// 探测用：算了却没人问的那种函数。\n#[must_use]\npub fn annual_palace_unused(ming_branch: u8, year: i32) -> u8 { annual_palace(ming_branch, year).0 }\n\n/// 某公历年的流年宫：太岁支入宫。|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
@@ -269,7 +290,7 @@ probe "承接层：handler 往结果里加了一个字段" mingli-api natal_endp
 # ── 成本 ──────────────────────────────────────────────────────────
 probe "成本：一片叶重新驮上百年推运" mingli-registry no_single_leaf_dominates_the_cost_of_casting_the_whole_tree \
   crates/mingli-astrology/src/engine.rs \
-  's|        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)|        let mut v = serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null);\n        let c = chart(self, m, q);\n        v["progression"] = serde_json::to_value(crate::progression(m.jde, \&c.planets, 100, 1)).unwrap_or(Value::Null);\n        v|'
+  's|        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)|        let c = chart(self, m, q);\n        let mut v = serde_json::to_value(\&c).unwrap_or(Value::Null);\n        v["progression"] = serde_json::to_value(crate::progression::progression(m.jde, \&c.planets, 100, 1)).unwrap_or(Value::Null);\n        v|'
 
 # ── 流派 ──────────────────────────────────────────────────────────
 probe "流派：选项收下了却不改盘" mingli-registry every_school_option_actually_changes_the_chart \
