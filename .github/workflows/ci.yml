@@ -15,6 +15,9 @@ jobs:
   rust:
     name: 测试 · clippy · doc · feature 矩阵 · 契约快照
     runs-on: ubuntu-latest
+    # 正常 4 分钟上下。给上限是因为一次装依赖卡住就能烧掉 runner 的默认六小时——
+    # 真出过一次：`bun install` + Chromium 那一步挂了 34 分钟还没动，而同一提交的后两跑各 4 分半
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -66,6 +69,7 @@ jobs:
   guards:
     name: 守卫自检 · 种错看红
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -77,6 +81,7 @@ jobs:
   web:
     name: 前端构建 · 截图断言
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
