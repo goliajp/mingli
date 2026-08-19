@@ -49,6 +49,9 @@ wanted() {
   return 0
 }
 pass=0; fail=0; skipped=0; mismatched=0
+# 备份放在仓外：目录类的种错要整棵拷贝，放在 `web/` 里会被 Vite 当成源码去监视，
+# 也会在进程被强杀时把一坨 .bak 留在仓库里。每条记 "原路径<TAB>备份路径"。
+BACKUP_DIR=$(mktemp -d)
 declare -a BACKUPS=()
 
 # 还原时**必须**把 mtime 推到现在，否则种下的错会以编译产物的形式留在 target 里。
@@ -58,9 +61,10 @@ declare -a BACKUPS=()
 # 那份带错的库**。实测过一次：探测跑完、源码明明是好的，`cargo run` 出来的行为却是
 # 种错时的样子，害我去查一个根本不存在的逻辑问题。
 restore() {
-  for b in "${BACKUPS[@]:-}"; do
-    [ -n "$b" ] || continue
-    orig=${b%.guardprobe.bak}
+  for entry in "${BACKUPS[@]:-}"; do
+    [ -n "$entry" ] || continue
+    orig=${entry%%$'\t'*}
+    b=${entry#*$'\t'}
     if [ -d "$b" ]; then
       rm -rf "$orig"; mv "$b" "$orig"
       find "$orig" -type f -exec touch {} +
@@ -75,19 +79,20 @@ restore() {
 # types.ts、视图、样式里，只改其中一个盖不住——`wired.mjs` 是全 src 搜的。
 plant() {
   local target=$1 expr=$2
+  local bak="$BACKUP_DIR/$(printf '%s' "$target" | tr / _)"
   if [ -d "$target" ]; then
-    cp -R "$target" "$target.guardprobe.bak"; BACKUPS+=("$target.guardprobe.bak")
+    cp -R "$target" "$bak"; BACKUPS+=("$target"$'\t'"$bak")
     while IFS= read -r f; do sedi "$expr" "$f"; done < <(
       find "$target" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \)
     )
-    ! diff -rq "$target" "$target.guardprobe.bak" >/dev/null 2>&1
+    ! diff -rq "$target" "$bak" >/dev/null 2>&1
   else
-    cp "$target" "$target.guardprobe.bak"; BACKUPS+=("$target.guardprobe.bak")
+    cp "$target" "$bak"; BACKUPS+=("$target"$'\t'"$bak")
     sedi "$expr" "$target" 2>/dev/null || true
-    ! cmp -s "$target" "$target.guardprobe.bak"
+    ! cmp -s "$target" "$bak"
   fi
 }
-trap 'restore' EXIT INT TERM
+trap 'restore; rm -rf "$BACKUP_DIR"' EXIT INT TERM
 
 # probe <组名> <crate> <测试名> <文件> <sed 表达式>
 probe() {
@@ -102,12 +107,7 @@ probe() {
     skipped=$((skipped+1)); return 0
   fi
 
-  cp "$file" "$file.guardprobe.bak"; BACKUPS+=("$file.guardprobe.bak")
-
-  if ! sedi "$expr" "$file" 2>/dev/null; then
-    printf '⊘ sed 没改动任何东西\n'; restore; skipped=$((skipped+1)); return 0
-  fi
-  if cmp -s "$file" "$file.guardprobe.bak"; then
+  if ! plant "$file" "$expr"; then
     printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
   fi
 
