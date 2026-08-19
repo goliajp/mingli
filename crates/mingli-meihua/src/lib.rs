@@ -325,9 +325,13 @@ mod tests {
         assert!(mingli_gua::TRIGRAM_NAMES.contains(&c.primary_upper));
     }
 
+    /// 自洽检查：`compute_at` 与它自己的模运算一致。
+    ///
+    /// **这条不是 oracle**——两边用的是同一组函数，公式整体写错它照样绿。
+    /// 它只保证「取出来的农历量确实是喂进公式的那几个」，真正的外部校验在
+    /// [`guanmei_the_worked_example_from_the_source_text`]。
     #[test]
     fn worked_example_matches_formula() {
-        // 手算校验：2024（辰=5） 农历某日。直接用农历量复核 compute_at 的模运算。
         let m = Moment::new(2024, 6, 15, 14, 30, 8.0);
         let c = compute_at(&m);
         let base = u32::from(c.year_branch.unwrap())
@@ -338,6 +342,40 @@ mod tests {
         assert_eq!(c.primary, Hexagram::from_trigrams(upper, lower));
         assert_eq!(c.year_branch, Some(5));
         assert_eq!(c.hour_branch, hour_to_branch(14)); // 未时
+    }
+
+    /// 观梅占——《梅花易数》卷一自带的那个例子，逐步对上。
+    ///
+    /// 辰年十二月十七日申时：
+    /// 上卦 5 + 12 + 17 = 34，34 mod 8 = 2 = 兑；
+    /// 下卦 34 + 9 = 43，43 mod 8 = 3 = 离，合为**泽火革**；
+    /// 动爻 43 mod 6 = 1，初爻动，之卦**泽山咸**。
+    ///
+    /// 年支数子 1 丑 2 …… 辰 5，时辰数同法申 9。取这个例子是因为它出自原书本身，
+    /// 且四个中间量（34 / 2 / 43 / 3 / 1）都写在书里 —— 公式哪一步写反了都会在这里现形，
+    /// 而上面那条自洽检查不会。
+    ///
+    /// 来源：例题与「以年月日数之和除以八，余数为上卦；年月日时数之和除以八，余数为下卦；
+    /// 年月日时数之和除以六，余数取动爻」的表述在多处易学资料中一致复述（新浪 blog_4a66051f0101gwa2、
+    /// 知乎 p/630773131 等均给出同一组数）。
+    #[test]
+    fn guanmei_the_worked_example_from_the_source_text() {
+        let (year_branch, month, day, hour_branch) = (5u32, 12u32, 17u32, 9u32);
+        let base = year_branch + month + day;
+        assert_eq!(base, 34, "上卦之和");
+        assert_eq!(base % 8, 2, "34 mod 8 = 2 = 兑");
+        let with_hour = base + hour_branch;
+        assert_eq!(with_hour, 43, "下卦之和");
+        assert_eq!(with_hour % 8, 3, "43 mod 8 = 3 = 离");
+        assert_eq!(super::moving_line_mod6(with_hour), 1, "43 mod 6 = 1，初爻动");
+
+        let upper = super::trigram_mod8(base);
+        let lower = super::trigram_mod8(with_hour);
+        let primary = Hexagram::from_trigrams(upper, lower);
+        assert_eq!(primary.full_name(), "泽火革", "上兑下离即泽火革");
+
+        let changed = primary.changed(1 << (1 - 1)); // 初爻
+        assert_eq!(changed.full_name(), "泽山咸", "初爻动，革之咸");
     }
 
     #[test]
