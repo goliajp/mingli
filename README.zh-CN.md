@@ -9,7 +9,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 741 个测试全绿
+> 38 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 743 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -160,21 +160,21 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 
 　　守卫自己也要被验。一条永远绿的守卫和一条真守着东西的守卫，在日常测试里长得一模一样；
 分辨它们只有一个办法——把它该拦的东西种回去，看它拦不拦。`guard-probe.sh` 把这件事从
-「我当时手工试过」变成一条能重跑的命令：种 22 个已知的错，逐条问该拦它的守卫红没红。
+「我当时手工试过」变成一条能重跑的命令：种 23 个已知的错，逐条问该拦它的守卫红没红。
 它上一次就抓到一处名不副实——「装配根是唯一列叶的地方」那条，其实并不看释义层。
 
 
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 741 个测试
+cargo test --workspace     # 743 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
 ./scripts/api-snapshot.sh check snap.txt   # 39 个请求逐字节
 ./scripts/test-count.sh    # 本文自称的测试数，对回真跑一遍的结果
 ./scripts/feature-matrix.sh  # 每片叶各单独装配、每个 crate 各单独跑一次测试 + wasm32 + 查依赖图
-./scripts/guard-probe.sh   # 种 22 个已知的错，看该拦它的那条守卫拦不拦
+./scripts/guard-probe.sh   # 种 23 个已知的错，看该拦它的那条守卫拦不拦
 ```
 
 　　以上连同截图断言，每次 push 都会跑一遍——见顶部徽章。

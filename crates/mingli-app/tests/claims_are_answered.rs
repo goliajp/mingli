@@ -12,6 +12,7 @@
 
 use mingli_app::{bazi::fortune, Birth};
 use mingli_contract::{AskTime, Gender, Intent};
+use serde_json::Value;
 
 /// 认领「运」的叶 → 它在运势输出里的落点，以及那是什么。
 ///
@@ -100,4 +101,61 @@ fn the_fortune_answer_actually_moves_when_the_asked_time_moves() {
         }
         assert_ne!(x, y, "叶 `{leaf}` 的「运」（{what}）在 2026 与 2044 给了同一份内容");
     }
+}
+
+/// 认领「合」的叶 → 它在合盘输出里的落点。
+const SYNASTRY_SLOTS: &[(&str, &str, &str)] = &[
+    ("bazi", "detail", "四柱：两人的旺衰 / 用神 / 五行画像与 2×2 互补矩阵（`a_supplies_b` 等取自它）"),
+    ("jyotish", "ashtakuta", "印度占星：八项合婚，逐项给区间"),
+];
+
+/// 认领「择」的叶 → 它在择吉输出里的落点。
+///
+/// 择吉现在只有一片叶答，于是输出里没有按叶分区——`candidates` 整份就是它的。
+/// 再来第二片时这张表会逼着分区：不分的话，两片叶的判读会混成一堆无从分辨的候选日。
+const ELECTION_SLOTS: &[(&str, &str, &str)] = &[("zeri", "candidates", "择日：时窗内逐日的等第与理由")];
+
+fn claimers(want: Intent) -> Vec<&'static str> {
+    mingli_registry::registry().iter().filter(|e| e.answers().contains(&want)).map(|e| e.id()).collect()
+}
+
+/// 一类问局的认领方与它的答案逐条对上。
+fn check(intent: Intent, label: &str, slots: &[(&str, &str, &str)], out: &Value) {
+    let ids = claimers(intent);
+    assert!(!ids.is_empty(), "没有叶认领「{label}」，取法怕是失效了");
+    for id in &ids {
+        let (_, slot, what) = slots.iter().find(|(leaf, _, _)| leaf == id).unwrap_or_else(|| {
+            panic!(
+                "叶 `{id}` 认领了「{label}」，但本表没说它落在输出的哪一处。\n\
+                 要么把它接进那条用例（并在这里点名），要么它本就不该认领——\n\
+                 `answers()` 是对外的承诺，不是备注。"
+            )
+        });
+        assert!(!out[*slot].is_null(), "叶 `{id}` 认领了「{label}」，输出里 `{slot}` 却是空的（本该是：{what}）");
+    }
+    for (leaf, _, _) in slots {
+        assert!(ids.contains(leaf), "本表说 `{leaf}` 答「{label}」，但它的 `answers()` 里没有");
+    }
+}
+
+/// 合盘：认领「合」的两片都要在输出里有落点。
+#[test]
+fn every_leaf_that_claims_the_synastry_intent_shows_up_in_the_synastry_answer() {
+    let a = natal();
+    let mut b = natal();
+    b.year = 1990;
+    b.month = 6;
+    b.day = 15;
+    b.gender = Some(Gender::Female);
+    let out = mingli_app::synastry::compute((&a, Some("甲")), (&b, Some("乙"))).expect("双人合盘应算得出");
+    check(Intent::Synastry, "合", SYNASTRY_SLOTS, &serde_json::to_value(out).expect("应可序列化"));
+}
+
+/// 择吉：认领「择」的叶要在输出里有落点。
+#[test]
+fn every_leaf_that_claims_the_election_intent_shows_up_in_the_election_answer() {
+    let from = AskTime { year: 2026, month: 9, day: 1, hour: 0, minute: 0, tz: 8.0 };
+    let to = AskTime { year: 2026, month: 9, day: 10, hour: 0, minute: 0, tz: 8.0 };
+    let out = mingli_app::election::scan(&from, &to, Some("婚".into())).expect("时窗合法应扫得出");
+    check(Intent::Election, "择", ELECTION_SLOTS, &serde_json::to_value(out).expect("应可序列化"));
 }
