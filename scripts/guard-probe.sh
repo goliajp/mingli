@@ -278,7 +278,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 23 known faults|plants 22 known faults|'
+  's|plants 24 known faults|plants 23 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -291,6 +291,10 @@ probe "自陈：认领了「运」却没进运势用例" mingli-app every_leaf_t
 probe "自陈：认领了「合」却没进合盘用例" mingli-app every_leaf_that_claims_the_synastry_intent_shows_up_in_the_synastry_answer \
   crates/mingli-app/src/synastry.rs \
   's|        ashtakuta: ashtakuta_between(a.0, b.0),|        ashtakuta: serde_json::Value::Null,|'
+
+probe "自陈：认领了「字」却不在字词注册表里" mingli-app every_leaf_that_claims_the_onomancy_intent_is_in_the_word_registry \
+  crates/mingli-numerology/src/engine.rs \
+  '/impl WordEngine/,/^}/s|^        "numerology"$|        "numerology-name"|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
