@@ -278,7 +278,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 25 known faults|plants 24 known faults|'
+  's|plants 26 known faults|plants 25 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -314,6 +314,10 @@ probe "承接层：handler 往结果里加了一个字段" mingli-api natal_endp
 probe "成本：一片叶重新驮上百年推运" mingli-registry no_single_leaf_dominates_the_cost_of_casting_the_whole_tree \
   crates/mingli-astrology/src/engine.rs \
   's|        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)|        let c = chart(self, m, q);\n        let mut v = serde_json::to_value(\&c).unwrap_or(Value::Null);\n        v["progression"] = serde_json::to_value(crate::progression::progression(m.jde, \&c.planets, 100, 1)).unwrap_or(Value::Null);\n        v|'
+
+probe "成本：一片普通叶开始干重活" mingli-registry the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris \
+  crates/mingli-yijing/src/engine.rs \
+  's|    crate::cast(method, effective_seed(m, q))|    let mut w = 0f64;\n    for i in 0..40_000u32 { w += f64::from(i).sqrt(); }\n    crate::cast(method, effective_seed(m, q).wrapping_add(u64::from(w < 0.0)))|'
 
 # ── 流派 ──────────────────────────────────────────────────────────
 probe "流派：选项收下了却不改盘" mingli-registry every_school_option_actually_changes_the_chart \
