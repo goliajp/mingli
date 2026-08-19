@@ -9,6 +9,15 @@
 #   ./scripts/test-count.sh --fix      # 数出来直接写回两份 README
 
 set -euo pipefail
+
+# BSD sed（macOS）要 `-i ''`，GNU sed（CI 上的 Linux）要 `-i` 且不能跟空串——
+# 后者会把 '' 当成脚本、把真正的表达式当成文件名。这个脚本两边都要跑，故先认一次。
+if sed --version >/dev/null 2>&1; then
+  sedi() { sed -i "$@"; }
+else
+  sedi() { sed -i '' "$@"; }
+fi
+
 cd "$(dirname "$0")/.."
 
 out=$(mktemp)
@@ -30,8 +39,8 @@ for f in README.md README.zh-CN.md; do
   if [ "$claimed" = "$actual" ]; then
     echo "✓ $f 自称 $claimed 个，实测 $actual 个"
   elif [ "${1:-}" = "--fix" ]; then
-    sed -i '' "s/${claimed} tests green/${actual} tests green/; s/${claimed} 个测试全绿/${actual} 个测试全绿/" "$f"
-    sed -i '' "s/# ${claimed} tests/# ${actual} tests/; s/# ${claimed} 个测试/# ${actual} 个测试/" "$f"
+    sedi "s/${claimed} tests green/${actual} tests green/; s/${claimed} 个测试全绿/${actual} 个测试全绿/" "$f"
+    sedi "s/# ${claimed} tests/# ${actual} tests/; s/# ${claimed} 个测试/# ${actual} 个测试/" "$f"
     echo "↻ $f $claimed → $actual"
   else
     echo "✗ $f 自称 $claimed 个，实测 $actual 个（--fix 可直接写回）" >&2

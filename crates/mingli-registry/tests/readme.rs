@@ -103,7 +103,15 @@ fn the_headline_counts_match_the_workspace() {
 #[test]
 fn the_number_of_planted_faults_is_what_the_script_plants() {
     let script = read("scripts/guard-probe.sh");
-    let planted = script.lines().filter(|l| l.trim_start().starts_with("probe \"")).count();
+    // 两种写法：cargo 测试用 `probe`，前端那族不是 cargo 测试，用 `probe_cmd`。
+    // 只数前者会漏掉后者——加进第二种写法时这里就红过一次，正是它该做的事。
+    let planted = script
+        .lines()
+        .filter(|l| {
+            let l = l.trim_start();
+            l.starts_with("probe \"") || l.starts_with("probe_cmd \"")
+        })
+        .count();
     assert!(planted >= 8, "只解析出 {planted} 条探测，解析方式怕是失效了");
     for (name, text) in readmes() {
         for phrase in [" known faults", " 个已知的错"] {

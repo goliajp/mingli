@@ -61,6 +61,16 @@ const EXTRA = [
   }],
 ]
 
+
+// 认「整个标识符」，不认子串。
+//
+// 原先用的是 `src.includes(k)`，于是字段 `sign` 会被源码里任何一个 `design` / `assign`
+// 认领，`age` 会被 `message` 认领——报的是「前端认得这个字段」，实际前端从没提过它。
+// 现在 217 个字段里还没有一个是这么蒙过去的（改这一行时逐个验过），所以这不是修 bug，
+// 是把一条迟早会被踩中的假绿路径堵掉。
+const shown = (src, k) =>
+  new RegExp(`(^|[^A-Za-z0-9_])${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z0-9_]|$)`).test(src)
+
 const src = await sources(new URL('../src/', import.meta.url).pathname)
 const gaps = []
 let fields = 0
@@ -69,7 +79,7 @@ for (const leaf of leaves) {
   if (!chart || typeof chart !== 'object' || Array.isArray(chart)) continue
   for (const k of Object.keys(chart)) {
     fields++
-    if (src.includes(k)) continue
+    if (shown(src, k)) continue
     if (EXCUSED.some(([id, f]) => (id === '*' || id === leaf.id) && f === k)) continue
     gaps.push(`${leaf.id} · ${k}`)
   }
@@ -88,7 +98,7 @@ for (const [path, payload] of EXTRA) {
   const body = await r.json()
   for (const k of Object.keys(body)) {
     fields++
-    if (!src.includes(k)) gaps.push(`${path} · ${k}`)
+    if (!shown(src, k)) gaps.push(`${path} · ${k}`)
   }
 }
 
