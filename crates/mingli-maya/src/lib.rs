@@ -168,18 +168,35 @@ mod tests {
         assert_eq!(HAAB_MONTHS[18], "Wayeb");
     }
 
+    /// 历元锚：JDN 584283 = `0.0.0.0.0` = 4 Ahau 8 Cumku。
+    ///
+    /// 关联常数是这一片叶的全部——它错一天，每个日期都错一天，而错了不会有任何迹象。
+    /// 两个独立来源给出同一个数：
+    ///
+    /// - Wikipedia《Mesoamerican Long Count calendar》：「The generally accepted correlation
+    ///   constant is the Modified Thompson 2, "Goodman–Martinez–Thompson", or GMT correlation
+    ///   of 584,283 days」，并给出 `0.0.0.0.0` = 公元前 3114-08-11（推算格里历）。
+    /// - Peter Meyer《Maya Calendar: The Correlation Problem》(hermetic.ch/cal_stud/maya/chap2.htm)：
+    ///   取 584283，并说明判定依据是它**与危地马拉高地至今仍在数的 tzolkin 相合**。
+    ///
+    /// ★ 分歧是真的、且只差两天：Lounsbury / Schele–Freidel 一派取 584285（见 [`THOMPSON_LOUNSBURY`]）。
+    /// 本叶取 584283 并把另一说留在常数里，不静默选边——下面 [`the_two_correlations_differ_by_exactly_two_days`]
+    /// 把这个差钉住，免得哪天有人「顺手」把两个数改成一样的。
     #[test]
     fn era_oracle_0_0_0_0_0() {
-        // JDN 584283 = 0.0.0.0.0 = 4 Ahau 8 Cumku（GMT correlation，多源 + 算术复核）。
         let c = compute_from_jdn(GMT_CORRELATION);
         assert_eq!(c.long_count, [0, 0, 0, 0, 0]);
         assert_eq!((c.tzolkin_number, c.tzolkin_name), (4, "Ahau"));
         assert_eq!((c.haab_day, c.haab_month), (8, "Cumku"));
     }
 
+    /// 第二个锚：2012-12-21 = JDN 2456283 = `13.0.0.0.0` = 4 Ahau 3 Kankin。
+    ///
+    /// 与历元锚相隔 13 个 baktun，两头都对上才说明关联常数与进位表同时是对的——
+    /// 只验一头的话，常数错 N 天而进位表也错 N 天的组合能一起蒙混过去。
+    /// 上述两个来源都给出这一对应（Wikipedia 该条目正文与 hermetic.ch 全篇皆以此为讨论前提）。
     #[test]
     fn end_of_13th_baktun_2012() {
-        // 2012-12-21 = JDN 2456283 = 13.0.0.0.0 = 4 Ahau 3 Kankin。
         // 同时校验共享层民用日序与标准 JDN 一致。
         assert_eq!(mingli_astro::civil_day_number(2012, 12, 21), 2_456_283);
         let c = compute_from_jdn(2_456_283);
@@ -188,6 +205,21 @@ mod tests {
         assert_eq!((c.haab_day, c.haab_month), (3, "Kankin"));
         // 大循环算术自洽：584283 + 13×144000 = 2456283。
         assert_eq!(GMT_CORRELATION + 13 * PLACE_DAYS[4], 2_456_283);
+    }
+
+    /// 两派关联常数正好差两天——这个差本身是有来源的，不是随手写的备选值。
+    ///
+    /// hermetic.ch 那篇原话：「This is 2 days off from the Thompson correlation that I use」，
+    /// Wikipedia 的关联常数表里 GMT 584,283 与 Thompson (Lounsbury) 584,285 也正相隔 2。
+    /// 钉住它是因为「留一个不再有意义的备选常数」比没有更糟：读的人会以为那是另一种可选算法。
+    #[test]
+    fn the_two_correlations_differ_by_exactly_two_days() {
+        assert_eq!(THOMPSON_LOUNSBURY - GMT_CORRELATION, 2);
+        // 换成另一派，同一天会往前挪两天——分歧落在结果上是这个样子
+        let a = compute_from_jdn(2_456_283);
+        let b = compute_from_jdn(2_456_283 - (THOMPSON_LOUNSBURY - GMT_CORRELATION));
+        assert_eq!(a.long_count, [13, 0, 0, 0, 0]);
+        assert_eq!(b.long_count, [12, 19, 19, 17, 18], "另一派下 2012-12-21 尚差两天到 13.0.0.0.0");
     }
 
     #[test]

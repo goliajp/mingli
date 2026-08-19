@@ -180,9 +180,26 @@ pub fn compute(word: &str) -> Cast {
 mod tests {
     use super::*;
 
+    /// 七种计法的字母值，逐条对两个独立来源。
+    ///
+    /// 值表是这一片叶的全部——写错一个字母，所有含它的词都错，且错得不会有任何迹象。
+    /// 两源逐条一致：
+    ///
+    /// - Jewish Virtual Library《Gematria》(jewishvirtuallibrary.org/gematria-2)：
+    ///   「absolute or normative value … Alef equals 1, bet equals 2 … until yod, the tenth
+    ///   letter, which equals 10. The next letter, kaf, equals 20」；尾形「500, 600, 700,
+    ///   800, and 900, respectively」；「ordinal value, where each of the 22 letters … a number
+    ///   between 1 and 22」；「reduced value … accomplished by removing the value of 10 or 100」。
+    /// - TorahCalc《Explanations of Gematria Methods with Charts》(torahcalc.com/info/gematria)：
+    ///   给出六种计法的完整对照表（Hechrachi / Gadol / Siduri / Katan / AtBash / AlBam），
+    ///   AtBash「exchanges each letter's value for its opposite letter's value」，
+    ///   AlBam「splits the alphabet in half and letters from the first half switch values with
+    ///   letters from the second half」。
+    ///
+    /// 两源对**尾形在标准值下如何处理**说法一致（取本形值；取 500–900 的是 Gadol），
+    /// 这一点是最容易两派分歧的地方，故单列 [`final_forms_normalize_in_hechrachi`] 钉住。
     #[test]
     fn hechrachi_classic_oracles() {
-        // 多源一致的经典 gematria 值。
         assert_eq!(gematria("חי", Method::Hechrachi), 18); // 生命
         assert_eq!(gematria("שלום", Method::Hechrachi), 376); // 平安
         assert_eq!(gematria("אמת", Method::Hechrachi), 441); // 真理
