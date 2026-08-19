@@ -159,3 +159,29 @@ fn every_leaf_that_claims_the_election_intent_shows_up_in_the_election_answer() 
     let out = mingli_app::election::scan(&from, &to, Some("婚".into())).expect("时窗合法应扫得出");
     check(Intent::Election, "择", ELECTION_SLOTS, &serde_json::to_value(out).expect("应可序列化"));
 }
+
+/// 「字」：认领它的叶必须在字词注册表里，否则唯一服务这类问局的入口认不出它。
+///
+/// 这条是补的——数字学认领「字」很久，而字词注册表里没有它，于是公开的目录说
+/// 「字由本叶答」，问它却得到「未知字词系统」。两侧各自都对，合起来是空的。
+#[test]
+fn every_leaf_that_claims_the_onomancy_intent_is_in_the_word_registry() {
+    let ids = claimers(Intent::Onomancy);
+    assert!(!ids.is_empty(), "没有叶认领「字」，取法怕是失效了");
+    let words: Vec<&str> = mingli_registry::word_registry().iter().map(|e| e.id()).collect();
+    for id in &ids {
+        assert!(
+            words.contains(id),
+            "叶 `{id}` 认领了「字」，但它不在字词注册表里——\n\
+             那一类问局只经字词端口来答，认领了却没实现那条端口，等于目录里有、问不出。\n\
+             要么实现 `WordEngine` 并登记，要么别认领。"
+        );
+        // 认领了还得真答得出：给一个词就该有结果，缺输入要明确报错而不是给空壳
+        let e = mingli_registry::word_registry();
+        let leaf = e.iter().find(|w| w.id() == *id).expect("上一条已保证在表里");
+        let out = leaf
+            .compute(&mingli_contract::WordQuery { text: Some("Ada Lovelace".into()), ..Default::default() })
+            .unwrap_or_else(|e| panic!("叶 `{id}` 认领了「字」，给了词却算不出：{e}"));
+        assert!(!out.is_null() && out.get("result").is_some(), "叶 `{id}` 的字词输出应有 `result`");
+    }
+}
