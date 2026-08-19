@@ -271,11 +271,15 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 21 known faults|plants 20 known faults|'
+  's|plants 22 known faults|plants 21 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
   's|^/// 某公历年的流年宫：太岁支入宫。|/// 探测用：算了却没人问的那种函数。\n#[must_use]\npub fn annual_palace_unused(ming_branch: u8, year: i32) -> u8 { annual_palace(ming_branch, year).0 }\n\n/// 某公历年的流年宫：太岁支入宫。|'
+
+probe "自陈：认领了「运」却没进运势用例" mingli-app every_leaf_that_claims_the_fortune_intent_shows_up_in_the_fortune_answer \
+  crates/mingli-app/src/bazi.rs \
+  's|        "ziwei": ziwei_at(b, t),||'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
