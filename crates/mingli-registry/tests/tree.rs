@@ -732,6 +732,63 @@ fn the_drawing_seed_reaches_exactly_the_leaves_that_declare_it() {
 /// 判据取**相对量**而非绝对毫秒：绝对值随机器与构建配置浮动，而「一片叶不该独占全树」
 /// 是与机器无关的。上限取 60%——单片占到六成，就说明它在盘面里塞了本不属于那里的东西。
 /// 星历叶天然比查表叶重（VSOP87 是真算），故不苛求均分，只拦「一片压倒全树」。
+/// 贵的恰好是那三片走星历的，别的都不贵。
+///
+/// README 给了微秒数，但微秒数只属于量它的那台机器——拿它当断言，换台机器就红，
+/// 于是没人敢让它红，最后变成注释。这里验的是**形状**：三片星历叶各自比中位数那片
+/// 贵两个数量级，其余每一片都在同一量级里。这个比例跨机器稳定，因为分子分母同机同刻。
+///
+/// 它拦两种漂移，方向相反：某片叶开始走星历（比如为了一个字段顺手起了本命盘），
+/// 以及某片星历叶不再真的走星历（查表化、缓存化——那多半意味着精度悄悄降了）。
+///
+/// 写这条时先按 README 的说法验「其余十七片各不足 5 µs」，当场红：不足 5 µs 的是十六片，
+/// 紫微 7.5 µs 与四柱 8.5 µs 都不在其中，而最贵的一片是西洋占星不是印度占星。
+/// README 那三个数是很久以前量的，此后没人再量过。
+#[test]
+fn the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris() {
+    /// 走行星星历的三片。它们贵是本分——VSOP87 每次求值要跑几百项级数。
+    const EPHEMERIS: [&str; 3] = ["astrology", "jyotish", "qizhengsiyu"];
+
+    let q = sample();
+    let m = mingli_astro::Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+    let reg = registry();
+    for e in &reg {
+        let _ = e.cast(&m, &q); // 预热：首次调用含惰性初始化
+    }
+    // 秒（f64）而非纳秒（u128）：后者要转成浮点才能取比值，而那个转换在 clippy 眼里是精度损失
+    let mut cost: Vec<(&str, f64)> = Vec::new();
+    for e in &reg {
+        let t = std::time::Instant::now();
+        for _ in 0..20 {
+            let _ = e.cast(&m, &q);
+        }
+        cost.push((e.id(), t.elapsed().as_secs_f64()));
+    }
+    assert!(cost.iter().all(|(_, c)| *c > 0.0), "有叶量到 0 秒，计时方式怕是失效了");
+
+    let mut plain: Vec<f64> = cost.iter().filter(|(id, _)| !EPHEMERIS.contains(id)).map(|(_, c)| *c).collect();
+    plain.sort_by(f64::total_cmp);
+    let median = plain[plain.len() / 2];
+    assert!(median > 0.0, "中位数为 0，计时精度不够，这条验不了");
+
+    for (id, c) in &cost {
+        let ratio = *c / median;
+        if EPHEMERIS.contains(id) {
+            assert!(
+                ratio > 20.0,
+                "星历叶 `{id}` 只比中位数贵 {ratio:.1} 倍——它多半已经不真的在走星历了。\n\
+                 查表或缓存能换来这个数，但那通常意味着精度悄悄降了；若确是有意的，改这条并说明。",
+            );
+        } else {
+            assert!(
+                ratio < 20.0,
+                "叶 `{id}` 比中位数贵 {ratio:.1} 倍，却不在星历名单里——\n\
+                 它多半顺手起了一张本命盘或别的重活。若它真的开始走星历，把它加进 EPHEMERIS。",
+            );
+        }
+    }
+}
+
 #[test]
 fn no_single_leaf_dominates_the_cost_of_casting_the_whole_tree() {
     let q = sample();

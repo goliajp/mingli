@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 745 tests green
+> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 746 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -164,15 +164,20 @@ It also runs each of the 38 crates' tests in isolation: `cargo test --workspace`
 with the *union* of everyone's features, so a crate whose own test dependencies are short
 a feature still passes there, and only fails when run alone.
 
-Casting is dominated by the ephemeris leaves. On this machine one chart takes roughly
-12 µs for Four Pillars, 270 µs for Jyotish, and under 5 µs for the other seventeen.
+Casting is dominated by the three leaves that walk a planetary ephemeris. On this
+machine one chart takes roughly 300 µs for Western astrology, 250 µs for Jyotish and
+220 µs for the Seven Luminaries; 9 µs for Four Pillars and 7 µs for Zi Wei; and under
+5 µs each for the other sixteen. A guard checks the shape rather than the microseconds,
+which belong to this machine: exactly those three must cost two orders of magnitude
+more than the median leaf, so a system that starts walking an ephemeris shows up as
+one, and one that stops shows up too.
 A guard fails if any single leaf takes more than 60% of the whole tree's casting time
 or payload -- it exists because one did, once.
 
 Guards need guarding too. A test that can never fail and a test that is really holding
 something up look identical on a green run; the only way to tell them apart is to put the
 fault back and see whether it gets caught. `guard-probe.sh` turns that from something
-someone once did by hand into a command anyone can re-run: it plants 25 known faults
+someone once did by hand into a command anyone can re-run: it plants 26 known faults
 and asks, for each, whether the guard that should catch it goes red. It has already found
 one guard that did not do what its name said -- "the composition root is the only place
 that lists leaves" never looked at the interpretation layer at all.
@@ -181,14 +186,14 @@ that lists leaves" never looked at the interpretation layer at all.
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 745 tests
+cargo test --workspace     # 746 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
 ./scripts/api-snapshot.sh check snap.txt   # 39 requests, byte for byte
 ./scripts/test-count.sh    # the count in this README, against a real run
 ./scripts/feature-matrix.sh  # every leaf built alone, every crate tested alone, wasm32, one dependency-graph check
-./scripts/guard-probe.sh   # plants 25 known faults, checks the guard that should catch each one does
+./scripts/guard-probe.sh   # plants 26 known faults, checks the guard that should catch each one does
 ```
 
 All of the above, plus the screenshot pass, run on every push — see the badge at the top.
