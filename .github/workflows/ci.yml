@@ -1,4 +1,4 @@
-# 仓库里已经有 699 条测试、五条脚本、一套截图断言——但它们此前只在有人想起来时才跑。
+# 仓库里已经有整套测试、五条脚本、一套截图断言——但它们此前只在有人想起来时才跑。
 # 这个 workflow 把它们全部接上，一条也不新造：每一项都是 README 与接续手册里已经写着的关卡。
 name: CI
 
@@ -51,9 +51,6 @@ jobs:
       - name: README 自称的测试数
         run: ./scripts/test-count.sh
 
-      - name: guards actually guard
-        run: ./scripts/guard-probe.sh
-
       # 依赖公告。放在 Rust job 末尾而非单开定时任务：定时任务的失败没人盯，
       # 而这条挂在每次 push 上，出了公告当场就知道。
       # 公告库是外部的、会自己更新，所以这一步可能在没有任何改动的情况下变红——
@@ -62,6 +59,19 @@ jobs:
         run: |
           cargo install cargo-audit --locked || true
           cargo audit
+
+  # 单开一个 job，不串在 rust 后面：这一条要往源码里逐条种错、每次重编一遍受影响的 crate，
+  # 本机实测约 40 分钟。串起来会把整条 CI 的墙钟拖到那个数上，分开则与其它 job 并行，
+  # 且它红的时候一眼看得出红的是「守卫本身失效了」，不是某条测试挂了。
+  guards:
+    name: 守卫自检 · 种错看红
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: 逐条往源码里种一个已知的错，问该拦它的守卫红不红
+        run: ./scripts/guard-probe.sh
 
   web:
     name: 前端构建 · 截图断言

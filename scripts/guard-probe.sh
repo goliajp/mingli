@@ -61,8 +61,20 @@ probe() {
     printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
   fi
 
-  # 编译失败也算红——有些错是编译期拦下的，机制不同但同样拦住了
+  # 清单类的种错（Cargo.toml）本来就可能编译期就被拦下——那是正当的拦法，算红。
+  # 源码类的不行：`.rs` 改完编不过，说明**表达式写坏了**，那一跑测的不是守卫是语法。
+  # 第一版把两者混为一谈，于是「handler 多加一个字段」那条靠一个没用到的 import 假红了一次。
   local red='test result: FAILED|^error(\[|:)|could not compile'
+  case "$file" in
+    *.toml) ;;
+    *)
+      if cargo build -p "$pkg" --tests 2>&1 | grep -qE '^error(\[|:)|could not compile'; then
+        restore
+        printf '⊘ 种下去的错编译不过（表达式写坏了，这一跑证明不了守卫）\n'
+        skipped=$((skipped+1)); return 0
+      fi
+      ;;
+  esac
   local out
   out=$(cargo test -p "$pkg" "$test" 2>&1 || true)
 
@@ -141,7 +153,27 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 13 known faults|plants 12 known faults|'
+  's|plants 17 known faults|plants 16 known faults|'
+
+# ── 两道门 ────────────────────────────────────────────────────────
+# 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
+probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
+  services/mingli-api/src/dto.rs \
+  's|    mingli_app::validate_coords(req.latitude, req.longitude)|    let _ = \&req.latitude; Ok(())|'
+
+probe "承接层：handler 往结果里加了一个字段" mingli-api natal_endpoints_pass_the_use_case_through_untouched \
+  services/mingli-api/src/routes/natal.rs \
+  's|Json(mingli_app::bazi::natal(&birth(&req))).into_response()|{ let mut v = serde_json::to_value(mingli_app::bazi::natal(\&birth(\&req))).unwrap_or_default(); v["probe_extra"] = serde_json::Value::Bool(true); Json(v).into_response() }|'
+
+# ── 成本 ──────────────────────────────────────────────────────────
+probe "成本：一片叶重新驮上百年推运" mingli-registry no_single_leaf_dominates_the_cost_of_casting_the_whole_tree \
+  crates/mingli-astrology/src/engine.rs \
+  's|        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)|        let mut v = serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null);\n        let c = chart(self, m, q);\n        v["progression"] = serde_json::to_value(crate::progression(m.jde, \&c.planets, 100, 1)).unwrap_or(Value::Null);\n        v|'
+
+# ── 流派 ──────────────────────────────────────────────────────────
+probe "流派：选项收下了却不改盘" mingli-registry every_school_option_actually_changes_the_chart \
+  crates/mingli-bazi/src/engine.rs \
+  's|"early_sf" => BaziSchool { zi_hour: ZiHourMethod::Early, year_break: YearBreakMethod::SpringFestival },|"early_sf" => BaziSchool::default(),|'
 
 printf '\n%d 条红了，%d 条配错对，%d 条一个也没拦，%d 条跳过\n' \
   "$pass" "$mismatched" "$fail" "$skipped"
