@@ -10,6 +10,8 @@ categories = ["algorithms", "api-bindings"]
 
 [dependencies]
 mingli-astro = { workspace = true }
+# 支序 ↔ 支名：紫微的流年宫要支序，而盘上给的是支名
+mingli-ganzhi = { workspace = true }
 mingli-luoshu = { workspace = true }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
@@ -33,7 +35,7 @@ astrology = ["dep:mingli-astrology"]
 jyotish = ["dep:mingli-jyotish"]
 
 [dev-dependencies]
-mingli-registry = { workspace = true, features = ["astrology", "jyotish", "qizhengsiyu"] }
+mingli-registry = { workspace = true, features = ["full"] }
 # 测试里核对方位表归属；生产代码不依赖六壬。
 mingli-liuren = { workspace = true }
 

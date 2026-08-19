@@ -100,6 +100,16 @@ export interface FortuneResponse {
   dasha: DashaSlice | null
   /** 西洋占星的二次推运（一日一年）。构建未含 astrology 时为 null */
   progression: Progression | null
+  ziwei: ZiweiFortune | null
+}
+
+/** 紫微那一层的「运」：所问之岁落在哪一步大限，所问之年入哪一宫。 */
+export interface ZiweiFortune {
+  system: string
+  ming_branch: string
+  /** 性别缺省时大限出不来（顺逆由「年干阴阳 + 性别」定），此处为 null */
+  limit: { step: number; start_age: number; end_age: number; branch: string; palace: string } | null
+  annual: { year: number; branch: string; palace: string }
 }
 
 /** 一格推运（对应 astrology::progression::ProgressedYear）。 */

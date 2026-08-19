@@ -292,7 +292,7 @@ fn secondary_progression_moves_the_sun_a_degree_and_the_moon_thirteen_per_year()
     assert!(total > 0, "百年推运里竟无一处与本命成相位，说明比对那一步没接上");
 
     // 粒度可调：十年一格恰 11 格，且与逐年那份的同岁数取值一致
-    let d = progression::decades(m.jde, &chart.planets);
+    let d = progression::progression(m.jde, &chart.planets, 100, 10);
     assert_eq!(d.step, 10);
     assert_eq!(d.years.len(), 11);
     for (k, y) in d.years.iter().enumerate() {

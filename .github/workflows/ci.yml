@@ -106,8 +106,12 @@ jobs:
         working-directory: web
         run: bun run build
 
+      # 开轮询：容器里 inotify 收不到改动，而下面「守卫自检」要靠改一行源码后
+      # 页面真的跟着变，监视漏一次那条断言就绿在「没测到」上
       - name: 起前端（:6026），等它真的应答
         working-directory: web
+        env:
+          MINGLI_WATCH_POLL: '1'
         run: |
           bun run dev &
           for _ in $(seq 1 60); do

@@ -16,7 +16,7 @@ serde_json = { workspace = true }
 [dev-dependencies]
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
-mingli-registry = { workspace = true, features = ["astrology", "jyotish", "qizhengsiyu"] }
+mingli-registry = { workspace = true, features = ["full"] }
 criterion = { version = "0.8", default-features = false }
 
 [lints]

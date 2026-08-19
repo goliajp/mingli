@@ -571,6 +571,7 @@ dependencies = [
  "mingli-bazi",
  "mingli-contract",
  "mingli-engine",
+ "mingli-ganzhi",
  "mingli-interpret",
  "mingli-jyotish",
  "mingli-liuren",

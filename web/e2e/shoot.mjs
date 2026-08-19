@@ -77,18 +77,26 @@ const CHECKS = {
     // Vimshottari 九主星共 120 年；当前段的小运也是九步
     const segs = await page.locator('.fd-seg').count()
     if (segs !== 9) throw new Error(`大运条应有 9 段，实有 ${segs}`)
-    const chips = await page.locator('.fd-antar:not(.prog) .fd-chip').count()
+    // 每一条时间线自带一个 `.fd-antar`，故这里逐条限定——曾经这几行只写
+    // `.fd-antar:not(.prog)`，加第四条时间线时它把新块的格子一起数了进来
+    const chips = await page.locator('.fd-antar:not(.prog):not(.zw) .fd-chip').count()
     if (chips !== 9) throw new Error(`当前大运的小运应有 9 步，实有 ${chips}`)
-    const on = await page.locator('.fd-antar:not(.prog) .fd-chip.on').count()
+    const on = await page.locator('.fd-antar:not(.prog):not(.zw) .fd-chip.on').count()
     if (on !== 1) throw new Error(`当前小运应恰好高亮 1 步，实有 ${on}`)
     // 推运每五年一格，0..100 共 21 格
     const prog = await page.locator('.fd-antar.prog .fd-chip').count()
     if (prog !== 21) throw new Error(`推运应有 21 格（0..100 每五年），实有 ${prog}`)
-    // 第三条时间线：二次推运。三套各自说各自的时间，缺一条就是少了一路
+    // 四条时间线：四柱大运 / Vimshottari / 二次推运 / 紫微大限。
+    // 四套各自说各自的时间，缺一条就是少了一路——它们不合成，合成等于替读者选边
     const lines = await page.locator('.fortune-mile-l').allInnerTexts()
-    if (!lines.some((t) => t.includes('二次推运'))) {
-      throw new Error(`运势屏应有三条时间线（大运 / Vimshottari / 二次推运），实见「${lines.join(' | ')}」`)
+    for (const want of ['二次推运', '紫微大限']) {
+      if (!lines.some((t) => t.includes(want))) {
+        throw new Error(`运势屏缺「${want}」这一条时间线，实见「${lines.join(' | ')}」`)
+      }
     }
+    // 流年宫一年一格，故恰一格；它要有「所问之年」才成立，本命盘上没有
+    const zw = await page.locator('.fd-antar.zw .fd-chip').count()
+    if (zw !== 1) throw new Error(`流年宫应恰一格，实有 ${zw}`)
   },
   '18-奇门遁甲': async (page) => {
     const n = await page.locator('.qm-cell').count()

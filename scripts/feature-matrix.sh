@@ -72,6 +72,26 @@ else
   printf '  ✓\n'
 fi
 
+
+# 每个 crate 各自单独跑一遍测试。
+#
+# `cargo test --workspace` 跑的是**合并后**的 feature 集：只要有一个成员开了某个 feature，
+# 整条依赖图上的那个 crate 就带着它编。于是一个 crate 的 dev-dependency 少写了 feature，
+# 整仓一起跑照样绿，单独跑才炸。`mingli-app` 就这么坏过一次——它的 dev-dependency
+# 停在旧的三个叶名上，占卜那几片压根不在注册表里，八条测试全挂，而日常一次都没红过。
+printf '\n=== 每个 crate 单独跑（feature 合并掩盖不了）\n'
+members=$(cargo metadata --no-deps --format-version 1 \
+  | tr ',' '\n' | grep -o '"name":"mingli-[a-z0-9-]*"' | cut -d'"' -f4 | sort -u)
+n=0
+for m in $members; do
+  n=$((n+1))
+  if cargo test -p "$m" 2>&1 | grep -qE '^error|FAILED'; then
+    printf '  ✗ %s 单独跑挂了\n' "$m"
+    fail=1
+  fi
+done
+printf '  ✓ %d 个 crate 各自单独跑过\n' "$n"
+
 if [ "$fail" -ne 0 ]; then
   printf '\nfeature 矩阵有组合未通过。\n'
   exit 1

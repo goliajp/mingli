@@ -87,7 +87,42 @@ pub fn fortune(b: &Birth, t: &AskTime, timeline_max_age: Option<u32>) -> Result<
         "max_age": max_age,
         "dasha": vimshottari_at(b, t),
         "progression": progression_of(b, max_age),
+        "ziwei": ziwei_at(b, t),
     }))
+}
+
+/// 紫微的「运」：所问之岁落在哪一步大限，以及所问之年的流年宫。
+///
+/// 大限盘本身在本命盘上（十年一宫，出生即定），可**流年宫要有「所问之年」才成立**，
+/// 本命盘上没有那个年份，所以它只能落在这一层。该叶的 `answers()` 早就写着它算这两样，
+/// 而在此之前只有前一半真的出现在输出里——第二半算完就丢了。
+///
+/// 性别缺省时大限出不来（顺逆由「年干阴阳 + 性别」定），此时 `limit` 为 `null`；
+/// 流年宫不需要性别，照常给。
+fn ziwei_at(b: &Birth, t: &AskTime) -> Value {
+    let chart = crate::ziwei::natal(b);
+    let ming = mingli_ganzhi::BRANCHES.iter().position(|x| *x == chart.ming_branch);
+    let Some(ming) = ming.and_then(|i| u8::try_from(i).ok()) else {
+        return Value::Null;
+    };
+    let (branch_index, palace) = mingli_ziwei::limit::annual_palace(ming, t.year);
+    let age = f64::from(t.year - b.year);
+    let limit = chart.major_limits.as_ref().and_then(|l| {
+        l.steps
+            .iter()
+            .find(|s| age >= f64::from(s.start_age) && age <= f64::from(s.end_age))
+            .map(|s| serde_json::to_value(s).unwrap_or(Value::Null))
+    });
+    json!({
+        "system": "ziwei",
+        "ming_branch": chart.ming_branch,
+        "limit": limit,
+        "annual": {
+            "year": t.year,
+            "branch": mingli_ganzhi::BRANCHES[usize::from(branch_index)],
+            "palace": palace,
+        },
+    })
 }
 
 /// 目标时刻所处的 Vimshottari 大运段，以及整条序列。
@@ -252,5 +287,45 @@ mod dasha_tests {
             .collect();
         assert!(spans.iter().any(|x| (*x - 10.0).abs() > 1.0), "Vimshottari 各段不该都是十年");
         assert!(spans.iter().all(|x| (6.0..=20.0).contains(x)), "各段应在 6 至 20 年之间");
+    }
+
+    /// 紫微那一层：所问之岁落进哪一步大限，所问之年入哪一宫。
+    ///
+    /// 流年宫这一半在此之前算完就丢了——该叶的 `answers()` 一直写着它算这个，
+    /// 而输出里从来没有过。这条钉住它真的出得来，且落的宫与太岁支对得上。
+    #[test]
+    fn the_fortune_carries_the_ziwei_limit_and_the_year_palace() {
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        let v = fortune(&natal(), &t, None).expect("应可算");
+        let z = &v["ziwei"];
+        assert_eq!(z["system"], "ziwei", "紫微那一层应在 `ziwei` 下");
+
+        // 2026 为丙午年：年支序 = (2026 − 4) mod 12 = 6 = 午
+        assert_eq!(z["annual"]["year"], 2026);
+        assert_eq!(z["annual"]["branch"], "午", "2026 是午年");
+        assert!(!z["annual"]["palace"].is_null(), "流年宫应有宫名");
+
+        // 大限：目标年龄该落在这一步的起讫之间，而不是随手取的第一步
+        let limit = &z["limit"];
+        assert!(!limit.is_null(), "样本给了性别，大限不该为空");
+        let age = f64::from(t.year - natal().year);
+        let (a, b) = (
+            limit["start_age"].as_f64().expect("起"),
+            limit["end_age"].as_f64().expect("止"),
+        );
+        assert!(a <= age && age <= b, "大限段 [{a}, {b}] 应含目标年龄 {age}");
+    }
+
+    /// 性别缺省时大限出不来（顺逆由「年干阴阳 + 性别」定），但流年宫不需要性别。
+    /// 这条防的是「缺一样就整段返回 null」——那会把算得出的那一半也一并吞掉。
+    #[test]
+    fn the_year_palace_survives_a_missing_gender() {
+        let mut b = natal();
+        b.gender = None;
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        // fortune 本身要性别（大运顺逆），故直接问这一层
+        let z = ziwei_at(&b, &t);
+        assert!(z["limit"].is_null(), "缺性别时大限应为空");
+        assert_eq!(z["annual"]["branch"], "午", "流年宫不依赖性别，应照常给");
     }
 }
