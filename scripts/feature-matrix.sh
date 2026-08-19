@@ -92,6 +92,60 @@ for m in $members; do
 done
 printf '  ✓ %d 个 crate 各自单独跑过\n' "$n"
 
+
+# README 那张 wasm 体积表，逐格重量一遍。
+#
+# 「关掉即裁掉」上面已经验过（依赖图里没有 vsop87），但**裁掉多少**是 README 对外给的数字，
+# 而那种数字没人验就会慢慢失真：一片叶悄悄拖进星历，体积翻倍，表里还写着 0.57。
+#
+# 读数只认 **cargo 自己汇报的产物路径**（`--message-format=json`）。别用「删掉 .wasm 再 build」
+# 那一招：cargo 的指纹不看产物在不在，删了照样判定 up-to-date，于是一个也不重新链接——
+# 写这段时先踩了这个坑，五种配置量出三种一模一样的数，看上去像「feature 没起作用」。
+printf '\n=== README 的 wasm 体积表\n'
+if rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown; then
+  wasm_size() {
+    cargo build -p mingli-wasm --release --target wasm32-unknown-unknown "$@" --message-format=json 2>/dev/null \
+      | python3 -c "
+import sys, json, os
+p = None
+for line in sys.stdin:
+    try: m = json.loads(line)
+    except Exception: continue
+    if m.get('reason') == 'compiler-artifact' and m.get('target', {}).get('name') == 'mingli_wasm':
+        for f in m.get('filenames', []):
+            if f.endswith('.wasm'):
+                p = f
+print(os.path.getsize(p) if p and os.path.exists(p) else 0)"
+  }
+  # 行名（README 两份都认这一列）· 期望 MB · feature 组合
+  while IFS='|' read -r label want flags; do
+    [ -n "$label" ] || continue
+    # shellcheck disable=SC2086
+    got=$(wasm_size $flags)
+    if [ "$got" -eq 0 ]; then
+      printf '  ✗ %s：cargo 没报告 .wasm 产物\n' "$label"; fail=1; continue
+    fi
+    if ! python3 - "$label" "$want" "$got" <<'PYEOF'
+import sys
+label, want, got = sys.argv[1], float(sys.argv[2]), int(sys.argv[3])
+mb = got / 1048576
+if abs(mb - want) > 0.03:
+    print(f"  ✗ {label}：README 写 {want:.2f} MB，实测 {mb:.2f} MB（{got} 字节）")
+    sys.exit(1)
+print(f"  ✓ {label} {mb:.2f} MB")
+PYEOF
+    then fail=1; fi
+  done <<'ROWS'
+只骨架|0.53|--no-default-features
+只四柱|0.57|--no-default-features --features bazi
+四柱+紫微|0.60|--no-default-features --features bazi,ziwei
+只西洋占星|1.32|--no-default-features --features astrology
+全部二十四片|1.83|
+ROWS
+else
+  printf '  没装 wasm32-unknown-unknown，跳过\n'
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '\nfeature 矩阵有组合未通过。\n'
   exit 1
