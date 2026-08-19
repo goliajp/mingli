@@ -61,6 +61,9 @@ pub fn registry() -> Vec<Box<dyn CastingEngine>> {
 }
 
 /// 已登记的全部**字词叶**（D 族：吃文字或笔画，与时刻无关，不进 fan-out）。
+///
+/// 数字学同时在这里与 [`registry`] 里各占一行：它的生命灵数由出生日期得（时刻那一半），
+/// 姓名三数只吃字（字词这一半）。两条端口各答各的问局，不是同一份东西登记两遍。
 #[must_use]
 pub fn word_registry() -> Vec<Box<dyn WordEngine>> {
     vec![
@@ -70,6 +73,8 @@ pub fn word_registry() -> Vec<Box<dyn WordEngine>> {
         Box::new(mingli_abjad::AbjadEngine),
         #[cfg(feature = "wuge")]
         Box::new(mingli_wuge::WugeEngine),
+        #[cfg(feature = "numerology")]
+        Box::new(mingli_numerology::NumerologyEngine),
     ]
 }
 
@@ -143,17 +148,43 @@ mod tests {
 
     /// 字词叶的顺序同样是契约（`/api/word` 的 system 取值与前端下拉的排序）。
     #[test]
-    fn word_registry_covers_the_three_word_leaves_in_order() {
+    fn word_registry_covers_the_word_leaves_in_order() {
         let ids: Vec<&str> = word_registry().iter().map(|e| e.id()).collect();
-        assert_eq!(ids, ["gematria", "abjad", "wuge"]);
+        assert_eq!(ids, ["gematria", "abjad", "wuge", "numerology"]);
     }
 
+    /// 同时长在两条端口上的叶，以及为什么它是同一套术数而非两样东西。
+    ///
+    /// 这不是豁免清单：要进这张表，两条端口得答的是同一套术数的两种模态，
+    /// 且下面那条测试会要求它们的显示名一致——否则目录里会出现两个名字指同一个 id。
+    const BOTH_PORTS: &[(&str, &str)] = &[(
+        "numerology",
+        "生命灵数由出生日期得（时刻端口），姓名三数只吃字（字词端口）；同一套术数的两种输入",
+    )];
+
     /// 两张注册表的 id 不许撞——它们在 `/api/interpret` 与 `/api/word` 两侧共用同一个命名空间。
+    ///
+    /// 例外是 [`BOTH_PORTS`] 里点名的那几片：撞的不是两片叶，是同一片叶的两条端口。
+    /// 对这几片另加一条要求——两侧的显示名必须一样，否则同一个 id 在目录里会有两个名字。
     #[test]
-    fn the_two_registries_do_not_share_any_id() {
-        let a: Vec<&str> = registry().iter().map(|e| e.id()).collect();
+    fn the_two_registries_only_share_an_id_for_a_leaf_that_is_both() {
+        let reg = registry();
         for w in word_registry() {
-            assert!(!a.contains(&w.id()), "字词叶 {} 与时刻叶重名", w.id());
+            let Some(c) = reg.iter().find(|e| e.id() == w.id()) else { continue };
+            let why = BOTH_PORTS.iter().find(|(id, _)| *id == w.id()).map(|(_, why)| why);
+            assert!(
+                why.is_some(),
+                "字词叶 `{}` 与时刻叶重名。若这确是同一套术数的两条端口，\n\
+                 把它连同理由加进 BOTH_PORTS；若不是，换一个 id——\n\
+                 两侧共用一个命名空间，重名会让 `/api/interpret` 与 `/api/word` 指向不同的东西。",
+                w.id()
+            );
+            assert_eq!(
+                c.name(),
+                w.name(),
+                "叶 `{}` 的两条端口给了不同的显示名——同一个 id 在目录里就成了两样东西",
+                w.id()
+            );
         }
     }
 }
