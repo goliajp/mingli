@@ -89,11 +89,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: oven-sh/setup-bun@v2
 
+      # 不带 `--with-deps`：它会跑 `apt-get update`，而那一步在 Azure 的 Ubuntu 镜像上
+      # 挂过两次——取完 InRelease 就再无输出，一次 34 分钟、一次 29 分钟，都是被超时切断的，
+      # 与本仓无关。runner 镜像自带浏览器所需的系统库；真缺哪个，Chromium 起不来会明说，
+      # 那比在 apt 上无声等着强。单独设限是为了让这类外部抖动几分钟就现形。
       - name: 装依赖与 Chromium
         working-directory: web
+        timeout-minutes: 8
         run: |
           bun install --frozen-lockfile
-          bunx playwright install --with-deps chromium
+          bunx playwright install chromium
 
       - run: cargo build -p mingli-api
 
