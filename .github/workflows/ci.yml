@@ -70,8 +70,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # 前端那一族要两个服务在应答，故不在这里跑，挂到下面 web job 的末尾
       - name: 逐条往源码里种一个已知的错，问该拦它的守卫红不红
-        run: ./scripts/guard-probe.sh
+        run: ./scripts/guard-probe.sh -前端
 
   web:
     name: 前端构建 · 截图断言
@@ -119,6 +120,11 @@ jobs:
       - name: 截图与断言
         working-directory: web
         run: bun run shots
+
+      # 服务都还在应答，正好在这里把前端那两条守卫也反过来验一遍：
+      # 种回「渲染里读时钟」那一行，看静止三秒的那条断言拦不拦。
+      - name: 守卫自检 · 前端那一族
+        run: ./scripts/guard-probe.sh 前端
 
       - name: 断言不过时把截图留下
         if: failure()

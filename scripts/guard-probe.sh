@@ -10,6 +10,10 @@
 #
 #   ./scripts/guard-probe.sh              # 全跑
 #   ./scripts/guard-probe.sh 架构          # 只跑名字含「架构」的组
+#   ./scripts/guard-probe.sh -前端         # 跑除「前端」以外的组
+#
+# 前端那一族要 :6026 与 :6027 都在应答，所以 CI 里它挂在已经起了服务的那个 job 上，
+# 别处用 `-前端` 排除。分开跑而不是「服务不在就当过」——后者正是这脚本要治的病。
 #
 # 每条探测由四样东西定义：组名、被探的测试名、要改的文件、改法（sed 表达式）。
 # 脚本会先确认那个测试名**真的存在**——测试改了名而探测没跟着改，是这类脚本最容易
@@ -25,7 +29,25 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+
+# BSD sed（macOS）要 `-i ''`，GNU sed（CI 上的 Linux）要 `-i` 且不能跟空串——
+# 后者会把 '' 当成脚本、把真正的表达式当成文件名。这个脚本两边都要跑，故先认一次。
+if sed --version >/dev/null 2>&1; then
+  sedi() { sed -i "$@"; }
+else
+  sedi() { sed -i '' "$@"; }
+fi
+
 filter=${1:-}
+exclude=""
+case "$filter" in -?*) exclude=${filter#-}; filter="";; esac
+
+# 这一组要不要跑
+wanted() {
+  [ -z "$filter" ] || [[ "$1" == *"$filter"* ]] || return 1
+  [ -z "$exclude" ] || [[ "$1" != *"$exclude"* ]] || return 1
+  return 0
+}
 pass=0; fail=0; skipped=0; mismatched=0
 declare -a BACKUPS=()
 
@@ -33,16 +55,37 @@ restore() {
   for b in "${BACKUPS[@]:-}"; do
     [ -n "$b" ] || continue
     orig=${b%.guardprobe.bak}
-    [ -f "$b" ] && mv "$b" "$orig"
+    if [ -d "$b" ]; then
+      rm -rf "$orig"; mv "$b" "$orig"
+    elif [ -f "$b" ]; then
+      mv "$b" "$orig"
+    fi
   done
   BACKUPS=()
+}
+
+# 把种错落到一个文件或一整棵目录上。目录是给前端用的：一个字段名散在
+# types.ts、视图、样式里，只改其中一个盖不住——`wired.mjs` 是全 src 搜的。
+plant() {
+  local target=$1 expr=$2
+  if [ -d "$target" ]; then
+    cp -R "$target" "$target.guardprobe.bak"; BACKUPS+=("$target.guardprobe.bak")
+    while IFS= read -r f; do sedi "$expr" "$f"; done < <(
+      find "$target" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \)
+    )
+    ! diff -rq "$target" "$target.guardprobe.bak" >/dev/null 2>&1
+  else
+    cp "$target" "$target.guardprobe.bak"; BACKUPS+=("$target.guardprobe.bak")
+    sedi "$expr" "$target" 2>/dev/null || true
+    ! cmp -s "$target" "$target.guardprobe.bak"
+  fi
 }
 trap 'restore' EXIT INT TERM
 
 # probe <组名> <crate> <测试名> <文件> <sed 表达式>
 probe() {
   local group=$1 pkg=$2 test=$3 file=$4 expr=$5
-  if [ -n "$filter" ] && [[ "$group" != *"$filter"* ]]; then return 0; fi
+  wanted "$group" || return 0
 
   printf '  %-46s ' "$group"
 
@@ -54,7 +97,7 @@ probe() {
 
   cp "$file" "$file.guardprobe.bak"; BACKUPS+=("$file.guardprobe.bak")
 
-  if ! sed -i '' "$expr" "$file" 2>/dev/null; then
+  if ! sedi "$expr" "$file" 2>/dev/null; then
     printf '⊘ sed 没改动任何东西\n'; restore; skipped=$((skipped+1)); return 0
   fi
   if cmp -s "$file" "$file.guardprobe.bak"; then
@@ -93,6 +136,42 @@ probe() {
   else
     printf '✗ 种了错，整包没有一条守卫红\n'
     fail=$((fail+1))
+  fi
+}
+
+
+# probe_cmd <组名> <要跑的命令> <文件> <sed 表达式>
+#
+# 前端那几条守卫不是 cargo 测试，是 node 脚本，所以另走一条：不认测试名，认命令的退出码。
+# 代价是少了「配错对」那一栏——命令要么红要么不红，无从分辨是不是别人替它红的。
+# 换来的是这一族能被探到，而在此之前它们一条也没有。
+#
+# 需要 :6026 与 :6027 都在应答；不在就跳过并说一声（当成绿是这类脚本最坏的坏法）。
+probe_cmd() {
+  local group=$1 cmd=$2 file=$3 expr=$4
+  wanted "$group" || return 0
+
+  printf '  %-46s ' "$group"
+  for port in 6026 6027; do
+    if ! curl -sf -m3 "http://127.0.0.1:$port/" >/dev/null 2>&1 \
+       && ! curl -sf -m3 "http://127.0.0.1:$port/api/health" >/dev/null 2>&1; then
+      printf '⊘ :%s 没应答，前端这一族跑不了\n' "$port"
+      skipped=$((skipped+1)); return 0
+    fi
+  done
+
+  if ! plant "$file" "$expr"; then
+    printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
+  fi
+
+  local rc=0
+  ( cd web && eval "$cmd" ) >/dev/null 2>&1 || rc=$?
+  restore
+
+  if [ "$rc" -ne 0 ]; then
+    printf '✓ 红了\n'; pass=$((pass+1))
+  else
+    printf '✗ 种了错它还是绿的\n'; fail=$((fail+1))
   fi
 }
 
@@ -153,7 +232,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 17 known faults|plants 16 known faults|'
+  's|plants 19 known faults|plants 18 known faults|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
@@ -174,6 +253,17 @@ probe "成本：一片叶重新驮上百年推运" mingli-registry no_single_lea
 probe "流派：选项收下了却不改盘" mingli-registry every_school_option_actually_changes_the_chart \
   crates/mingli-bazi/src/engine.rs \
   's|"early_sf" => BaziSchool { zi_hour: ZiHourMethod::Early, year_break: YearBreakMethod::SpringFestival },|"early_sf" => BaziSchool::default(),|'
+
+# ── 前端 ──────────────────────────────────────────────────────────
+probe_cmd "前端：新字段没有任何一处显示" \
+  'node e2e/wired.mjs' \
+  web/src \
+  's|aspects|aspects_probe_renamed|g'
+
+probe_cmd "前端：渲染里又读起了时钟" \
+  'node e2e/shoot.mjs 30-运势' \
+  web/src/hooks/useTimeline.ts \
+  's|  const nowAge = Math.max(0, Math.min(MAX_AGE, (nowMs - birthMs) / MS_PER_YEAR))|  const nowAge = Math.max(0, Math.min(MAX_AGE, (Date.now() - birthMs) / MS_PER_YEAR))|'
 
 printf '\n%d 条红了，%d 条配错对，%d 条一个也没拦，%d 条跳过\n' \
   "$pass" "$mismatched" "$fail" "$skipped"
