@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 741 tests green
+> 38 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 743 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -172,7 +172,7 @@ or payload -- it exists because one did, once.
 Guards need guarding too. A test that can never fail and a test that is really holding
 something up look identical on a green run; the only way to tell them apart is to put the
 fault back and see whether it gets caught. `guard-probe.sh` turns that from something
-someone once did by hand into a command anyone can re-run: it plants 22 known faults
+someone once did by hand into a command anyone can re-run: it plants 23 known faults
 and asks, for each, whether the guard that should catch it goes red. It has already found
 one guard that did not do what its name said -- "the composition root is the only place
 that lists leaves" never looked at the interpretation layer at all.
@@ -181,14 +181,14 @@ that lists leaves" never looked at the interpretation layer at all.
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 741 tests
+cargo test --workspace     # 743 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
 ./scripts/api-snapshot.sh check snap.txt   # 39 requests, byte for byte
 ./scripts/test-count.sh    # the count in this README, against a real run
 ./scripts/feature-matrix.sh  # every leaf built alone, every crate tested alone, wasm32, one dependency-graph check
-./scripts/guard-probe.sh   # plants 22 known faults, checks the guard that should catch each one does
+./scripts/guard-probe.sh   # plants 23 known faults, checks the guard that should catch each one does
 ```
 
 All of the above, plus the screenshot pass, run on every push — see the badge at the top.

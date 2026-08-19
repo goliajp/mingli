@@ -51,14 +51,21 @@ wanted() {
 pass=0; fail=0; skipped=0; mismatched=0
 declare -a BACKUPS=()
 
+# 还原时**必须**把 mtime 推到现在，否则种下的错会以编译产物的形式留在 target 里。
+#
+# 备份是种错之前 `cp` 出来的，它的 mtime 早于「种错之后编出来的那份产物」。
+# 直接 mv 回去，源码看上去比产物旧，cargo 判定无需重编——于是**下一次构建仍然用着
+# 那份带错的库**。实测过一次：探测跑完、源码明明是好的，`cargo run` 出来的行为却是
+# 种错时的样子，害我去查一个根本不存在的逻辑问题。
 restore() {
   for b in "${BACKUPS[@]:-}"; do
     [ -n "$b" ] || continue
     orig=${b%.guardprobe.bak}
     if [ -d "$b" ]; then
       rm -rf "$orig"; mv "$b" "$orig"
+      find "$orig" -type f -exec touch {} +
     elif [ -f "$b" ]; then
-      mv "$b" "$orig"
+      mv "$b" "$orig"; touch "$orig"
     fi
   done
   BACKUPS=()
@@ -271,7 +278,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 22 known faults|plants 21 known faults|'
+  's|plants 23 known faults|plants 22 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -280,6 +287,10 @@ probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_p
 probe "自陈：认领了「运」却没进运势用例" mingli-app every_leaf_that_claims_the_fortune_intent_shows_up_in_the_fortune_answer \
   crates/mingli-app/src/bazi.rs \
   's|        "ziwei": ziwei_at(b, t),||'
+
+probe "自陈：认领了「合」却没进合盘用例" mingli-app every_leaf_that_claims_the_synastry_intent_shows_up_in_the_synastry_answer \
+  crates/mingli-app/src/synastry.rs \
+  's|        ashtakuta: ashtakuta_between(a.0, b.0),|        ashtakuta: serde_json::Value::Null,|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
