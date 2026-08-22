@@ -418,6 +418,96 @@ mod tests {
     }
 
     use proptest::prelude::*;
+    /// 农历序列的结构性质——穷举 1900–2100 每一天。
+    ///
+    /// 现有几条农历测试钉的都是具体日期（1990 样本、历年春节、闰月表、子月）。
+    /// 那种测试能确认「这一天算对了」，确认不了「不会在某处断开」。
+    /// 下面五条是历法本身必须成立的东西，任何一条破了，上面所有吃农历的叶都跟着错，
+    /// 而错法多半是某个月的边界上少一天或多一天——按日期抽查恰好最难发现。
+    ///
+    /// 实测（2026-08-23）：73 414 天，日恒在 1..=30、完整月恒为 29 或 30 天、
+    /// 一农历年至多一个闰月、逐日无缝、201 个正月初一落在 1-21 至 2-20 之间。
+    #[test]
+    fn the_lunar_sequence_has_no_seams_across_two_centuries() {
+        use std::collections::{BTreeMap, BTreeSet};
+        let tz = 8.0;
+        let days_in = |y: i32, m: u32| -> u32 {
+            match m {
+                1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+                4 | 6 | 9 | 11 => 30,
+                _ => u32::from((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) + 28,
+            }
+        };
+
+        let mut prev: Option<(crate::LunarDate, i64)> = None;
+        let mut month_days: BTreeMap<(i32, u32, bool), u32> = BTreeMap::new();
+        let mut new_year_at: Vec<(u32, u32)> = Vec::new();
+        let mut n = 0u32;
+
+        for y in 1900..=2100 {
+            for m in 1..=12u32 {
+                for d in 1..=days_in(y, m) {
+                    let l = crate::solar_to_lunar(y, m, d, tz);
+                    let cdn = civil_day_number(y, m, d);
+                    n += 1;
+
+                    // ① 日恒在 1..=30
+                    assert!((1..=30).contains(&l.day), "{y}-{m:02}-{d:02} 得农历日 {}", l.day);
+                    // ② 月序恒在 1..=12
+                    assert!((1..=12).contains(&l.month), "{y}-{m:02}-{d:02} 得农历月 {}", l.month);
+                    *month_days.entry((l.year, l.month, l.leap)).or_insert(0) += 1;
+                    if l.month == 1 && l.day == 1 && !l.leap {
+                        new_year_at.push((m, d));
+                    }
+
+                    // ③ 逐日无缝：公历相邻两日，农历要么日 +1，要么翻月落初一
+                    if let Some((p, pc)) = prev
+                        && cdn == pc + 1
+                    {
+                        let same_month = l.month == p.month && l.leap == p.leap;
+                        let ok = if same_month {
+                            l.day == p.day + 1
+                        } else {
+                            l.day == 1 && (29..=30).contains(&p.day)
+                        };
+                        assert!(
+                            ok,
+                            "{y}-{m:02}-{d:02} 处农历断开：前一日 {}年{}{}月{}日，本日 {}年{}{}月{}日",
+                            p.year, if p.leap { "闰" } else { "" }, p.month, p.day,
+                            l.year, if l.leap { "闰" } else { "" }, l.month, l.day,
+                        );
+                    }
+                    prev = Some((l, cdn));
+                }
+            }
+        }
+        assert_eq!(n, 73_414, "扫描规模变了，下面几条实测结论要跟着重验");
+
+        // ④ 完整月只能是 29 或 30 天（首末两月被扫描区间截断，不计）
+        let full: BTreeSet<u32> = month_days.values().copied().filter(|&v| v >= 20).collect();
+        assert_eq!(full, BTreeSet::from([29, 30]), "完整农历月的天数集合应恰为 {{29,30}}，实得 {full:?}");
+
+        // ⑤ 一个农历年至多一个闰月
+        let mut leaps: BTreeMap<i32, u32> = BTreeMap::new();
+        for (yy, _, is_leap) in month_days.keys() {
+            if *is_leap {
+                *leaps.entry(*yy).or_insert(0) += 1;
+            }
+        }
+        assert!(
+            leaps.values().all(|&c| c == 1),
+            "有农历年出现不止一个闰月：{:?}",
+            leaps.iter().filter(|&(_, &c)| c != 1).collect::<Vec<_>>()
+        );
+
+        // ⑥ 正月初一恒落在 1-21 至 2-20 之间（201 年实测的真实区间）
+        assert_eq!(new_year_at.len(), 201, "1900–2100 应有 201 个正月初一");
+        let earliest = new_year_at.iter().min().expect("非空");
+        let latest = new_year_at.iter().max().expect("非空");
+        assert_eq!(*earliest, (1, 21), "最早的正月初一应是 1 月 21 日");
+        assert_eq!(*latest, (2, 20), "最晚的正月初一应是 2 月 20 日");
+    }
+
     proptest! {
         #[test]
         fn prop_sidereal_time_in_range(jd in 2_400_000.0f64..2_500_000.0) {
