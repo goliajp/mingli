@@ -207,6 +207,43 @@ assert!(p.contains("该不该在一起"));
 assert!(p.contains("仅供研究与娱乐") && p.contains(json));
 }
 
+/// 载荷里出现单位不显然的字段时，提示必须把单位说清楚。
+///
+/// 具体这一处：八项合婚的分数以**十分之一分**入盘（`total_min_tenths` 等），满分 36。
+/// 一份没交代单位的提示，最自然的误读就是「110 分，满分 36」——数字与满分差着一个数量级，
+/// 而释义层没有任何东西拦得住。这条把「凡 `_tenths` 入盘，同一份提示必须交代除以 10」钉住。
+///
+/// 顺带钉住区间：算层对 Vashya / Yoni 两项刻意给上下界不选边，转述时不许合成一个数。
+#[test]
+fn a_payload_field_with_a_non_obvious_unit_must_be_explained_in_the_same_prompt() {
+    // 形状取自合盘用例的真实产物（`mingli_app::synastry::compute` 的序列化结果）
+    let json = r#"{"a_name":"甲","b_name":"乙","a_supplies_b":23,"b_supplies_a":18,"detail":{},
+"ashtakuta":{"max_points":36,"total_min_tenths":110,"total_max_tenths":130,"unsettled_count":1,
+"kutas":[{"kuta":"Varna","max_points":1,"min_tenths":10,"max_tenths":10,"settled":true,"basis":"…"}]},
+"aspects":[{"a":"太阳","b":"月亮","kind":"三分","angle":118.4}]}"#;
+    let p = build_synastry_prompt(json);
+
+    // 载荷里每出现一个 `_tenths` 字段，就必须能在提示里找到单位的交代
+    let has_tenths = json.contains("_tenths");
+    assert!(has_tenths, "样例载荷应含 `_tenths` 字段，否则这条验的是空气");
+    assert!(
+        p.contains("十分之一分") && p.contains("除以 10"),
+        "载荷里有 `_tenths`（十分之一分），提示却没说要除以 10。\n\
+         满分是 36 而数值是 110——不交代单位，最自然的读法就差一个数量级"
+    );
+    assert!(p.contains("max_points"), "提示应指明满分从哪个字段取");
+
+    // 区间是刻意的，不许被合成
+    assert!(
+        p.contains("区间") && p.contains("不选边"),
+        "八项合婚里 Vashya / Yoni 各家判定表不一，算层给的是上下界；提示须说明这是刻意留的区间"
+    );
+    assert!(p.contains("unsettled_count"), "提示应指明哪个字段说明未定项数");
+
+    // 另一个此前完全没被提示覆盖的字段
+    assert!(p.contains("aspects"), "`aspects` 进了载荷却没在提示里出现过");
+}
+
 #[test]
 fn synastry_interpretation_round_trips_through_the_offline_backend() {
 let r = interpret_synastry(&Template, r#"{"a_supplies_b":1}"#).expect("模板后端应可用");
