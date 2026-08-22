@@ -279,7 +279,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 27 known faults|plants 26 known faults|'
+  's|plants 28 known faults|plants 27 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -304,6 +304,10 @@ probe "自陈：README 的体积表与脚本对不上" mingli-registry the_wasm_
 probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain \
   crates/mingli-analysis/src/lib.rs \
   's|        ("bazi", "liuren", "两者的主判据都是日支——同一个量，换个名字"),||'
+
+probe "释义：载荷里的非显然单位没人交代" mingli-interpret a_payload_field_with_a_non_obvious_unit_must_be_explained_in_the_same_prompt \
+  crates/mingli-interpret/src/guardrails/synastry.rs \
+  's|\*\*单位是十分之一分\*\*：`total_min_tenths` / `total_max_tenths` 除以 10 才是分数，|总分见 `total_min_tenths` / `total_max_tenths`，|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
