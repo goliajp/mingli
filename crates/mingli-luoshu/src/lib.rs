@@ -100,6 +100,60 @@ mod tests {
         assert_eq!(r[5], 5); // 乾宫（本位6） 逆飞得 5
     }
 
+    /// 飞布是九宫上的一个置换——穷举九个入中数 × 顺逆两向共十八盘。
+    ///
+    /// 在此之前只抽查了 5 / 6 / 8 入中的三两格。抽查看不出「某一格重复、另一格缺失」
+    /// 这种最典型的模运算错法：错一处，被查的那几格照样对。
+    /// 置换性是这一层唯一必须成立的东西——九宫各得一数、不重不漏，
+    /// 上面所有术数的飞星盘都建立在它之上。
+    #[test]
+    fn flying_is_a_permutation_for_every_center_and_direction() {
+        for center in 1..=9u8 {
+            for forward in [true, false] {
+                let f = fly(center, forward);
+                let mut seen = [0u8; 10];
+                for &v in &f {
+                    assert!((1..=9).contains(&v), "{center} 入中{}飞得到 {v}，越出 1..=9",
+                        if forward { "顺" } else { "逆" });
+                    seen[v as usize] += 1;
+                }
+                assert!(
+                    seen[1..=9].iter().all(|&c| c == 1),
+                    "{center} 入中{}飞不是置换：{f:?}（各数出现次数 {:?}）",
+                    if forward { "顺" } else { "逆" },
+                    &seen[1..=9],
+                );
+                // 入中之数必落中宫（本位 5 那一格）
+                assert_eq!(
+                    f[4], center,
+                    "{center} 入中{}飞，中宫应得 {center}，实得 {}",
+                    if forward { "顺" } else { "逆" }, f[4],
+                );
+            }
+        }
+    }
+
+    /// 顺飞与逆飞互为镜像：同一入中数下，两者在每一宫的取值关于中宫之数对称。
+    ///
+    /// 顺飞第 k 步得 `center + k`，逆飞得 `center − k`（皆模 9 归 1..9），
+    /// 于是两数之和恒 ≡ 2×center（mod 9）。这条把「顺逆共用同一个群作用、
+    /// 只差一个符号」钉住——某天有人把逆飞另写一套实现时，它会红。
+    #[test]
+    fn forward_and_reverse_are_mirror_images() {
+        for center in 1..=9u8 {
+            let (f, r) = (fly(center, true), fly(center, false));
+            for p in 0..9 {
+                let sum = i32::from(f[p]) + i32::from(r[p]);
+                let want = 2 * i32::from(center);
+                assert_eq!(
+                    sum.rem_euclid(9), want.rem_euclid(9),
+                    "{center} 入中：本位 {} 宫顺飞 {} 逆飞 {}，和模 9 应为 {}",
+                    p + 1, f[p], r[p], want.rem_euclid(9),
+                );
+            }
+        }
+    }
+
     #[test]
     fn positions() {
         assert_eq!(grid_position(5), (1, 1)); // 中

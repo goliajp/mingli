@@ -893,3 +893,54 @@ fn the_ten_stem_patterns_come_in_directed_pairs() {
     // 吉凶只有两种取值，不是自由文本
     assert!(STEM_PATTERNS.iter().all(|p| p.3 == "吉" || p.3 == "凶"), "吉凶只该是「吉」或「凶」");
 }
+
+/// 盘上的宫号字段恒在 1..=9。
+///
+/// 这条不是防御性检查，是**下游三处代码的前提**：`bearings.rs` 里
+/// `direction_of` 直接下标取方位、`palace_note` 用 `palace - 1` 取同宫结构、
+/// `palace_label` 同理。三处都建立在「宫号必在范围内」之上，而在此之前没有任何东西说这句话成立。
+///
+/// 从前 `direction_of` 用 `.min(9)` 夹住越界值——那会把一个算错的宫号变成「南」，
+/// 一个看不出异常的方位。夹子已经去掉，改为越界即 panic；这条测试是那个改动的依据。
+///
+/// 扫 1950–2049 每月三日四时共 14 400 局：`zhi_fu_palace` 取遍 1..9；
+/// `zhi_shi_palace` 与 `center_palace` 从不取 5——中五不在后天八卦圆周上，
+/// 值使落中五时归并寄坤 2，中宫之干另有落宫，这是本叶「天禽寄坤 2」那条 Det 的直接后果。
+#[test]
+fn every_palace_number_on_a_chart_is_in_range() {
+    let mut n = 0u32;
+    let mut zf = [false; 10];
+    let mut zs = [false; 10];
+    let mut cp = [false; 10];
+    for year in 1950..2050 {
+        for month in 1..=12u32 {
+            for day in [1u32, 11, 21] {
+                for hour in [0u32, 7, 13, 19] {
+                    let m = Moment::new(year, month, day, hour, 0, 8.0);
+                    let c = crate::compute_at(&m);
+                    n += 1;
+                    for (what, v) in [
+                        ("zhi_fu_palace", c.zhi_fu_palace),
+                        ("zhi_shi_palace", c.gates.zhi_shi_palace),
+                        ("center_palace", c.sky.center_palace),
+                    ] {
+                        assert!(
+                            (1..=9).contains(&v),
+                            "{year}-{month:02}-{day:02} {hour}时 的 {what} = {v}，越出 1..=9。\n\
+                             下游按此下标取方位与同宫结构，越界即索引越界",
+                        );
+                    }
+                    zf[c.zhi_fu_palace as usize] = true;
+                    zs[c.gates.zhi_shi_palace as usize] = true;
+                    cp[c.sky.center_palace as usize] = true;
+                }
+            }
+        }
+    }
+    assert_eq!(n, 14_400, "扫描规模变了，取值集合的结论要跟着重验");
+    let taken = |s: &[bool; 10]| (1..=9).filter(|&i| s[i]).collect::<Vec<_>>();
+    assert_eq!(taken(&zf), (1..=9).collect::<Vec<_>>(), "值符宫应取遍九宫");
+    // 中五被归并掉，故这两处取不到 5。若哪天取到了，说明归并那一步没走
+    assert_eq!(taken(&zs), vec![1, 2, 3, 4, 6, 7, 8, 9], "值使宫不该出现中 5");
+    assert_eq!(taken(&cp), vec![1, 2, 3, 4, 6, 7, 8, 9], "中宫之干的落宫不该是中 5");
+}
