@@ -101,8 +101,9 @@ probe() {
 
   printf '  %-46s ' "$group"
 
-  if ! grep -q "fn $test\b" "$(dirname "$file")"/../tests/*.rs 2>/dev/null \
-     && ! grep -rq "fn $test\b" crates/*/tests services/*/tests 2>/dev/null; then
+  # 测试可能住在 tests/ 目录，也可能住在 src/ 里的内联 `#[cfg(test)] mod tests`。
+  # 只搜前者会把后者报成「不存在」——加这条注释是因为真漏过一次。
+  if ! grep -rq "fn $test\b" crates/*/tests services/*/tests crates/*/src services/*/src 2>/dev/null; then
     printf '⊘ 测试 %s 不存在（改名了？）\n' "$test"
     skipped=$((skipped+1)); return 0
   fi
@@ -278,7 +279,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 26 known faults|plants 25 known faults|'
+  's|plants 27 known faults|plants 26 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -299,6 +300,10 @@ probe "自陈：认领了「字」却不在字词注册表里" mingli-app every_
 probe "自陈：README 的体积表与脚本对不上" mingli-registry the_wasm_size_table_and_the_script_agree \
   README.md \
   's:| Four Pillars only | 0.57 MB |:| Four Pillars only | 0.77 MB |:'
+
+probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain \
+  crates/mingli-analysis/src/lib.rs \
+  's|        ("bazi", "liuren", "两者的主判据都是日支——同一个量，换个名字"),||'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
