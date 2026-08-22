@@ -7,9 +7,18 @@ use super::*;
 use mingli_contract::Bearing;
 
 /// 某宫的方位（复用洛书九宫方位；中 5 无方位）。
+///
+/// # Panics
+///
+/// 宫号不在 `1..=9` 时下标越界而 panic——这是有意的。
+/// 从前这里写作 `PALACE_DIR[(palace as usize).min(9)]`：越界的宫号被夹成 9，
+/// 于是「算错了一个宫号」这件事会以**「南」**的形式交给调用方，
+/// 一个看不出任何异常的方位。宫号恒在 1..=9 由
+/// 本 crate 测试 `every_palace_number_on_a_chart_is_in_range` 扫 14 400 局钉住，
+/// 真出了范围应当立刻炸，而不是给一个像样的错答案。
 #[must_use]
 pub fn direction_of(palace: u8) -> &'static str {
-    mingli_luoshu::PALACE_DIR[(palace as usize).min(9)]
+    mingli_luoshu::PALACE_DIR[palace as usize]
 }
 
 /// 某宫的字面（如「坎1」）。

@@ -279,7 +279,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 28 known faults|plants 27 known faults|'
+  's|plants 30 known faults|plants 29 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -308,6 +308,14 @@ probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_onl
 probe "释义：载荷里的非显然单位没人交代" mingli-interpret a_payload_field_with_a_non_obvious_unit_must_be_explained_in_the_same_prompt \
   crates/mingli-interpret/src/guardrails/synastry.rs \
   's|\*\*单位是十分之一分\*\*：`total_min_tenths` / `total_max_tenths` 除以 10 才是分数，|总分见 `total_min_tenths` / `total_max_tenths`，|'
+
+probe "石头：飞布只在某一入中数上出错" mingli-luoshu flying_is_a_permutation_for_every_center_and_direction \
+  crates/mingli-core/src/group.rs \
+  's|    shift(center - 1, k, 9, forward) + 1|    shift(center - 1, k + i64::from(center == 3), 9, forward) + 1|'
+
+probe "石头：奇门宫号越出九宫" mingli-qimen every_palace_number_on_a_chart_is_in_range \
+  crates/mingli-qimen/src/cast.rs \
+  's|    let zhi_fu_palace = earth_position_of_stem(&earth, zhi_fu_stem_name);|    let zhi_fu_palace = earth_position_of_stem(\&earth, zhi_fu_stem_name) + 1;|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
