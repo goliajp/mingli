@@ -303,6 +303,62 @@ mod tests {
         assert!(a.leaves.is_empty() && a.nmi.is_empty());
     }
 
+    /// 主判据完全互相决定的叶对。每一对都得说得出为什么。
+    ///
+    /// 这一层的全部意义就是暴露「两片叶其实在说同一件事」。既然如此，
+    /// **哪些对是完全冗余的**本身就该是一条契约：多出一对说明某片叶的主判据退化了或抄了别人，
+    /// 少一对说明其中一片的推导改了。两个方向都要红。
+    const PERFECTLY_REDUNDANT: &[(&str, &str, &str)] = &[
+        ("bazi", "liuren", "两者的主判据都是日支——同一个量，换个名字"),
+        (
+            "geomancy",
+            "sikidy",
+            "同一套 GF(2) 构造：同种子导出同一组四母，地占的「法官」与 sikidy 的「创世者」是同一个不变量。\
+             两系同源于阿拉伯 ʿilm al-raml，本仓 sikidy 的确定性谱亦记此事（Ascher 1997）。\
+             ★ 后果是：同一次取机下问这两片，拿到的是同一组数换个命名，不是两份独立判断",
+        ),
+    ];
+
+    /// ≥ 这个值即视为「完全冗余」。实测第三高的一对（ziwei × astrology）是 0.75，
+    /// 与 1.0 之间有足够间隔，取 0.9 不会因样本抖动误判。
+    const REDUNDANT_AT: f64 = 0.9;
+
+    #[test]
+    fn the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain() {
+        let a = cross_leaf(&registry(), &sample_grid(1980, 2009));
+        let k = a.leaves.len();
+        assert!(k >= 20, "只取到 {k} 片叶，取法怕是失效了");
+
+        let mut found: Vec<(String, String, f64)> = Vec::new();
+        for i in 0..k {
+            for j in (i + 1)..k {
+                if a.nmi[i][j] >= REDUNDANT_AT {
+                    found.push((a.leaves[i].id.clone(), a.leaves[j].id.clone(), a.nmi[i][j]));
+                }
+            }
+        }
+
+        for (x, y, v) in &found {
+            let known = PERFECTLY_REDUNDANT
+                .iter()
+                .any(|(p, q, _)| (p == x && q == y) || (p == y && q == x));
+            assert!(
+                known,
+                "叶对 `{x}` × `{y}` 的主判据几乎完全互相决定（NMI = {v:.4}），而本表没说为什么。\n\
+                 要么它们确实是同一个量的两种叫法——把理由写进 PERFECTLY_REDUNDANT；\n\
+                 要么其中一片的主判据退化了（取了常数、抄了邻居、或推导写错），那是缺陷。"
+            );
+        }
+        for (x, y, why) in PERFECTLY_REDUNDANT {
+            let still = found.iter().any(|(p, q, _)| (p == x && q == y) || (p == y && q == x));
+            assert!(
+                still,
+                "本表说 `{x}` × `{y}` 完全冗余（{why}），但实测已不再是。\n\
+                 其中一片的推导改了——若是有意的，删掉这一行；若不是，那是回归。"
+            );
+        }
+    }
+
     #[test]
     fn cross_leaf_validates_thesis() {
         // 30 年 × 12 月 × 2 日 = 720 样本。
