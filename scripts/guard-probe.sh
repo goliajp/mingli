@@ -365,6 +365,18 @@ probe "易经：变爻掩码错位" mingli-yijing what_is_reported_is_the_hexagr
   crates/mingli-yijing/src/lib.rs \
   's|            mask \|= 1 << i;|            mask \|= 1 << (5 - i);|'
 
+probe "缅历：纪元偏一年" mingli-mahabote the_year_number_follows_the_era_epoch_across_two_centuries \
+  crates/mingli-mahabote/src/lib.rs \
+  's|pub const EPOCH_OFFSET: f64 = 1_954_168.050_623;|pub const EPOCH_OFFSET: f64 = 1_954_533.050_623;|'
+
+probe "缅历：新年挪出四月" mingli-mahabote the_year_number_advances_once_a_year_in_april \
+  crates/mingli-mahabote/src/lib.rs \
+  's|pub const EPOCH_OFFSET: f64 = 1_954_168.050_623;|pub const EPOCH_OFFSET: f64 = 1_954_268.050_623;|'
+
+probe "缅历：宫名取错核心数" mingli-mahabote what_compute_reports_hangs_together \
+  crates/mingli-mahabote/src/lib.rs \
+  's|        house: HOUSES\[core\],|        house: HOUSES[(core + 1) % 7],|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \

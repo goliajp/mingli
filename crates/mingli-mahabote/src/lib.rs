@@ -174,19 +174,99 @@ mod tests {
         }
     }
 
+    /// 缅历年号本身此前只在 2000-01-01 一个日期上验过，而它是个浮点历元折算，
+    /// 差一年不会有任何地方察觉——核心数、宫、行星全跟着错。
+    ///
+    /// 这条与 `profile()` 里标着 Und 的「本命宫取法」无关：宫怎么落是单源未定的，
+    /// 而缅历纪元是另一件事，有两源可依：
+    ///
+    /// 1. 缅历纪元为公元 638 年（历元 638-03-22 儒略历），故年号 = 公历年 − 638
+    ///    <https://en.wikipedia.org/wiki/Burmese_calendar>
+    /// 2. 缅甸新年（太阳入白羊）现落 4 月 16 或 17 日；2024 年新年日为 4 月 17 日
+    ///    <https://en.wikipedia.org/wiki/Thingyan>
+    ///
+    /// 两源合起来给出一条可查的关系：跳变前 ME = 公历 − 639，跳变后 = 公历 − 638。
+    /// 取 2 月 1 日与 8 月 1 日，两头都离四月的跳变足够远，不必知道跳变具体在哪天。
     #[test]
-    fn core_always_in_range_and_house_consistent() {
-        // 性质：扫描多年多日，核心数恒在 0..7、宫名与核心数一致。
-        let base = mingli_astro::civil_day_number(1980, 1, 1);
-        for k in (0..20_000).step_by(37) {
-            let jdn = base + k;
-            let my = myanmar_year(jdn);
-            let wd = weekday(jdn);
-            let core = (my - wd as i64).rem_euclid(7) as usize;
-            assert!(core < 7);
-            assert_eq!(HOUSES[core], HOUSES[core]);
+    fn the_year_number_follows_the_era_epoch_across_two_centuries() {
+        for year in 1900..=2100i32 {
+            let before = myanmar_year(mingli_astro::civil_day_number(year, 2, 1));
+            assert_eq!(
+                before,
+                i64::from(year) - 639,
+                "{year}-02-01 在缅甸新年之前，缅历年应为公历减 639"
+            );
+            let after = myanmar_year(mingli_astro::civil_day_number(year, 8, 1));
+            assert_eq!(
+                after,
+                i64::from(year) - 638,
+                "{year}-08-01 在缅甸新年之后，缅历年应为公历减 638"
+            );
         }
-        // 所有八天週行星名互异（含 Rahu 共 8 个）。
+    }
+
+    /// 年号一年只跳一次，且跳在四月。
+    ///
+    /// 本模块用的是平回归年的简化式，跳变实测落在 4 月 16 或 17 日。维基条目称受岁差
+    /// 影响，实际缅历的新年日在二十世纪是 4 月 15 或 16 日、十七世纪是 4 月 9 或 10 日——
+    /// 即本模块在早年可能偏后一天。断言只取「落在四月」，不把简化式的精度当成事实。
+    #[test]
+    fn the_year_number_advances_once_a_year_in_april() {
+        for year in 1900..=2100i32 {
+            let jan = mingli_astro::civil_day_number(year, 1, 1);
+            let next_jan = mingli_astro::civil_day_number(year + 1, 1, 1);
+            let mut rollovers = Vec::new();
+            for jdn in jan..next_jan {
+                if myanmar_year(jdn) != myanmar_year(jdn - 1) {
+                    rollovers.push(jdn);
+                }
+            }
+            assert_eq!(rollovers.len(), 1, "{year} 年该只跳一次，实得 {}", rollovers.len());
+            let offset = rollovers[0] - jan;
+            let april_1 = mingli_astro::civil_day_number(year, 4, 1) - jan;
+            let may_1 = mingli_astro::civil_day_number(year, 5, 1) - jan;
+            assert!(
+                (april_1..may_1).contains(&offset),
+                "{year} 年的跳变该落在四月，实得距 1 月 1 日 {offset} 天"
+            );
+        }
+    }
+
+    /// 对外报出的那一组字段彼此对不对得上。
+    ///
+    /// 原先这里是一段扫两万天的循环，但它在测试内部自己算 `core`，再断言
+    /// `core < 7`（由它自己那个 `rem_euclid(7)` 保证）与 `HOUSES[core] == HOUSES[core]`
+    /// （自己等于自己），一次也没调用 `compute`。换成拿 `compute` 的输出互相对账：
+    /// 宫名要取自它自己报的核心数，核心数要合它自己报的年与星期，行星要合八天週的规则。
+    #[test]
+    fn what_compute_reports_hangs_together() {
+        for year in [1900i32, 1950, 2000, 2024, 2050] {
+            for (month, day) in [(1u32, 1u32), (4, 16), (4, 17), (7, 15), (12, 31)] {
+                for hour in [9u32, 15] {
+                    let c = compute(year, month, day, hour, 0, 6.5);
+                    let jdn = mingli_astro::civil_day_number(year, month, day);
+                    assert_eq!(c.myanmar_year, myanmar_year(jdn));
+                    assert_eq!(usize::from(c.weekday_index), weekday(jdn));
+                    assert_eq!(c.weekday, WEEKDAYS[usize::from(c.weekday_index)]);
+                    assert_eq!(
+                        i64::from(c.core),
+                        (c.myanmar_year - i64::from(c.weekday_index)).rem_euclid(7),
+                        "{year}-{month:02}-{day:02}：核心数与它自己报的年、星期不符"
+                    );
+                    assert_eq!(
+                        c.house,
+                        HOUSES[usize::from(c.core)],
+                        "{year}-{month:02}-{day:02}：宫名没取自它自己报的核心数"
+                    );
+                    assert_eq!(
+                        c.planet,
+                        PLANETS_8[planet8_index(usize::from(c.weekday_index), hour < 12)],
+                        "{year}-{month:02}-{day:02} {hour} 时：行星不合八天週"
+                    );
+                }
+            }
+        }
+        // 八天週行星名互异（含 Rahu 共 8 个）。
         let set: std::collections::HashSet<_> = PLANETS_8.iter().collect();
         assert_eq!(set.len(), 8);
     }
