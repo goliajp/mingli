@@ -279,7 +279,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 31 known faults|plants 30 known faults|'
+  's|plants 32 known faults|plants 31 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -320,6 +320,10 @@ probe "石头：奇门宫号越出九宫" mingli-qimen every_palace_number_on_a_
 probe "石头：农历某岁的月界偏一天" mingli-astro the_lunar_sequence_has_no_seams_across_two_centuries \
   crates/mingli-astro/src/lunar.rs \
   's|    let n_months = nm_cdn.len() - 1;|    if start_year == 1935 \&\& nm_cdn.len() > 4 { nm_cdn[3] += 1; }\n    let n_months = nm_cdn.len() - 1;|'
+
+probe "石头：年干支偏一位" mingli-ganzhi year_pillar \
+  crates/mingli-ganzhi/src/cycle.rs \
+  's|pub fn year_ganzhi(solar_year: i32) -> GanZhi {|pub fn year_ganzhi(solar_year: i32) -> GanZhi { let solar_year = solar_year + 1;|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
