@@ -345,6 +345,14 @@ probe "石头：朔的时刻整体挪了几分钟" mingli-astro the_new_moon_ins
   crates/mingli-astro/src/moon.rs \
   's|    2451550.09766 + 29.530588861|    2451550.09966 + 29.530588861|'
 
+probe "石头：行星位置不再扣光行时" mingli-ephemeris every_planet_matches_the_positions_jpl_publishes_across_a_century \
+  crates/mingli-ephemeris/src/lib.rs \
+  's|                tau = LIGHT_TIME_PER_AU \* dist;|                tau = 0.0 * dist;|'
+
+probe "石头：行星理论掉出独立星历的量级" mingli-ephemeris at_j2000_every_planet_matches_an_independent_theory_to_the_arcsecond \
+  crates/mingli-ephemeris/src/lib.rs \
+  's|            for _ in 0..3 {|            for _ in 0..1 {|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
