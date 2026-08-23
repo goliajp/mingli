@@ -341,6 +341,10 @@ probe "干支：神煞把不该命中的也报上来" mingli-ganzhi a_day_stem_s
   crates/mingli-ganzhi/src/shensha.rs \
   's|if HONGYAN\[day_stem as usize\] == branch|if HONGYAN[day_stem as usize] != branch|'
 
+probe "石头：朔的时刻整体挪了几分钟" mingli-astro the_new_moon_instants_match_two_published_ephemerides \
+  crates/mingli-astro/src/moon.rs \
+  's|    2451550.09766 + 29.530588861|    2451550.09966 + 29.530588861|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
