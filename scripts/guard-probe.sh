@@ -329,6 +329,18 @@ probe "石头：取机发生器换了一套算术" mingli-core splitmix64_matche
   crates/mingli-core/src/sampler.rs \
   's|        z \^ (z >> 31)|        z \& (z >> 31)|'
 
+probe "石头：地占的派生整条塌成常量" mingli-core the_derived_figures_are_pinned_to_concrete_values \
+  crates/mingli-core/src/gf2.rs \
+  's|^    a \^ b$|    a \& b|'
+
+probe "干支：五虎遁只有庚年是对的" mingli-ganzhi wuhu_dun \
+  crates/mingli-ganzhi/src/cycle.rs \
+  's|((year_stem % 5) \* 2 + 2)|((year_stem / 5) * 2 + 2)|'
+
+probe "干支：神煞把不该命中的也报上来" mingli-ganzhi a_day_stem_shensha_lookup_names_only_the_ones_that_hit \
+  crates/mingli-ganzhi/src/shensha.rs \
+  's|if HONGYAN\[day_stem as usize\] == branch|if HONGYAN[day_stem as usize] != branch|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \

@@ -48,6 +48,10 @@ fn crt_pair(r1: i64, m1: i64, r2: i64, m2: i64) -> Option<(i64, i64)> {
     }
     let l = m1 / g * m2;
     let mul = (r2 - r1) / g;
+    // `step` 取 `m2 / g` 的任何倍数都算出同一个 x：下一行的 x 是 `r1 + m1 * k`，
+    // 而它最终只按 `m1 * m2 / g` 取模，所以只有 `k mod (m2 / g)` 进得了结果。
+    // 同理 `l` 放大成任何倍数也无所谓——x 构造出来就已经小于 `m1 * m2 / g`。
+    // 变异测试会把这两处报成「没被拦住」，那是等价变异，不是缺口。
     let step = m2 / g;
     let x = r1 + m1 * (p.rem_euclid(step) * mul.rem_euclid(step)).rem_euclid(step);
     Some((x.rem_euclid(l), l))
@@ -127,6 +131,29 @@ mod tests {
         let x = crt_combine(&[(3, 13), (7, 20)]).unwrap();
         assert_eq!(x % 13, 3);
         assert_eq!(x % 20, 7);
+    }
+
+    /// 还原校验只走过互质的 13×20；而这个仓库真正天天用的是 gcd=2 的 10×12。
+    /// 合并式在 `g > 1` 时要靠 `m2 / g` 定步长，互质时 `g = 1` 让这一步看不出对错。
+    /// 这里把六十甲子每一个可达组合都还原一遍。
+    #[test]
+    fn crt_recovers_residues_on_the_non_coprime_pair_too() {
+        let mut reached = 0;
+        for stem in 0..10i64 {
+            for branch in 0..12i64 {
+                let Some(x) = crt_combine(&[(stem, 10), (branch, 12)]) else {
+                    // 异阴阳的组合本就不在对角子群上。
+                    assert_ne!(stem % 2, branch % 2, "干{stem} 支{branch} 同阴阳却不可达");
+                    continue;
+                };
+                assert_eq!(stem % 2, branch % 2, "干{stem} 支{branch} 异阴阳却可达");
+                assert!((0..60).contains(&x), "干{stem} 支{branch} 落在 0..60 之外：{x}");
+                assert_eq!(x.rem_euclid(10), stem, "干{stem} 支{branch} 还原不出干");
+                assert_eq!(x.rem_euclid(12), branch, "干{stem} 支{branch} 还原不出支");
+                reached += 1;
+            }
+        }
+        assert_eq!(reached, 60);
     }
 
     #[test]

@@ -78,11 +78,38 @@ assert_eq!(year_ganzhi(1990).to_string(), "庚午");
 assert_eq!(year_ganzhi(2024).to_string(), "甲辰");
 }
 
+/// 五虎遁：十个年干各起一个正月天干，然后逐月顺行。
+///
+/// 原先只验了庚年一个年干。年干进公式先过 `year_stem % 5`——庚(6) 恰好是唯一一个
+/// 把 `% 5` 换成 `/ 5`、把 `+ 2` 换成 `* 2` 都算出同一个答案的取值，所以那三条断言
+/// 对这两处写错完全无感。这里把十个年干的起点全钉住。
+///
+/// 口诀两源相合：《渊海子平·五虎遁月诀》与《三命通会·卷一》同作
+/// 「甲己之年丙作首，乙庚之岁戊为头，丙辛必定寻庚起，丁壬壬位顺行流，
+/// 若言戊癸何方发，甲寅之上好追求」。
 #[test]
 fn wuhu_dun() {
-assert_eq!(month_pillar_stem(6, 2), 4); // 庚年 寅=戊
-assert_eq!(month_pillar_stem(6, 6), 8); // 午=壬
-assert_eq!(month_pillar_stem(6, 11), 3); // 亥=丁
+    // 年干 0..9 → 寅月天干：甲己丙、乙庚戊、丙辛庚、丁壬壬、戊癸甲
+    const FIRST_MONTH_STEM: [u8; 10] = [2, 4, 6, 8, 0, 2, 4, 6, 8, 0];
+    for year_stem in 0..10u8 {
+        assert_eq!(
+            month_pillar_stem(year_stem, 2),
+            FIRST_MONTH_STEM[year_stem as usize],
+            "年干{year_stem} 的寅月天干"
+        );
+        // 寅起顺行：往后每一支进一个天干，走满十二支回到起点的下两位。
+        for step in 0..12u8 {
+            let branch = (2 + step) % 12;
+            assert_eq!(
+                month_pillar_stem(year_stem, branch),
+                (FIRST_MONTH_STEM[year_stem as usize] + step) % 10,
+                "年干{year_stem} 支{branch}"
+            );
+        }
+    }
+    assert_eq!(month_pillar_stem(6, 2), 4); // 庚年 寅=戊
+    assert_eq!(month_pillar_stem(6, 6), 8); // 午=壬
+    assert_eq!(month_pillar_stem(6, 11), 3); // 亥=丁
 }
 
 #[test]
@@ -241,6 +268,12 @@ assert!(is_kuigang_day(GanZhi { stem: 4, branch: 10 }));
 // 非魁罡示例
 assert!(!is_kuigang_day(GanZhi { stem: 0, branch: 0 })); // 甲子
 assert!(!is_kuigang_day(GanZhi { stem: 6, branch: 0 })); // 庚子（辰戌之外）
+// 落在辰戌上但天干不对——严格派的四日之外一律不入格。只举支不对的反例，
+// 等于没验天干那一半：把干的比较写反了，甲子庚子照样判 false。
+assert!(!is_kuigang_day(GanZhi { stem: 0, branch: 4 })); // 甲辰
+assert!(!is_kuigang_day(GanZhi { stem: 2, branch: 10 })); // 丙戌
+assert!(!is_kuigang_day(GanZhi { stem: 8, branch: 10 })); // 壬戌
+assert!(!is_kuigang_day(GanZhi { stem: 4, branch: 4 })); // 戊辰
 }
 
 /// 1987-09-17 男 → 日柱 己巳(stem=5)、日支 巳(5)、年支 卯(3)。
@@ -269,6 +302,74 @@ assert!(!v.contains(&"禄"));
 let v2 = shensha_by_branch_anchor(3, 5);
 assert!(v2.contains(&"驿马"));
 assert!(!v2.contains(&"桃花"));
+}
+
+/// 神煞查得对不对，`contains` 只答了一半：命中的名字在不在。另一半是没命中的名字
+/// 确实不在——一个把每个地支都判成命中、十一个神煞全报的查表，能通过原先每一条断言。
+/// 这里既钉死整张返回列表，也让每个日干在十二支上走一圈，数每个神煞落了几次。
+#[test]
+fn a_day_stem_shensha_lookup_names_only_the_ones_that_hit() {
+    use std::collections::BTreeMap;
+
+    // 己(5)：文昌与学堂同在酉，禄与词馆同在午，红艳在辰，阴干无羊刃。
+    assert_eq!(shensha_by_day_stem(5, 9), ["文昌", "学堂"]);
+    assert_eq!(shensha_by_day_stem(5, 6), ["禄", "词馆"]);
+    assert_eq!(shensha_by_day_stem(5, 4), ["红艳"]);
+    assert!(shensha_by_day_stem(5, 0).is_empty(), "己干在子上一个不落");
+    // 甲(0)：卯是羊刃（帝旺），寅是禄与词馆。
+    assert_eq!(shensha_by_day_stem(0, 3), ["羊刃"]);
+    assert_eq!(shensha_by_day_stem(0, 2), ["禄", "词馆"]);
+
+    for stem in 0..10u8 {
+        let mut tally: BTreeMap<&str, u32> = BTreeMap::new();
+        for branch in 0..12u8 {
+            for name in shensha_by_day_stem(stem, branch) {
+                *tally.entry(name).or_default() += 1;
+            }
+        }
+        for name in ["禄", "文昌", "红艳", "学堂", "词馆"] {
+            assert_eq!(
+                tally.get(name).copied().unwrap_or(0),
+                1,
+                "干{stem} 的{name}在十二支上应恰落一次"
+            );
+        }
+        // 羊刃只在五阳干立，阴干一次也不落。
+        assert_eq!(
+            tally.get("羊刃").copied().unwrap_or(0),
+            u32::from(stem.is_multiple_of(2)),
+            "干{stem} 的羊刃"
+        );
+    }
+}
+
+/// 支锚神煞的同一件事：四个神煞在十二支上各落一次，不是各落十一次。
+#[test]
+fn a_branch_anchored_shensha_lookup_names_only_the_ones_that_hit() {
+    use std::collections::BTreeMap;
+
+    // 亥卯未组（anchor 卯）：桃花子、驿马巳、华盖未、将星卯。
+    assert_eq!(shensha_by_branch_anchor(3, 0), ["桃花"]);
+    assert_eq!(shensha_by_branch_anchor(3, 5), ["驿马"]);
+    assert_eq!(shensha_by_branch_anchor(3, 7), ["华盖"]);
+    assert_eq!(shensha_by_branch_anchor(3, 3), ["将星"]);
+    assert!(shensha_by_branch_anchor(3, 1).is_empty(), "丑不在亥卯未组的四个落点上");
+
+    for anchor in 0..12u8 {
+        let mut tally: BTreeMap<&str, u32> = BTreeMap::new();
+        for branch in 0..12u8 {
+            for name in shensha_by_branch_anchor(anchor, branch) {
+                *tally.entry(name).or_default() += 1;
+            }
+        }
+        for name in ["桃花", "驿马", "华盖", "将星"] {
+            assert_eq!(
+                tally.get(name).copied().unwrap_or(0),
+                1,
+                "锚支{anchor} 的{name}在十二支上应恰落一次"
+            );
+        }
+    }
 }
 
 #[test]
