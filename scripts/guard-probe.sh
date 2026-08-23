@@ -279,7 +279,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 32 known faults|plants 31 known faults|'
+  's|plants 33 known faults|plants 32 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -324,6 +324,10 @@ probe "石头：农历某岁的月界偏一天" mingli-astro the_lunar_sequence_
 probe "石头：年干支偏一位" mingli-ganzhi year_pillar \
   crates/mingli-ganzhi/src/cycle.rs \
   's|pub fn year_ganzhi(solar_year: i32) -> GanZhi {|pub fn year_ganzhi(solar_year: i32) -> GanZhi { let solar_year = solar_year + 1;|'
+
+probe "石头：取机发生器换了一套算术" mingli-core splitmix64_matches_the_published_reference_vectors \
+  crates/mingli-core/src/sampler.rs \
+  's|        z \^ (z >> 31)|        z \& (z >> 31)|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
