@@ -353,6 +353,18 @@ probe "石头：行星理论掉出独立星历的量级" mingli-ephemeris at_j20
   crates/mingli-ephemeris/src/lib.rs \
   's|            for _ in 0..3 {|            for _ in 0..1 {|'
 
+probe "易经：六爻上下颠倒" mingli-yijing what_is_reported_is_the_hexagram_the_lines_actually_make \
+  crates/mingli-yijing/src/lib.rs \
+  's|            prim \|= 1 << i;|            prim \|= 1 << (5 - i);|'
+
+probe "易经：上下卦名对调" mingli-yijing what_is_reported_is_the_hexagram_the_lines_actually_make \
+  crates/mingli-yijing/src/lib.rs \
+  's|        primary_upper: primary.upper().name(),|        primary_upper: primary.lower().name(),|'
+
+probe "易经：变爻掩码错位" mingli-yijing what_is_reported_is_the_hexagram_the_lines_actually_make \
+  crates/mingli-yijing/src/lib.rs \
+  's|            mask \|= 1 << i;|            mask \|= 1 << (5 - i);|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
