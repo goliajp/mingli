@@ -408,6 +408,18 @@ probe "择日：等第标签改掉" mingli-zeri day_grades_follow_the_mnemonic \
   crates/mingli-zeri/src/lib.rs \
   's|            DayGrade::Huang => "黄道",|            DayGrade::Huang => "xyzzy",|'
 
+probe "四柱：均时差的号写反" mingli-bazi the_equation_of_time_matches_two_published_tables_at_its_extremes \
+  crates/mingli-bazi/src/solar.rs \
+  's|    9.87 \* (2.0 \* b).sin() - 7.53 \* b.cos()|    9.87 * (2.0 * b).sin() + 7.53 * b.cos()|'
+
+probe "四柱：均时差的日序基准挪了" mingli-bazi the_equation_of_time_crosses_zero_four_times_a_year \
+  crates/mingli-bazi/src/solar.rs \
+  's|(n - 81.0) / 365.0|(n + 81.0) / 365.0|'
+
+probe "四柱：经度不再按一度四分钟" mingli-bazi one_degree_of_longitude_is_exactly_four_minutes \
+  crates/mingli-bazi/src/solar.rs \
+  's|    let geo_correction = (longitude - std_longitude) \* 4.0;|    let geo_correction = (longitude - std_longitude) * 3.0;|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
