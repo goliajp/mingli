@@ -98,6 +98,11 @@ pub fn year_in_rabjung(year: i64) -> i64 {
 
 /// Janson Table 15 的 parkha 次第：`1 li · 2 khon · 3 dwa · 4 khen · 5 kham · 6 gin · 7 zin · 8 zon`。
 ///
+/// 第二源：tibastro 的 Parkha 条目把日 parkha 的次第写作
+/// 「Li – Khön – Da – Khen – Kham – Kin – Tsin – Zön」，与本表逐名相同（Kin=Gin、Tsin=Zin）；
+/// 它并给出月起卦「一/五/九月起 Kham、二/六/十月起 Da」，与 Janson E.10 的
+/// 子辰申起 Kham、丑巳酉起 Da 相合。<https://www.tibastro.be/Parkha/ParkhaGeneral>
+///
 /// 这是**后天八卦的方位顺序**，与 [`PARKHA`] 那张按洛书数排的表不是同一个次序——
 /// 历日与阴历日的两个公式都以本表编号为准，取名要经这里，不能拿编号直接索引 [`PARKHA`]。
 pub const PARKHA_ORDER: [&str; 8] = ["Li", "Khon", "Da", "Khen", "Kham", "Gin", "Zin", "Zon"];
@@ -295,14 +300,32 @@ mod tests {
     /// 历日 parkha 是 JD 的简单八循环（Janson E.4），且随年盘一起给出。
     #[test]
     fn the_calendar_day_trigram_cycles_with_the_julian_day() {
-        for jdn in 2_460_000..2_460_100_i64 {
-            let k = calendar_day_parkha(jdn);
-            assert!((1..=8).contains(&k));
-            assert_eq!(k, calendar_day_parkha(jdn + 8), "八日一轮");
+        // 原先三条断言，常量函数一条都不违反：值域由 `amod` 保证、「八日一轮」对常量
+        // 天然成立、名字取自它自己报的编号。实测把整个函数换成 `1`，全量套件一条不红。
+        // 改成钉住它真正该有的形状：任意连续八日恰好取遍 1..=8，且逐日进一、8 之后回 1。
+        for start in [2_460_000_i64, 2_400_000, 2_500_000, 0] {
+            let window: Vec<i64> = (0..8).map(|k| calendar_day_parkha(start + k)).collect();
+            let mut sorted = window.clone();
+            sorted.sort_unstable();
+            assert_eq!(sorted, (1..=8).collect::<Vec<_>>(), "自 {start} 起八日应取遍 1..=8");
+            for pair in window.windows(2) {
+                assert_eq!(pair[1], pair[0] % 8 + 1, "逐日进一");
+            }
+            assert_eq!(
+                calendar_day_parkha(start),
+                calendar_day_parkha(start + 8),
+                "八日一轮"
+            );
         }
         let c = compute(2024, 1, 1, 8.0);
-        assert!((1..=8).contains(&c.day_parkha));
+        assert_eq!(c.day_parkha, calendar_day_parkha(mingli_astro::civil_day_number(2024, 1, 1)));
         assert_eq!(c.day_parkha_name, PARKHA_ORDER[(c.day_parkha - 1) as usize]);
+
+        // 相位（哪一天是 Li）目前只有 Janson E.4 一源，找不到第二处可查的
+        // 「某公历日 → 某 parkha」实据，故此处不作外部断言，只冻结现状防止无声漂移。
+        // 若日后找到藏历历书的逐日 parkha 表，这两行应换成真正的 oracle。
+        assert_eq!(calendar_day_parkha(2_460_000), 2, "冻结现状，非外部求证");
+        assert_eq!(calendar_day_parkha(2_460_001), 3, "冻结现状，非外部求证");
     }
 
     /// 两张 parkha 表次序不同，不能拿编号互相索引——这条钉住那件事。

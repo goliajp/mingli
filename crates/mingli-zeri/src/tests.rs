@@ -20,7 +20,23 @@ fn day_grades_follow_the_mnemonic() {
     assert!(DayGrade::Huang.rank() < DayGrade::Usable.rank());
     assert!(DayGrade::Usable.rank() < DayGrade::Hei.rank());
     assert!(DayGrade::Hei.rank() < DayGrade::Avoid.rank());
-    assert!((0..12u8).all(|i| !day_grade(i).label().is_empty()));
+    // 标签是用户直接读到的四个词，钉住原文。原先写的是「不为空」——
+    // 把「黄道」改成任何别的字串它一样过，实测种下去全量套件一条不红。
+    // 四档名同出上面那句口诀：黄（黄道）· 皆可用 · 黑（黑道）· 不可当。
+    assert_eq!(DayGrade::Huang.label(), "黄道");
+    assert_eq!(DayGrade::Usable.label(), "可用");
+    assert_eq!(DayGrade::Hei.label(), "黑道");
+    assert_eq!(DayGrade::Avoid.label(), "不可当");
+    for (name, want) in [
+        ("除", "黄道"), ("危", "黄道"), ("定", "黄道"), ("执", "黄道"),
+        ("成", "可用"), ("开", "可用"),
+        ("建", "黑道"), ("满", "黑道"), ("平", "黑道"), ("收", "黑道"),
+        ("破", "不可当"), ("闭", "不可当"),
+    ] {
+        let i = JIANCHU.iter().position(|n| *n == name).expect("建除十二神里应有它");
+        let i = u8::try_from(i).expect("十二神下标落在 0..12");
+        assert_eq!(day_grade(i).label(), want, "{name} 的标签");
+    }
 }
 
 use super::*;
