@@ -120,6 +120,56 @@ fn all_registered_leaves_well_formed() {
     }
 }
 
+/// 每片叶的 `principal`——它对外报出的那一个头条数——的标签与取值。
+///
+/// 此前没有任何一处钉它。analysis 那两条只问「有没有 principal」「它是不是常数列」，
+/// 都不问它是哪个量、叫什么名。实测把玛雅的 principal 从 Tzolkʼin 数换成 Tzolkʼin 名、
+/// 或只把标签改掉，全量套件各跑一遍，一条都不红。这不是小事：跨叶互信息矩阵拿
+/// principal 当每片叶的那一列，换一个量整张矩阵就换了一套含义。
+///
+/// 取值随固定的 Moment 与 Query 而定，与 `all_registered_leaves_well_formed` 用的是同一组。
+/// 说清这张表是什么：它冻结的是**现状**，不是二十一个各自独立求证过的真值。
+/// 各叶自己的 oracle 在各叶的测试里；这里只保证「头条数是哪个量、叫什么名」不会悄悄改。
+#[test]
+fn every_leaf_reports_the_principal_it_is_supposed_to() {
+    let expected: &[(&str, &str, &str)] = &[
+        ("bazi", "日支", "戌"),
+        ("ziwei", "命宫支", "亥"),
+        #[cfg(feature = "astrology")]
+        ("astrology", "太阳星座", "双子"),
+        #[cfg(feature = "jyotish")]
+        ("jyotish", "月宿(nakshatra)", "Hasta"),
+        #[cfg(feature = "qizhengsiyu")]
+        ("qizhengsiyu", "28 宿值日", "胃"),
+        ("yijing", "下卦", "坤"),
+        ("geomancy", "法官", "3"),
+        ("sikidy", "创世者", "3"),
+        ("ifa", "左 figure", "1"),
+        ("tarot", "首牌（粗化）", "2"),
+        ("meihua", "上卦", "震"),
+        ("xiaoliuren", "时神位", "2"),
+        ("zeri", "建除", "定"),
+        ("maya", "Tzolkʼin 数", "12"),
+        ("pawukon", "Pancawara", "Pon"),
+        ("mahabote", "本命宫", "Binga"),
+        ("liuren", "日支", "10"),
+        ("qimen", "局数", "6"),
+        ("taiyi", "太乙宫", "2"),
+        ("tibetan", "生肖", "Dragon"),
+        ("numerology", "生命灵数", "2"),
+    ];
+    let m = Moment::new(2024, 6, 15, 14, 30, 8.0);
+    let q = sample();
+    let r = registry();
+    assert_eq!(r.len(), expected.len());
+    for (eng, (id, label, value)) in r.iter().zip(expected.iter()) {
+        assert_eq!(eng.id(), *id);
+        let p = eng.principal(&m, &q).unwrap_or_else(|| panic!("{id} 没有 principal"));
+        assert_eq!(p.label, *label, "{id} 的 principal 标签");
+        assert_eq!(p.value, *value, "{id} 的 principal 取值");
+    }
+}
+
 #[test]
 fn shared_layer_matches_standalone() {
     // 共享上下文复用结果 ≡ 各叶独立排盘（记忆化不改变结果）。
