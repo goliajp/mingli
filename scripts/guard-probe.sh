@@ -420,6 +420,18 @@ probe "四柱：经度不再按一度四分钟" mingli-bazi one_degree_of_longit
   crates/mingli-bazi/src/solar.rs \
   's|    let geo_correction = (longitude - std_longitude) \* 4.0;|    let geo_correction = (longitude - std_longitude) * 3.0;|'
 
+probe "四柱：起运折算不再除以三" mingli-bazi the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three \
+  crates/mingli-bazi/src/chart.rs \
+  's|    let start_age_years = (days / 3.0).max(0.0);|    let start_age_years = (days / 4.0).max(0.0);|'
+
+probe "四柱：起运数到中气而非节" mingli-bazi the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three \
+  crates/mingli-bazi/src/chart.rs \
+  's|    let k = ((lam - 15.0) / 30.0).floor();|    let k = ((lam - 30.0) / 30.0).floor();|'
+
+probe "四柱：顺逆搞反" mingli-bazi the_direction_follows_the_year_stem_and_the_gender \
+  crates/mingli-bazi/src/chart.rs \
+  's|        Gender::Male => year_yang,|        Gender::Male => !year_yang,|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
