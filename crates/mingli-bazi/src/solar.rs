@@ -118,6 +118,80 @@ mod tests {
         assert_eq!(add_days_civil(2026, 1, 1, 0), (2026, 1, 1));
     }
 
+    /// 均时差此前一处也没验过——`equation_of_time_minutes` 从来没被任何测试调用。
+    ///
+    /// 它决定真太阳时排盘要挪多少分钟，跨时辰边界时直接换一根时柱；而它是个
+    /// 四项算术式，任何一项写反都无声。变异测试在这个函数上留下四个活口，
+    /// 底下这八个点各能把它们拉开 14 分钟以上。
+    ///
+    /// 取值两源相合，且两源给的是同一套约定（视太阳时 − 平太阳时，正 = 日晷快）：
+    ///
+    /// 1. 维基「Equation of time」引美国海军天文台：2 月 11 日 −14 分 15 秒、
+    ///    5 月 14 日 +3 分 41 秒、7 月 26 日 −6 分 30 秒、11 月 3 日 +16 分 25 秒；
+    ///    零点在 4 月 15、6 月 13、9 月 1、12 月 25 日附近
+    ///    <https://en.wikipedia.org/wiki/Equation_of_time>
+    /// 2. Universal Workshop 的日晷条目：11 月 2 日 +16.49 分、2 月 11 日 −14.24 分、
+    ///    5 月 13 日 +3.65 分、7 月 25 日 −6.55 分，零点同上四处
+    ///    <https://www.universalworkshop.com/the-equation-of-time/>
+    ///
+    /// 本式是 Spencer/Iqbal 简化式，模块自述 ±0.5 分。实测四个极值最大差 0.33 分，
+    /// 故容差取 0.5 分。
+    #[test]
+    fn the_equation_of_time_matches_two_published_tables_at_its_extremes() {
+        for (month, day, published) in
+            [(2u32, 11u32, -14.25f64), (5, 14, 3.68), (7, 26, -6.50), (11, 3, 16.42)]
+        {
+            let ours = equation_of_time_minutes(2026, month, day);
+            assert!(
+                (ours - published).abs() < 0.5,
+                "{month:02}-{day:02}：算出 {ours:+.2} 分，两源作 {published:+.2} 分"
+            );
+        }
+        // 方向本身也钉住：二月中日晷慢、十一月初日晷快。四个变异体里有两个是把号写反的。
+        assert!(equation_of_time_minutes(2026, 2, 11) < -10.0, "二月中应为负");
+        assert!(equation_of_time_minutes(2026, 11, 3) > 10.0, "十一月初应为正");
+    }
+
+    /// 四个零点用变号窗口夹，而不是断言「≈ 0」。
+    ///
+    /// 实测（2026-08-25）：闰年把 12 月 25 日那个零点推到 0.96 分——本式只吃年内日序，
+    /// 闰年二月之后整条曲线错一天，而零点附近斜率最大，所以「≈ 0」的写法在闰年会红。
+    /// 夹住两侧的号则在闰年平年都成立，且它说的是同一件事的更强形式。
+    #[test]
+    fn the_equation_of_time_crosses_zero_four_times_a_year() {
+        for year in [2024i32, 2025, 2026] {
+            for ((m1, d1), (m2, d2)) in
+                [((4u32, 8u32), (4u32, 22u32)), ((6, 6), (6, 20)), ((8, 25), (9, 8))]
+            {
+                let before = equation_of_time_minutes(year, m1, d1);
+                let after = equation_of_time_minutes(year, m2, d2);
+                assert!(
+                    before * after < 0.0,
+                    "{year} 年 {m1:02}-{d1:02}（{before:+.2}）到 {m2:02}-{d2:02}（{after:+.2}）之间应变号"
+                );
+            }
+            // 跨年的那个零点
+            let before = equation_of_time_minutes(year, 12, 18);
+            let after = equation_of_time_minutes(year + 1, 1, 3);
+            assert!(before > 0.0 && after < 0.0, "岁末那个零点应由正转负");
+        }
+    }
+
+    /// 经度那一项是定义式：一度四分钟，与日期无关。
+    #[test]
+    fn one_degree_of_longitude_is_exactly_four_minutes() {
+        for (year, month, day) in [(2026i32, 1u32, 1u32), (2026, 7, 1), (2024, 11, 3)] {
+            let at = |lon: f64| true_solar_offset_minutes(lon, 8.0, year, month, day);
+            assert!((at(121.0) - at(120.0) - 4.0).abs() < 1e-9, "一度应差四分钟");
+            assert!((at(120.0) - at(90.0) - 120.0).abs() < 1e-9, "三十度应差两小时");
+            // 站在时区标准经线上，偏移只剩均时差。
+            assert!(
+                (at(120.0) - equation_of_time_minutes(year, month, day)).abs() < 1e-9,
+                "120°E 是东八区的标准经线，此处偏移应恰为均时差"
+            );
+        }
+    }
+
     /// 真太阳时校正把时刻推过午夜时，日期必须跟着走——否则日柱会错一整柱。
     #[test]
     fn true_solar_correction_can_carry_the_date_across_midnight() {
