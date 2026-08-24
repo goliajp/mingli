@@ -13,6 +13,33 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+/// 量一片叶排一盘要多久：跑 `rounds` 轮、每轮 `iters` 次，取**最小**的那一轮。
+///
+/// 挂钟只会被噪声拉长、不会被拉短——调度切走、缺页、别的进程抢 CPU，都只加不减。
+/// 所以多轮取最小值才是「这片叶真正要花多久」的估计；单次取样量到的是「真值 + 一次噪声」。
+///
+/// 实测（2026-08-24）：原先每片叶只量一次，在**静置**的机器上干净树跑 20 次就红 1 次，
+/// 有负载时更频。这不只是 CI 会无故红——往源码里种错、看守卫红不红的那套扫描，
+/// 会把这种偶发的红当成「守卫拦住了」，于是本该报「没人拦」的缺口被记成已守。
+/// 本轮就是这么误判过一次：把藏历的历日卦偏四位，红的是这条成本测试，而它跟算术无关。
+fn cast_cost_seconds(
+    e: &dyn CastingEngine,
+    m: &Moment,
+    q: &Query,
+    iters: u32,
+    rounds: u32,
+) -> f64 {
+    let mut best = f64::INFINITY;
+    for _ in 0..rounds {
+        let t = std::time::Instant::now();
+        for _ in 0..iters {
+            let _ = e.cast(m, q);
+        }
+        best = best.min(t.elapsed().as_secs_f64());
+    }
+    best
+}
+
 /// 契约层性别 → 八字叶性别（测试内自用）。
 fn leaf_gender_male(g: Option<Gender>) -> Option<mingli_bazi::Gender> {
     g.map(|x| match x {
@@ -806,14 +833,8 @@ fn the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris() {
         let _ = e.cast(&m, &q); // 预热：首次调用含惰性初始化
     }
     // 秒（f64）而非纳秒（u128）：后者要转成浮点才能取比值，而那个转换在 clippy 眼里是精度损失
-    let mut cost: Vec<(&str, f64)> = Vec::new();
-    for e in &reg {
-        let t = std::time::Instant::now();
-        for _ in 0..20 {
-            let _ = e.cast(&m, &q);
-        }
-        cost.push((e.id(), t.elapsed().as_secs_f64()));
-    }
+    let cost: Vec<(&str, f64)> =
+        reg.iter().map(|e| (e.id(), cast_cost_seconds(e.as_ref(), &m, &q, 20, 5))).collect();
     assert!(cost.iter().all(|(_, c)| *c > 0.0), "有叶量到 0 秒，计时方式怕是失效了");
 
     let mut plain: Vec<f64> = cost.iter().filter(|(id, _)| !EPHEMERIS.contains(id)).map(|(_, c)| *c).collect();
@@ -848,21 +869,18 @@ fn no_single_leaf_dominates_the_cost_of_casting_the_whole_tree() {
     for e in &reg {
         let _ = e.cast(&m, &q);
     }
-    let mut cost: Vec<(&str, u128)> = Vec::new();
-    for e in &reg {
-        let t = std::time::Instant::now();
-        for _ in 0..5 {
-            let _ = e.cast(&m, &q);
-        }
-        cost.push((e.id(), t.elapsed().as_micros()));
-    }
-    let total: u128 = cost.iter().map(|(_, c)| *c).sum();
-    assert!(total > 0, "全树耗时量到 0，计时方式怕是失效了");
-    let (worst, worst_cost) = *cost.iter().max_by_key(|(_, c)| *c).expect("注册表非空");
-    let share = (worst_cost * 100) / total;
+    let cost: Vec<(&str, f64)> =
+        reg.iter().map(|e| (e.id(), cast_cost_seconds(e.as_ref(), &m, &q, 5, 5))).collect();
+    let total: f64 = cost.iter().map(|(_, c)| *c).sum();
+    assert!(total > 0.0, "全树耗时量到 0，计时方式怕是失效了");
+    let (worst, worst_cost) = *cost
+        .iter()
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .expect("注册表非空");
+    let share = worst_cost * 100.0 / total;
     assert!(
-        share < 60,
-        "叶 `{worst}` 一片占全树排盘耗时的 {share}%（{worst_cost} / {total} µs）——\n\
+        share < 60.0,
+        "叶 `{worst}` 一片占全树排盘耗时的 {share:.0}%（{worst_cost:.6} / {total:.6} 秒）——\n\
          盘面里多半塞了本不属于「命」的东西（一生的时间序列、逐年的展开之类）。\n\
          对照：四柱的盘面出十步大运，逐年的供给时序在用例层另算",
     );

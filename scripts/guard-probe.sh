@@ -400,6 +400,10 @@ probe "藏历：历日卦塌成常量" mingli-tibetan the_calendar_day_trigram_c
   crates/mingli-tibetan/src/lib.rs \
   's|    amod(jdn + 2, 8)|    { let _ = jdn; 1 }|'
 
+probe "藏历：历日卦偏四位" mingli-tibetan the_calendar_day_trigram_cycles_with_the_julian_day \
+  crates/mingli-tibetan/src/lib.rs \
+  's|    amod(jdn + 2, 8)|    amod(jdn - 2, 8)|'
+
 probe "择日：等第标签改掉" mingli-zeri day_grades_follow_the_mnemonic \
   crates/mingli-zeri/src/lib.rs \
   's|            DayGrade::Huang => "黄道",|            DayGrade::Huang => "xyzzy",|'
