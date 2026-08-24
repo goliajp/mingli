@@ -332,16 +332,47 @@ mod tests {
     /// [`guanmei_the_worked_example_from_the_source_text`]。
     #[test]
     fn worked_example_matches_formula() {
-        let m = Moment::new(2024, 6, 15, 14, 30, 8.0);
-        let c = compute_at(&m);
-        let base = u32::from(c.year_branch.unwrap())
-            + u32::from(c.month.unwrap())
-            + u32::from(c.day.unwrap());
-        let upper = super::trigram_mod8(base);
-        let lower = super::trigram_mod8(base + u32::from(c.hour_branch));
-        assert_eq!(c.primary, Hexagram::from_trigrams(upper, lower));
+        // 原先只取一个时刻，而那个时刻恰好是种错也看不见的一个：2024-06-15 是未时，
+        // 时支 8，`base + 8` 与 `base − 8` 模 8 同值，下卦一样；动爻本会变，但没人查动爻。
+        // 现在扫十二个时辰、连查动爻。
+        for hour in 0..24u32 {
+            let m = Moment::new(2024, 6, 15, hour, 30, 8.0);
+            let c = compute_at(&m);
+            let base = u32::from(c.year_branch.unwrap())
+                + u32::from(c.month.unwrap())
+                + u32::from(c.day.unwrap());
+            let with_hour = base + u32::from(c.hour_branch);
+            assert_eq!(
+                c.primary,
+                Hexagram::from_trigrams(super::trigram_mod8(base), super::trigram_mod8(with_hour)),
+                "{hour} 时的本卦"
+            );
+            assert_eq!(c.moving_line, super::moving_line_mod6(with_hour), "{hour} 时的动爻");
+            assert_eq!(c.hour_branch, hour_to_branch(hour));
+        }
+        let c = compute_at(&Moment::new(2024, 6, 15, 14, 30, 8.0));
         assert_eq!(c.year_branch, Some(5));
-        assert_eq!(c.hour_branch, hour_to_branch(14)); // 未时
+    }
+
+    /// 观梅占，这一次**从真入口走**。
+    ///
+    /// 上面那条 `guanmei_the_worked_example_from_the_source_text` 用底层函数把原书的例子
+    /// 重算了一遍，验的是 `trigram_mod8` / `moving_line_mod6` 与卦层——它从不调用
+    /// `compute_at`，而每一次真实起卦走的都是 `compute_at`。实测把 `compute_at` 里
+    /// 「下卦要加时支」那一步改成减，全量套件一条不红。
+    ///
+    /// 农历甲辰年十二月十七日 = 公历 2025-01-16（辰年，年支数 5），申时取 16 时（时支 9）。
+    /// 于是原书的四个中间量 34 / 兑 / 43 / 离与初爻动，应当由这条真实路径原样得出。
+    #[test]
+    fn the_source_example_comes_out_of_the_real_entry_point() {
+        let m = Moment::new(2025, 1, 16, 16, 0, 8.0);
+        assert_eq!((m.lunar.month, m.lunar.day), (12, 17), "该日应是农历十二月十七");
+        let c = compute_at(&m);
+        assert_eq!(c.year_branch, Some(5), "辰年，年支数 5");
+        assert_eq!(c.hour_branch, 9, "申时，时支数 9");
+        assert_eq!(c.primary_full_name, "泽火革", "上兑下离");
+        assert_eq!(c.moving_line, 1, "43 mod 6 = 1，初爻动");
+        assert_eq!(c.changed_full_name, "泽山咸", "革之咸");
     }
 
     /// 观梅占——《梅花易数》卷一自带的那个例子，逐步对上。

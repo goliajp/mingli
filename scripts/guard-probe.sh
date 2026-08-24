@@ -392,6 +392,18 @@ probe "叶的头条数换成另一个量" mingli-registry every_leaf_reports_the
   crates/mingli-maya/src/engine.rs \
   's|value: c.tzolkin_number.to_string()|value: c.tzolkin_name.to_string()|'
 
+probe "梅花：下卦不再加时支" mingli-meihua the_source_example_comes_out_of_the_real_entry_point \
+  crates/mingli-meihua/src/lib.rs \
+  's|    let with_hour = base + u32::from(hb);|    let with_hour = base.wrapping_sub(u32::from(hb));|'
+
+probe "藏历：历日卦塌成常量" mingli-tibetan the_calendar_day_trigram_cycles_with_the_julian_day \
+  crates/mingli-tibetan/src/lib.rs \
+  's|    amod(jdn + 2, 8)|    { let _ = jdn; 1 }|'
+
+probe "择日：等第标签改掉" mingli-zeri day_grades_follow_the_mnemonic \
+  crates/mingli-zeri/src/lib.rs \
+  's|            DayGrade::Huang => "黄道",|            DayGrade::Huang => "xyzzy",|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
