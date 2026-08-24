@@ -262,6 +262,73 @@ mod tests {
         }
     }
 
+    /// 卡日週的两条独立对照。
+    ///
+    /// 原有的那条只验「八个成员都出现过」与「下标 < 8」——后者由 `% 8` 保证，前者
+    /// 很多种错法都满足。实测把 `astawara_index` 正常段整段改成常量 Kala，
+    /// 全量套件一条不红，等于八曜的正常段从没被看过。
+    ///
+    /// 这里换成与 Dershowitz & Reingold《Calendrical Calculations》的闭式逐日对照。
+    /// 那个式子的形状与本仓的三分支写法完全不同——它用一个 `max` 把卡日点吸收掉，
+    /// 没有分支——所以两边同时错成一样的可能性很小。
+    ///
+    /// 名序与卡日规则两源相合：
+    /// 1. <https://en.wikipedia.org/wiki/Pawukon_calendar>
+    /// 2. <https://factsanddetails.com/indonesia/Minorities_and_Regions/sub6_3h/entry-9758.html>
+    ///
+    /// 两处都作 Astawara = Sri·Indra·Guru·Yama·Ludra·Brahma·Kala·Uma、
+    /// Caturwara = Sri·Laba·Jaya·Menala，且「本该在第 72 日结束的那一周里，
+    /// 倒数第二日重复」——倒数第二在八曜正是 Kala、在四曜正是 Jaya。
+    ///
+    /// 附一句留给下一个读到这里的人：按上面那句散文推，Kala 该连出现两天，而实算是
+    /// 0 基第 70、71、72 连出现三天。查过 D&R 的闭式，它算出的也是三天，两边逐日相同。
+    /// 散文那句是粗略说法，代码没有偏一天。
+    #[test]
+    fn the_stuck_day_weeks_agree_with_the_reference_closed_form() {
+        // D&R：asatawara = max(6, 4 + (day − 70) mod 210) mod 8，caturwara = asatawara mod 4。
+        let reference_astawara = |day: usize| -> usize {
+            let shifted = (day + 210 - 70) % 210;
+            core::cmp::max(6, 4 + shifted) % 8
+        };
+        for day in 0..210 {
+            assert_eq!(
+                astawara_index(day),
+                reference_astawara(day),
+                "第 {day} 日的八曜与 D&R 闭式不合"
+            );
+            assert_eq!(
+                caturwara_index(day),
+                reference_astawara(day) % 4,
+                "第 {day} 日的四曜应为八曜下标模 4"
+            );
+        }
+
+        // 卡日点前后的实际名序，逐日写死。
+        let names: Vec<&str> = (66..78).map(|d| ASTAWARA[astawara_index(d)]).collect();
+        assert_eq!(
+            names,
+            [
+                "Guru", "Yama", "Ludra", "Brahma", "Kala", "Kala", "Kala", "Uma", "Sri", "Indra",
+                "Guru", "Yama"
+            ]
+        );
+
+        // 210 不被 8 整除，靠重复把 Kala 多占两日补齐：26×8 = 208，Kala 得 28。
+        // 四曜同理：52×4 = 208，Jaya 得 54。
+        let mut eight = [0u32; 8];
+        let mut four = [0u32; 4];
+        for day in 0..210 {
+            eight[astawara_index(day)] += 1;
+            four[caturwara_index(day)] += 1;
+        }
+        assert_eq!(eight, [26, 26, 26, 26, 26, 26, 28, 26], "八曜各名在 210 日内的次数");
+        assert_eq!(four, [52, 52, 54, 52], "四曜各名在 210 日内的次数");
+        assert_eq!(eight.iter().sum::<u32>(), 210);
+        assert_eq!(four.iter().sum::<u32>(), 210);
+        assert_eq!(ASTAWARA[6], "Kala");
+        assert_eq!(CATURWARA[2], "Jaya");
+    }
+
     #[test]
     fn cycle_closes_at_210() {
         // 整个盘每 210 天复位。

@@ -92,7 +92,10 @@ plant() {
     ! cmp -s "$target" "$bak"
   fi
 }
-trap 'restore; rm -rf "$BACKUP_DIR"' EXIT INT TERM
+# 往 Cargo.toml 里种依赖时，cargo 会顺手改写 Cargo.lock —— 它从不进 BACKUPS，
+# 于是一旦中途被打断，锁文件就留着种进去的那条依赖。始终单独兜住它。
+cp Cargo.lock "$BACKUP_DIR/Cargo.lock"
+trap 'restore; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"' EXIT INT TERM
 
 # probe <组名> <crate> <测试名> <文件> <sed 表达式>
 probe() {
@@ -279,7 +282,7 @@ probe "自陈：读法提到盘上没有的字段" mingli-registry every_field_n
 
 probe "自陈：README 说的探测条数与实际不符" mingli-registry the_number_of_planted_faults_is_what_the_script_plants \
   README.md \
-  's|plants 33 known faults|plants 32 known faults|'
+  's|plants [0-9][0-9]* known faults|plants 1 known faults|'
 
 probe "自陈：叶里多了个没人问的公开函数" mingli-registry every_public_function_is_reachable_from_something_that_is_not_a_test \
   crates/mingli-ziwei/src/limit.rs \
@@ -376,6 +379,18 @@ probe "缅历：新年挪出四月" mingli-mahabote the_year_number_advances_onc
 probe "缅历：宫名取错核心数" mingli-mahabote what_compute_reports_hangs_together \
   crates/mingli-mahabote/src/lib.rs \
   's|        house: HOUSES\[core\],|        house: HOUSES[(core + 1) % 7],|'
+
+probe "巴厘：八曜正常段落成卡日" mingli-pawukon the_stuck_day_weeks_agree_with_the_reference_closed_form \
+  crates/mingli-pawukon/src/lib.rs \
+  '92s|if day < 71 {|if day == 71 {|'
+
+probe "玛雅：无名五日全报第一日" mingli-maya haab_wraps_365_and_covers_wayeb \
+  crates/mingli-maya/src/lib.rs \
+  's|        ((doy - 360) as u8, 18)|        ((doy / 360) as u8, 18)|'
+
+probe "叶的头条数换成另一个量" mingli-registry every_leaf_reports_the_principal_it_is_supposed_to \
+  crates/mingli-maya/src/engine.rs \
+  's|value: c.tzolkin_number.to_string()|value: c.tzolkin_name.to_string()|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。

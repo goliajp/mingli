@@ -260,22 +260,47 @@ mod tests {
 
     #[test]
     fn haab_wraps_365_and_covers_wayeb() {
-        // 年内序遍历 0..365：月名下标恒在 0..19，Wayeb 恰 5 天。
-        let mut wayeb_days = 0;
+        // 逐月收齐日值，与整组比对——原先写的是 `assert!(day < 5)`，
+        // 而 Wayeb 五日若全报成第 1 日，`1 < 5` 一样过。实测把 `doy - 360`
+        // 改成 `doy / 360` 正是这个效果，全量套件一条不红。
+        use std::collections::BTreeSet;
+        let mut seen: [BTreeSet<u8>; 19] = core::array::from_fn(|_| BTreeSet::new());
         for k in 0..365i64 {
-            let jdn = GMT_CORRELATION + k;
-            let (day, mi) = haab(jdn);
-            assert!(mi < 19);
-            if mi == 18 {
-                wayeb_days += 1;
-                assert!(day < 5);
-            } else {
-                assert!(day < 20);
-            }
+            let (day, mi) = haab(GMT_CORRELATION + k);
+            assert!(mi < 19, "月名下标越界：{mi}");
+            seen[mi].insert(day);
         }
-        assert_eq!(wayeb_days, 5);
+        for (mi, days) in seen.iter().enumerate() {
+            let want: BTreeSet<u8> = if mi == 18 { (0..5).collect() } else { (0..20).collect() };
+            assert_eq!(
+                *days,
+                want,
+                "{} 的日值应恰为 {:?}",
+                HAAB_MONTHS[mi],
+                if mi == 18 { "0..=4" } else { "0..=19" }
+            );
+        }
         // 第 365 天 Haab 回到起点。
         assert_eq!(haab(GMT_CORRELATION + 365), haab(GMT_CORRELATION));
+    }
+
+    /// Wayeb 那五个「无名日」的具体落点。
+    ///
+    /// 不是新的权威主张：由已有的第二锚 2012-12-21 = 4 Ahau 3 Kankin 与 365 日结构
+    /// 直接推得——3 Kankin 的年内序是 13×20+3 = 263，再走 97 天到 360 即 Wayeb 首日。
+    /// 写死是为了让「年内序 → （日，月）」那一步的换算有具体值可对，而不只是范围。
+    #[test]
+    fn the_five_nameless_days_land_where_the_anchor_puts_them() {
+        let day_of = |y, m, d| haab(mingli_astro::civil_day_number(y, m, d));
+        assert_eq!(day_of(2013, 3, 27), (19, 17), "Wayeb 前一日应是 19 Cumku");
+        let wayeb_start = mingli_astro::civil_day_number(2013, 3, 28);
+        for offset in 0..5i64 {
+            let expected = u8::try_from(offset).expect("offset 取 0..5");
+            assert_eq!(haab(wayeb_start + offset), (expected, 18), "Wayeb 第 {expected} 日");
+        }
+        assert_eq!(day_of(2013, 4, 2), (0, 0), "Wayeb 之后应回到 0 Pop");
+        assert_eq!(HAAB_MONTHS[17], "Cumku");
+        assert_eq!(HAAB_MONTHS[18], "Wayeb");
     }
 
     #[test]
