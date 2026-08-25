@@ -169,11 +169,11 @@ fn yoni_bounds(a: u8, b: u8) -> (u32, u32) {
 }
 
 /// 两人相隔的宿数（1 起），用于 Tara。
-fn tara_step(from: usize, to: usize) -> usize {
+pub(crate) fn tara_step(from: usize, to: usize) -> usize {
     (to + 27 - from) % 27 + 1
 }
 
-fn tara_bad(step: usize) -> bool {
+pub(crate) fn tara_bad(step: usize) -> bool {
     // 除以 9 的余数落在 Vipat(3) / Pratyak(5) / Vadha(7) 为凶；余 0 视作第 9 位（吉）
     matches!(step % 9, 3 | 5 | 7)
 }
@@ -211,6 +211,12 @@ pub fn ashtakuta(bride: (usize, usize), groom: (usize, usize)) -> Ashtakuta {
     ));
 
     // 3 Tara：两向各判吉凶
+    //
+    // 「两向皆凶得 0」这一档，在本数法下**取不到**：两向的相隔数恒和为 29
+    // （同宿时为 2），而 29 ≡ 2 (mod 9)，凶位是 3/5/7，配对的另一位必是 8/6/4。
+    // 七百二十九对逐一验过，皆吉 243 对、一吉一凶 486 对、皆凶 0 对，
+    // 见 `tara_counts_the_stars_between_and_calls_three_of_every_nine_bad`。
+    // 保留这一支是为了跟两份公布表的措辞一致，不是为了它会发生。
     let (s1, s2) = (tara_step(bn, gn), tara_step(gn, bn));
     let bad = u32::from(tara_bad(s1)) + u32::from(tara_bad(s2));
     let t = match bad {

@@ -497,6 +497,22 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "印占：大运的儒略日算错" mingli-jyotish the_julian_days_tile_the_timeline_at_every_year_length \
+  crates/mingli-jyotish/src/dasha.rs \
+  's|            start_jd: birth_jd_ut + age \* days_per_year,|            start_jd: birth_jd_ut + age * days_per_year * 1.001,|'
+
+probe "印占：子运不再铺满本段" mingli-jyotish the_julian_days_tile_the_timeline_at_every_year_length \
+  crates/mingli-jyotish/src/dasha.rs \
+  's|        let years = span_years \* sub_years / 120.0;|        let years = span_years * sub_years / 121.0;|'
+
+probe "印占：Tara 相隔数不再从一起数" mingli-jyotish tara_counts_the_stars_between_and_calls_three_of_every_nine_bad \
+  crates/mingli-jyotish/src/kuta.rs \
+  's|    (to + 27 - from) % 27 + 1|    (to + 27 - from) % 27|'
+
+probe "印占：Tara 的凶位挪了一个" mingli-jyotish tara_counts_the_stars_between_and_calls_three_of_every_nine_bad \
+  crates/mingli-jyotish/src/kuta.rs \
+  's|    matches!(step % 9, 3 \| 5 \| 7)|    matches!(step % 9, 3 \| 5 \| 8)|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
