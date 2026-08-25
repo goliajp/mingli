@@ -118,6 +118,84 @@ for k in 0..9 {
 assert_eq!(navamsa_of(360.0), 0);
 }
 
+/// 时间轴的**儒略日**字段。
+///
+/// 此前只验过年龄那两个字段。变异测试在 `start_jd` / `end_jd` 那几行上留了十来个活口——
+/// 对外的 JSON 给的正是它们，下游要落到日历上就得用它们。
+///
+/// 四条性质，实测（2026-08-26）在 [`YEAR_LENGTHS`] 六种年长下全部成立：
+/// 段与段之间无缝、九段总跨恰为 120 × 年长、每段的九步子运铺满该段、
+/// 而**年龄完全不随年长变化**——最后这条钉住「年长只进儒略日、不进年龄」。
+#[test]
+fn the_julian_days_tile_the_timeline_at_every_year_length() {
+    let birth = 2_447_000.5f64;
+    for (name, days_per_year) in crate::dasha::YEAR_LENGTHS {
+        for lon in [0.0f64, 6.5, 13.0, 100.0, 200.0, 359.9] {
+            let timeline = crate::dasha::vimshottari_timeline_with(lon, birth, days_per_year);
+            assert_eq!(timeline.len(), 9);
+
+            // 段间无缝且严格前进。
+            for pair in timeline.windows(2) {
+                assert!(
+                    (pair[1].start_jd - pair[0].end_jd).abs() < 1e-6,
+                    "{name} lon={lon}：{} 段止于 {} 而下一段起于 {}",
+                    pair[0].lord,
+                    pair[0].end_jd,
+                    pair[1].start_jd
+                );
+                assert!(pair[0].end_jd > pair[0].start_jd, "{name}：段内应前进");
+            }
+
+            // 九段总跨 = 120 年 × 年长。
+            let span = timeline[8].end_jd - timeline[0].start_jd;
+            assert!(
+                (span - 120.0 * days_per_year).abs() < 1e-6,
+                "{name} lon={lon}：总跨 {span} 天，应为 {} 天",
+                120.0 * days_per_year
+            );
+
+            // 出生落在首段之内（首段起点在出生之前，这是 birth daśā 的残段）。
+            assert!(
+                timeline[0].start_jd <= birth && birth <= timeline[0].end_jd,
+                "{name} lon={lon}：出生 {birth} 不在首段 [{}, {}] 内",
+                timeline[0].start_jd,
+                timeline[0].end_jd
+            );
+
+            // 九步子运在儒略日上铺满本段。
+            for md in &timeline {
+                assert!((md.antardashas[0].start_jd - md.start_jd).abs() < 1e-6);
+                assert!((md.antardashas[8].end_jd - md.end_jd).abs() < 1e-6);
+                for pair in md.antardashas.windows(2) {
+                    assert!(
+                        (pair[1].start_jd - pair[0].end_jd).abs() < 1e-6,
+                        "{name} lon={lon} {} 段内子运有缝",
+                        md.lord
+                    );
+                }
+            }
+        }
+    }
+
+    // 年长只该进儒略日，不该进年龄。
+    let julian = crate::dasha::vimshottari_timeline_with(100.0, birth, 365.25);
+    let savana = crate::dasha::vimshottari_timeline_with(100.0, birth, 360.0);
+    for (a, b) in julian.iter().zip(savana.iter()) {
+        assert_eq!(a.lord, b.lord);
+        assert!((a.start_age_years - b.start_age_years).abs() < 1e-12, "换年长不该动年龄");
+        assert!((a.end_age_years - b.end_age_years).abs() < 1e-12, "换年长不该动年龄");
+        // 年龄非零的段，换了年长儒略日就该跟着动；年龄恰为零的那一点两边同为出生时刻。
+        if a.start_age_years.abs() > 1e-12 {
+            assert!(
+                (a.start_jd - b.start_jd).abs() > 1e-6,
+                "{} 段起于年龄 {}，换年长后儒略日却没动",
+                a.lord,
+                a.start_age_years
+            );
+        }
+    }
+}
+
 #[test]
 fn vimshottari_years_total_120() {
 let total: f64 = VIMSHOTTARI_YEARS.iter().map(|(_, y)| y).sum();
@@ -463,6 +541,68 @@ mod varga_tests {
 /// 所以不能拿「某对男女得几分」当 oracle——那个数随选哪份表而变。
 /// 能当判据的是各家一致的结构：权重之和、Nadi 的同则零、Bhakoot 的凶位、
 /// 同宿同宫必得满分、以及三张按宿查的表各自的分布。
+/// 八项里的 Tara：两人月宿相隔数各除以 9，余数落在 Vipat(3)/Pratyak(5)/Vadha(7) 为凶。
+///
+/// 这一项此前一条测试也没有——变异测试把 `tara_step` 整个换成常量 0 或 1、
+/// 把 `tara_bad` 整个换成恒真或恒假，全都活了下来。
+///
+/// 规则与出处见本 crate `kuta.rs` 的模块头：两份互相独立的公布表
+/// （Saravali 的 Asta Koota 分项页与 freehoroscopesonline 的同名页）在此项上一致，
+/// 作「两向皆吉 3 分、一吉一凶 1.5、皆凶 0」。
+#[test]
+fn tara_counts_the_stars_between_and_calls_three_of_every_nine_bad() {
+    use crate::kuta::ashtakuta;
+
+    // 相隔数从 1 起数，同宿即第一位 Janma。二十七宿走一圈恰取遍 1..=27。
+    for from in 0..27usize {
+        let mut seen: Vec<usize> = (0..27).map(|to| crate::kuta::tara_step(from, to)).collect();
+        assert_eq!(seen[from], 1, "自宿到自宿应是第一位");
+        seen.sort_unstable();
+        assert_eq!(seen, (1..=27).collect::<Vec<_>>(), "从第 {from} 宿数出去应取遍 1..=27");
+    }
+
+    // 九位里恰三位为凶：Vipat 第 3、Pratyak 第 5、Vadha 第 7。
+    // 二十七位里因此恰九位为凶，且余 0 那一位（第 9、18、27）算吉。
+    let bad: Vec<usize> = (1..=27).filter(|&s| crate::kuta::tara_bad(s)).collect();
+    assert_eq!(bad, vec![3, 5, 7, 12, 14, 16, 21, 23, 25], "凶位应是 3/5/7 每九位一轮");
+    for good in [9usize, 18, 27] {
+        assert!(!crate::kuta::tara_bad(good), "余 0 那一位算吉");
+    }
+
+    // 落到分数上：两向皆吉 30/10 分、一吉一凶 15/10、皆凶 0。
+    let tara_of = |b: usize, g: usize| -> u32 {
+        ashtakuta((b, 0), (g, 0))
+            .kutas
+            .iter()
+            .find(|k| k.kuta == "Tara")
+            .expect("八项里有 Tara")
+            .min_tenths
+    };
+    // 同宿：两向都是第一位，皆吉。
+    assert_eq!(tara_of(0, 0), 30, "同宿两向皆吉");
+    // 女宿 0、男宿 2：一向第 3（Vipat，凶），反向第 26（吉）。
+    assert_eq!(crate::kuta::tara_step(0, 2), 3);
+    assert_eq!(crate::kuta::tara_step(2, 0), 26);
+    assert_eq!(tara_of(0, 2), 15, "一吉一凶");
+    // 两向皆凶那一档在这套数法下取不到，这不是缺测而是算术使然：
+    // 两向的相隔数恒和为 29（同宿时为 2），而 29 ≡ 2 (mod 9)，凶位是 3/5/7，
+    // 配对的另一位必是 8/6/4，一定是吉。七百二十九对逐一验过，皆凶为零。
+    let mut tally = [0u32; 3]; // [两向皆吉, 一吉一凶, 两向皆凶]
+    for b in 0..27usize {
+        for g in 0..27usize {
+            let bad_count = u32::from(crate::kuta::tara_bad(crate::kuta::tara_step(b, g)))
+                + u32::from(crate::kuta::tara_bad(crate::kuta::tara_step(g, b)));
+            tally[bad_count as usize] += 1;
+            let sum = crate::kuta::tara_step(b, g) + crate::kuta::tara_step(g, b);
+            assert!(sum == 29 || sum == 2, "第 {b}/{g} 宿两向相隔数之和为 {sum}");
+            // 得分只该落在这两档上。
+            let t = tara_of(b, g);
+            assert!(t == 30 || t == 15, "第 {b}/{g} 宿的 Tara 得 {t}，应为 30 或 15");
+        }
+    }
+    assert_eq!(tally, [243, 486, 0], "两向皆吉 243 对、一吉一凶 486 对、皆凶 0 对");
+}
+
 #[test]
 fn ashtakuta_holds_the_structure_every_source_agrees_on() {
     use crate::kuta::{ashtakuta, GANA, NADI, YONI, YONI_SWORN_ENEMIES};
