@@ -248,6 +248,113 @@ mod course_census {
         out
     }
 
+    /// 三门稀见课式**取出来的三传**是什么。
+    ///
+    /// 上面几条普查钉的是「哪些日子出哪门课式」——那是分类，不是取传。改动取传的算术
+    /// 不改分类，于是普查照旧对得上。变异测试在 `derive_transmission` 的八专、别责、
+    /// 昴星三段上留了十一个活口，全在这里。
+    ///
+    /// 底下每一条都是本模块注释里已经引好出处的规矩，只是从来没写成断言。
+    #[test]
+    fn the_three_rare_courses_transmit_the_way_the_books_say() {
+        // 《六壬粹言》卷一：八专与别责「中末皆取干上神」。
+        for pattern in [Pattern::BaZhuan, Pattern::BieZe] {
+            for (stem, branch, offset, c) in census(pattern) {
+                let t = c.transmission.expect("这两门必有三传");
+                assert_eq!(
+                    (t[1], t[2]),
+                    (c.courses[0].up, c.courses[0].up),
+                    "{pattern:?} 干{stem} 支{branch} 局{offset}：中末皆该取干上神"
+                );
+            }
+        }
+
+        // 《课经》：昴星「刚日本乎天者亲上，末传归干；柔日本乎地者亲下，末传归辰」。
+        // 即刚日中传支上神、末传干上神；柔日中传干上神、末传支上神。
+        for (stem, branch, offset, c) in census(Pattern::MaoXing) {
+            let t = c.transmission.expect("昴星必有三传");
+            let (gan_shang, zhi_shang) = (c.courses[0].up, c.courses[2].up);
+            if stem % 2 == 0 {
+                assert_eq!(
+                    (t[1], t[2]),
+                    (zhi_shang, gan_shang),
+                    "刚日昴星 干{stem} 支{branch} 局{offset}：中传支上、末传归干"
+                );
+            } else {
+                assert_eq!(
+                    (t[1], t[2]),
+                    (gan_shang, zhi_shang),
+                    "柔日昴星 干{stem} 支{branch} 局{offset}：中传干上、末传归辰"
+                );
+            }
+        }
+
+        // 昴星初传：「阳日仰视地盘酉位之上神，阴日俯视天盘酉所临之地盘支」。
+        // 这里不照抄闭式，改成把整张天盘摆出来查——刚日取酉位上写着谁，柔日反过来
+        // 找酉写在哪一位上。两者互为逆，先断言这张盘确是双射。
+        for (stem, _, offset, c) in census(Pattern::MaoXing) {
+            let plate: Vec<u8> = (0..12u8).map(|g| crate::plates::heaven_plate(g, offset)).collect();
+            let distinct: std::collections::BTreeSet<u8> = plate.iter().copied().collect();
+            assert_eq!(distinct.len(), 12, "局{offset} 的天盘该是十二支的一一对应");
+            let t = c.transmission.expect("昴星必有三传");
+            if stem % 2 == 0 {
+                assert_eq!(t[0], plate[9], "刚日昴星初传 = 地盘酉位的上神");
+            } else {
+                let under_you = plate.iter().position(|&v| v == 9).expect("天盘上必有酉");
+                assert_eq!(
+                    usize::from(t[0]),
+                    under_you,
+                    "柔日昴星初传 = 天盘酉所临的地盘支"
+                );
+            }
+        }
+
+        // 《课经》八专刚日算例：「干上阳神亥，顺数至丑」——连本位数，亥子丑。
+        // 六十甲子十二局里，刚日八专而干上神为亥的，正是甲寅日局九。
+        let ba_zhuan_yang_with_hai: Vec<_> = census(Pattern::BaZhuan)
+            .into_iter()
+            .filter(|(stem, _, _, c)| stem % 2 == 0 && c.courses[0].up == 11)
+            .collect();
+        // 十二局里合此形的有两课——甲寅日局九与庚申日局三，两课都该出丑亥亥。
+        let days: Vec<(u8, u8)> =
+            ba_zhuan_yang_with_hai.iter().map(|(s, b, ..)| (*s, *b)).collect();
+        assert_eq!(days, vec![(0, 2), (6, 8)], "甲寅与庚申两日");
+        for (stem, branch, offset, c) in &ba_zhuan_yang_with_hai {
+            assert_eq!(
+                c.transmission,
+                Some([1, 11, 11]),
+                "干{stem} 支{branch} 局{offset}：干上亥，顺数至丑，三传丑亥亥"
+            );
+        }
+
+        // 别责柔日：「支前三合」——初传与日支同一三合局，且不是日支本身。
+        for (stem, branch, offset, c) in census(Pattern::BieZe) {
+            if stem % 2 == 0 {
+                continue;
+            }
+            let t = c.transmission.expect("别责必有三传");
+            assert_eq!(
+                mingli_ganzhi::sanhe_group_index(t[0]),
+                mingli_ganzhi::sanhe_group_index(branch),
+                "柔日别责 干{stem} 支{branch} 局{offset}：初传该与日支同三合局"
+            );
+            assert_ne!(t[0], branch, "「支前」，不取日支自己");
+        }
+
+        // 别责刚日三课的初传：小注只给了日辰清单，没给三传，故此处是冻结现状而非外部求证。
+        // 若日后找到载有这三课三传的算例，应换成真正的 oracle。
+        let yang_bie_ze: Vec<(u8, u8, u8)> = census(Pattern::BieZe)
+            .into_iter()
+            .filter(|(stem, ..)| stem % 2 == 0)
+            .map(|(stem, branch, _, c)| (stem, branch, c.transmission.expect("有三传")[0]))
+            .collect();
+        assert_eq!(
+            yang_bie_ze,
+            vec![(2, 4, 11), (4, 4, 2), (4, 6, 2)],
+            "丙辰初传亥、戊辰与戊午初传寅——冻结现状，非外部求证"
+        );
+    }
+
     /// 昴星恰 16 课，刚 4 柔 12 —— 两部独立的书各自自报过这两个数。
     ///
     /// 《六壬大全》卷一末〈补论〉「凡昴星止十六课」；
