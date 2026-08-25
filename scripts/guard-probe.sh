@@ -432,6 +432,22 @@ probe "四柱：顺逆搞反" mingli-bazi the_direction_follows_the_year_stem_an
   crates/mingli-bazi/src/chart.rs \
   's|        Gender::Male => year_yang,|        Gender::Male => !year_yang,|'
 
+probe "六壬：八专刚日不再连本位数" mingli-liuren the_three_rare_courses_transmit_the_way_the_books_say \
+  crates/mingli-liuren/src/transmission.rs \
+  's|            (courses\[0\].up + 2) % 12|            (courses[0].up + 3) % 12|'
+
+probe "六壬：昴星柔日改仰视" mingli-liuren the_three_rare_courses_transmit_the_way_the_books_say \
+  crates/mingli-liuren/src/transmission.rs \
+  's|        ((9 + 12 - offset) % 12, courses\[0\].up, courses\[2\].up)|        (heaven_plate(9, offset), courses[0].up, courses[2].up)|'
+
+probe "六壬：别责柔日不取支前三合" mingli-liuren the_three_rare_courses_transmit_the_way_the_books_say \
+  crates/mingli-liuren/src/transmission.rs \
+  's|            (day_branch + 4) % 12|            (day_branch + 3) % 12|'
+
+probe "六壬：昴星末传不再归干" mingli-liuren the_three_rare_courses_transmit_the_way_the_books_say \
+  crates/mingli-liuren/src/transmission.rs \
+  's|        (heaven_plate(9, offset), courses\[2\].up, courses\[0\].up)|        (heaven_plate(9, offset), courses[0].up, courses[2].up)|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
