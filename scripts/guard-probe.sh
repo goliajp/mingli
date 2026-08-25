@@ -178,6 +178,32 @@ probe() {
 # 那份模块，中间隔着 Vite 的文件监视。监视漏掉一次，页面拿到的还是旧代码，于是断言照常
 # 绿——而那个绿说的是「没测到」，不是「守卫失效」。CI 上就这么报过一次假的失守。
 # 给了确认命令就先轮询它，确认不上则报跳过，不下结论。
+# probe_script <组名> <命令> <文件> <sed 表达式>
+#
+# 与 probe 的差别：守卫不是某条 cargo 测试，而是一支脚本；与 probe_cmd 的差别：
+# 不要求 dev server，也不在 web 下执行。
+probe_script() {
+  local group=$1 cmd=$2 file=$3 expr=$4
+  wanted "$group" || return 0
+
+  printf '  %-46s ' "$group"
+  if ! plant "$file" "$expr"; then
+    printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
+  fi
+
+  local rc=0 t0 dt
+  t0=$SECONDS
+  eval "$cmd" >/dev/null 2>&1 || rc=$?
+  dt=$((SECONDS - t0))
+  restore
+
+  if [ "$rc" -ne 0 ]; then
+    printf '✓ 红了（脚本 · %ss）\n' "$dt"; pass=$((pass+1))
+  else
+    printf '✗ 种了错它还是绿的\n'; fail=$((fail+1))
+  fi
+}
+
 probe_cmd() {
   local group=$1 cmd=$2 file=$3 expr=$4 confirm=${5:-}
   wanted "$group" || return 0
@@ -447,6 +473,11 @@ probe "六壬：别责柔日不取支前三合" mingli-liuren the_three_rare_cou
 probe "六壬：昴星末传不再归干" mingli-liuren the_three_rare_courses_transmit_the_way_the_books_say \
   crates/mingli-liuren/src/transmission.rs \
   's|        (heaven_plate(9, offset), courses\[2\].up, courses\[0\].up)|        (heaven_plate(9, offset), courses[0].up, courses[2].up)|'
+
+probe_script "两档：优化改变了排出来的盘" \
+  './scripts/profile-parity.sh' \
+  crates/mingli-meihua/src/lib.rs \
+  's|    let base = u32::from(yb) + month + day;|    let base = u32::from(yb) + month + day + u32::from(cfg!(debug_assertions));|'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
