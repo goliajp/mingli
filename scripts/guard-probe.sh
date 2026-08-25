@@ -474,6 +474,16 @@ probe "六壬：昴星末传不再归干" mingli-liuren the_three_rare_courses_t
   crates/mingli-liuren/src/transmission.rs \
   's|        (heaven_plate(9, offset), courses\[2\].up, courses\[0\].up)|        (heaven_plate(9, offset), courses[0].up, courses[2].up)|'
 
+probe_script "两门：wasm 与 native 算出不同的盘" \
+  './scripts/wasm-parity.sh' \
+  crates/mingli-meihua/src/lib.rs \
+  's|    let base = u32::from(yb) + month + day;|    let base = u32::from(yb) + month + day + u32::from(cfg!(target_arch = "wasm32"));|'
+
+probe_script "两门：两边比的不是同一批输入" \
+  './scripts/wasm-parity.sh' \
+  scripts/wasm-cast.mjs \
+  's|  \[1990, 6, 15, 14, 30\],|  [1991, 6, 15, 14, 30],|'
+
 probe_script "两档：优化改变了排出来的盘" \
   './scripts/profile-parity.sh' \
   crates/mingli-meihua/src/lib.rs \
