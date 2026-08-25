@@ -489,6 +489,14 @@ probe_script "两档：优化改变了排出来的盘" \
   crates/mingli-meihua/src/lib.rs \
   's|    let base = u32::from(yb) + month + day;|    let base = u32::from(yb) + month + day + u32::from(cfg!(debug_assertions));|'
 
+probe "占星：Placidus 象限接错" mingli-astrology the_four_quadrants_of_asc1_join_up_without_a_seam \
+  crates/mingli-astrology/src/placidus.rs \
+  's|        3 => 180.0 + asc2(x1 - 180.0, -f, sine, cose),|        3 => 180.0 + asc2(x1 - 180.0, f, sine, cose),|'
+
+probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanity \
+  crates/mingli-astrology/src/placidus.rs \
+  's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
