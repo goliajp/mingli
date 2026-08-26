@@ -513,6 +513,14 @@ probe "印占：Tara 的凶位挪了一个" mingli-jyotish tara_counts_the_stars
   crates/mingli-jyotish/src/kuta.rs \
   's|    matches!(step % 9, 3 \| 5 \| 7)|    matches!(step % 9, 3 \| 5 \| 8)|'
 
+probe "四柱：春节换岁退错年" mingli-bazi the_spring_festival_year_turns_once_a_year_on_the_first_of_the_first_month \
+  crates/mingli-bazi/src/chart.rs \
+  's|        YearBreakMethod::SpringFestival => m.lunar.year,|        YearBreakMethod::SpringFestival => if m.lunar.month >= 11 { m.year - 1 } else { m.year },|'
+
+probe "四柱：两派在下半年岔开" mingli-bazi the_two_year_break_schools_only_disagree_early_in_the_year \
+  crates/mingli-bazi/src/chart.rs \
+  's|        YearBreakMethod::SpringFestival => m.lunar.year,|        YearBreakMethod::SpringFestival => m.lunar.year - 1,|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
