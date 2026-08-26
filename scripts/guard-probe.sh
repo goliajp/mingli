@@ -521,6 +521,18 @@ probe "四柱：两派在下半年岔开" mingli-bazi the_two_year_break_schools
   crates/mingli-bazi/src/chart.rs \
   's|        YearBreakMethod::SpringFestival => m.lunar.year,|        YearBreakMethod::SpringFestival => m.lunar.year - 1,|'
 
+probe "六壬：孟仲季三档塌成一档" mingli-liuren the_three_ranks_read_the_ground_position_not_the_god_standing_on_it \
+  crates/mingli-liuren/src/transmission.rs \
+  's|        2 \| 8 \| 5 \| 11 => 0,|        2 \| 8 \| 5 \| 11 => 1,|'
+
+probe "六壬：涉害改看天盘神" mingli-liuren the_shehai_ladder_narrows_at_every_rung \
+  crates/mingli-liuren/src/transmission.rs \
+  's|    let best = pool.iter().map(\|c\| meng_zhong_ji(c.down)).min().unwrap_or(2);|    let best = pool.iter().map(\|c\| meng_zhong_ji(c.up)).min().unwrap_or(2);|'
+
+probe "六壬：比用取反了阴阳" mingli-liuren the_shehai_ladder_narrows_at_every_rung \
+  crates/mingli-liuren/src/transmission.rs \
+  's|filter(\|c\| branch_is_yang(c.up) == yang)|filter(\|c\| branch_is_yang(c.up) != yang)|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \

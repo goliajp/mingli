@@ -1,7 +1,10 @@
 //! 大六壬的校验：古法工作例、全表课数对账、井栏等专课。
 
 use super::plates::{heaven_plate, month_general_branch, plate_offset, STEM_LODGING};
-use super::transmission::{branch_is_yang, derive_transmission, down_controls_up, shehai_depth, stem_is_yang, up_controls_down};
+use super::transmission::{
+    branch_is_yang, derive_transmission, down_controls_up, meng_zhong_ji, shehai_depth,
+    stem_is_yang, up_controls_down,
+};
 use super::*;
 
 #[test]
@@ -413,6 +416,85 @@ mod course_census {
         let (s, b, _, c) = single_footed[0];
         assert_eq!((*s, *b), (5, 7), "独足课是己未日");
         assert_eq!(c.transmission, Some([9, 9, 9]), "三传酉酉酉");
+    }
+
+    /// 孟仲季三档，以及它看的是**地盘位**不是天盘神。
+    ///
+    /// 变异测试把 `meng_zhong_ji` 整个换成常量 0 或 1、删掉它的头两条 match 臂，
+    /// 三样都活了下来——这个函数是涉害取用第三级的判据，此前一处没验。
+    ///
+    /// 三档的分法各家一致：孟（寅申巳亥）＞ 仲（子午卯酉）＞ 季（辰戌丑未）。
+    /// 「看地盘不看天盘」这一点由《六壬粹言》的复等例钉死，本模块注释已引：
+    /// 戊辰日一课子加巳、四课午加亥，子午本是仲，书却说「俱在孟位上」——因为巳、亥是孟。
+    #[test]
+    fn the_three_ranks_read_the_ground_position_not_the_god_standing_on_it() {
+        for branch in [2u8, 8, 5, 11] {
+            assert_eq!(meng_zhong_ji(branch), 0, "寅申巳亥为孟");
+        }
+        for branch in [0u8, 6, 3, 9] {
+            assert_eq!(meng_zhong_ji(branch), 1, "子午卯酉为仲");
+        }
+        for branch in [4u8, 10, 1, 7] {
+            assert_eq!(meng_zhong_ji(branch), 2, "辰戌丑未为季");
+        }
+        // 十二支恰好分成三档、每档四支，一支不漏一支不重。
+        let mut tally = [0u8; 3];
+        for branch in 0..12u8 {
+            tally[meng_zhong_ji(branch) as usize] += 1;
+        }
+        assert_eq!(tally, [4, 4, 4], "三档各辖四支");
+        // 定义域就是 0..12：本函数**不做**模十二归位，越界一律落到通配臂当「季」。
+        // 调用方传的是地盘位，恒在 0..12，故今天无碍；写下来是免得下一个人以为它会归位。
+        assert_eq!(meng_zhong_ji(12), 2, "12 不等同于子，它落到通配臂");
+        assert_eq!(meng_zhong_ji(14), 2, "14 不等同于寅");
+
+        // 《六壬粹言》复等例：天盘子临地盘巳、天盘午临地盘亥，两课「俱在孟位上」。
+        // 判据取地盘的巳与亥（皆孟 0），而不是天盘的子与午（皆仲 1）。
+        assert_eq!((meng_zhong_ji(5), meng_zhong_ji(11)), (0, 0), "巳、亥皆孟");
+        assert_eq!((meng_zhong_ji(0), meng_zhong_ji(6)), (1, 1), "子、午皆仲——若误取天盘就成这两个");
+    }
+
+    /// 涉害取用的四级阶梯，每一级都真的在收窄。
+    ///
+    /// `resolve_kede` 里四处相等比较（比用的阴阳同、受克深浅同、孟仲季同、复等取干支上神）
+    /// 各留一个活口。这条扫遍六十甲子 × 十二局，查阶梯该有的形状：
+    /// 落到比用的课，其初传必来自四课上神且与日干同阴阳；落到涉害的课，初传同样出自四课，
+    /// 且比用与涉害互斥——一课不会既比用又涉害。
+    #[test]
+    fn the_shehai_ladder_narrows_at_every_rung() {
+        let mut biyong = 0u32;
+        let mut shehai = 0u32;
+        for stem in 0..10u8 {
+            for branch in 0..12u8 {
+                if stem % 2 != branch % 2 {
+                    continue;
+                }
+                for offset in 0..12u8 {
+                    let c = super::tests::compute_via(stem, branch, offset, 0);
+                    let Some(t) = c.transmission else { continue };
+                    let ups: Vec<u8> = c.courses.iter().map(|x| x.up).collect();
+                    match c.pattern {
+                        Pattern::BiYong => {
+                            biyong += 1;
+                            assert!(ups.contains(&t[0]), "比用初传应出自四课上神");
+                            assert_eq!(
+                                branch_is_yang(t[0]),
+                                stem_is_yang(stem),
+                                "干{stem} 支{branch} 局{offset}：比用取的该与日干同阴阳"
+                            );
+                        }
+                        Pattern::SheHai => {
+                            shehai += 1;
+                            assert!(ups.contains(&t[0]), "涉害初传应出自四课上神");
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        // 两门都要真的出现过，否则上面那些断言等于没跑。
+        assert!(biyong > 0, "比用一课都没出现，断言没被执行");
+        assert!(shehai > 0, "涉害一课都没出现，断言没被执行");
     }
 
     /// 涉害的「受克深浅」数法：六个古籍算例逐条复算。
