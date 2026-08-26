@@ -533,6 +533,18 @@ probe "六壬：比用取反了阴阳" mingli-liuren the_shehai_ladder_narrows_a
   crates/mingli-liuren/src/transmission.rs \
   's|filter(\|c\| branch_is_yang(c.up) == yang)|filter(\|c\| branch_is_yang(c.up) != yang)|'
 
+probe "印占：Bhakoot 相隔位次算错" mingli-jyotish bhakoot_agrees_in_both_directions_at_every_pair_of_signs \
+  crates/mingli-jyotish/src/kuta.rs \
+  's|    let d1 = (gr + 12 - br) % 12 + 1;|    let d1 = (gr * 12 - br) % 12 + 1;|'
+
+probe "印占：未定项数数反了" mingli-jyotish the_unsettled_count_is_exactly_the_items_marked_unsettled \
+  crates/mingli-jyotish/src/kuta.rs \
+  's|filter(\|k\| !k.settled).count()|filter(\|k\| k.settled).count()|'
+
+probe "印占：主星查表取错位次" mingli-jyotish graha_maitri_reads_the_lords_of_the_two_signs \
+  crates/mingli-jyotish/src/kuta.rs \
+  's|        .position(\|x\| \*x == lord)|        .position(\|x\| *x != lord)|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \

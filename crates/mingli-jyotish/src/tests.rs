@@ -603,6 +603,101 @@ fn tara_counts_the_stars_between_and_calls_three_of_every_nine_bad() {
     assert_eq!(tally, [243, 486, 0], "两向皆吉 243 对、一吉一凶 486 对、皆凶 0 对");
 }
 
+/// Bhakoot 走遍十二 × 十二宫，而不只是新娘宫取 0 的那一行。
+///
+/// 原有的那条只扫 `ashtakuta((0,0),(0,d))`——新娘宫恒为 0。变异测试因此在
+/// `d1` 的算术上留了活口：`(gr * 12 - br)` 在 `br = 0` 时与 `(gr + 12 - br)` 同余，
+/// 一整行测试都看不出来。
+///
+/// 两向相隔位次之和恒为 14（同宫时 2），而吉位集 {1,3,4,7,10,11} 在 `d → 14 − d`
+/// 下自闭（3↔11、4↔10、7↔7、1↔1），凶位集同理。所以两向**永远同吉同凶**，
+/// 一吉一凶取不到：144 对里 72 对皆吉、72 对皆凶。
+/// 源码里那个 `ok(d1) && ok(d2)` 的第二半因此是冗余的——变异测试把 `&&` 换成 `||`
+/// 会活下来，那是等价变异不是缺口。
+#[test]
+fn bhakoot_agrees_in_both_directions_at_every_pair_of_signs() {
+    use crate::kuta::ashtakuta;
+    let good = |d: usize| matches!(d, 1 | 3 | 4 | 7 | 10 | 11);
+    let (mut both_good, mut both_bad) = (0u32, 0u32);
+    for br in 0..12usize {
+        for gr in 0..12usize {
+            let d1 = (gr + 12 - br) % 12 + 1;
+            let d2 = (br + 12 - gr) % 12 + 1;
+            assert!(d1 + d2 == 14 || d1 + d2 == 2, "宫 {br}/{gr}：两向之和 {}", d1 + d2);
+            assert_eq!(good(d1), good(d2), "宫 {br}/{gr}：两向该同吉同凶");
+
+            let k = ashtakuta((0, br), (0, gr));
+            let b = k.kutas.iter().find(|k| k.kuta == "Bhakoot").expect("应有 Bhakoot");
+            let want = if good(d1) { 70 } else { 0 };
+            assert_eq!(b.min_tenths, want, "宫 {br}/{gr} 相隔 {d1}/{d2} 位的 Bhakoot");
+            assert!(b.settled, "Bhakoot 两源同表，不该出区间");
+            // 依据文本要把两向都写出来——否则 d2 算错了也没人看得见。
+            assert_eq!(b.basis, format!("两宫相隔 {d1} / {d2} 位"), "宫 {br}/{gr} 的依据文本");
+            if good(d1) { both_good += 1 } else { both_bad += 1 }
+        }
+    }
+    assert_eq!((both_good, both_bad), (72, 72), "十二宫两两相配，皆吉皆凶各半");
+}
+
+/// 未定项数就是逐项 `settled` 为假的那几项。
+///
+/// 这个数直接进释义层的提示词（`unsettled_count` 在 synastry 的护栏里被点名），
+/// 而此前没有任何一处把它与逐项标记对上——把 `!k.settled` 的取反删掉，数的就成了
+/// 「已定项数」，八项里报七项未定，没人察觉。
+#[test]
+fn the_unsettled_count_is_exactly_the_items_marked_unsettled() {
+    use crate::kuta::ashtakuta;
+    for bn in [0usize, 5, 13, 26] {
+        for gn in [0usize, 7, 19, 24] {
+            for br in [0usize, 4, 9] {
+                let k = ashtakuta((bn, br), (gn, (br + 5) % 12));
+                let by_flag = k.kutas.iter().filter(|x| !x.settled).count();
+                let by_range = k.kutas.iter().filter(|x| x.min_tenths != x.max_tenths).count();
+                assert_eq!(by_flag, by_range, "settled 标记应等价于「有没有区间」");
+                assert_eq!(
+                    usize::try_from(k.unsettled_count).expect("八项以内"),
+                    by_flag,
+                    "宿 {bn}/{gn} 宫 {br}：未定项数应等于标着未定的那几项"
+                );
+                assert!(k.unsettled_count <= 8, "至多八项");
+            }
+        }
+    }
+}
+
+/// Graha Maitri 取的是两宫主星在七曜表里的位次。
+///
+/// `position(|x| *x == lord)` 里的等号改成不等号也活了下来——因为它随后
+/// `unwrap_or(0)`，取错就一律落到太阳，而没有一处把这一项的得分与主星对上。
+#[test]
+fn graha_maitri_reads_the_lords_of_the_two_signs() {
+    use crate::kuta::{ashtakuta, GRAHA_MAITRI, RASI_LORD};
+    const SEVEN: [&str; 7] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
+    // 十二宫主星都在七曜之内，且七曜各自被认领至少一次。
+    let mut claimed = [false; 7];
+    for (rasi, lord) in RASI_LORD.iter().enumerate() {
+        let at = SEVEN.iter().position(|x| x == lord);
+        let at = at.unwrap_or_else(|| panic!("第 {rasi} 宫的主星 {lord} 不在七曜里"));
+        claimed[at] = true;
+    }
+    assert_eq!(claimed, [true; 7], "七曜都该有宫");
+
+    // 得分取自主星对主星那一格，逐宫对表。
+    for (br, bride_lord) in RASI_LORD.iter().enumerate() {
+        for (gr, groom_lord) in RASI_LORD.iter().enumerate() {
+            let i = SEVEN.iter().position(|x| x == bride_lord).expect("主星在表内");
+            let j = SEVEN.iter().position(|x| x == groom_lord).expect("主星在表内");
+            let k = ashtakuta((0, br), (0, gr));
+            let g = k.kutas.iter().find(|k| k.kuta == "Graha Maitri").expect("应有此项");
+            assert_eq!(
+                g.min_tenths,
+                GRAHA_MAITRI[i][j],
+                "宫 {br}（主 {bride_lord}）配宫 {gr}（主 {groom_lord}）"
+            );
+        }
+    }
+}
+
 #[test]
 fn ashtakuta_holds_the_structure_every_source_agrees_on() {
     use crate::kuta::{ashtakuta, GANA, NADI, YONI, YONI_SWORN_ENEMIES};
