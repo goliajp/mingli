@@ -117,20 +117,13 @@ pub(crate) fn compute_at_impl(m: &Moment, gender: Option<Gender>, school: BaziSc
             let lichun = solar_term_jd(m.year, 315.0);
             if jd < lichun { m.year - 1 } else { m.year }
         }
-        YearBreakMethod::SpringFestival => {
-            // 农历正月初一（非闰）之前归前一年；之后（含）归本年。
-            // m.lunar.month=1 且 m.lunar.day>=1 且 leap=false → 已到正月，本公历年成立。
-            // 若 m.lunar.month=12 或 （month=1 day>=1 但 leap=true 跨闰），则尚未到正月初一，归前一年。
-            let l = &m.lunar;
-            if l.month == 1 && !l.leap && l.day >= 1 {
-                m.year
-            } else if l.month >= 11 || (l.month == 12) || (l.month == 1 && l.leap) {
-                // 公历 1 月 1 日到农历正月初一之间（必落在公历 1-2 月）
-                m.year - 1
-            } else {
-                m.year
-            }
-        }
+        // 春节换岁要的就是农历年号本身——[`mingli_astro::LunarDate::year`] 的定义
+        // 正是「以正月初一为界；十一、十二月归本岁起始年」，与本流派一字不差。
+        //
+        // 此处原先由公历年加农历月日反推，那套判断在公历十一、十二月上会把年柱退回前一年
+        // （如 2024-12-15 农历十一月，2024 年正月初一早已过，却算成癸卯）。
+        // 原有三条测试取的都是二月三月的日期，恰好落在那套判断对的区间里。
+        YearBreakMethod::SpringFestival => m.lunar.year,
     };
     let year_gz = year_ganzhi(solar_year);
 

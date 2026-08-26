@@ -10,6 +10,80 @@ fn natal_1987() -> BirthInput {
     BirthInput { year: 1987, month: 9, day: 17, hour: 15, minute: 0, tz: 8.0, gender: Some(Gender::Male) }
 }
 
+/// 春节换岁：一年只换一次，且换在正月初一那天。
+///
+/// 原先这一支由公历年加农历月日反推，在公历十一、十二月上会把年柱退回前一年——
+/// 2024-12-15 是农历十一月，而 2024 年正月初一（02-10）早已过去，年柱却算成癸卯。
+/// 而当时三条测试取的都是二月三月的日期，恰好落在那套判断对的区间里，
+/// 注释还写着「覆盖 L397」「fallback L402」——照着分支写的，不是照着规矩写的。
+///
+/// 这条改成查规矩本身：逐日扫过整年，年柱只准变一次，且变的那天农历必是正月初一。
+/// 不拿 `m.lunar.year` 对答案，那是实现现在直接返回的东西，比了等于没比。
+#[test]
+fn the_spring_festival_year_turns_once_a_year_on_the_first_of_the_first_month() {
+    use crate::{BaziSchool, YearBreakMethod, ZiHourMethod};
+    let school = BaziSchool {
+        zi_hour: ZiHourMethod::Late,
+        year_break: YearBreakMethod::SpringFestival,
+    };
+    let days_in = |y: i32, m: u32| -> u32 {
+        match m {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            _ => u32::from((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) + 28,
+        }
+    };
+    for year in 2020..=2030i32 {
+        let mut turns: Vec<(u32, u32)> = Vec::new();
+        let mut prev: Option<String> = None;
+        for month in 1..=12u32 {
+            for day in 1..=days_in(year, month) {
+                let m = Moment::new(year, month, day, 12, 0, 8.0);
+                let gz = compute_at_school(&m, None, school).year.ganzhi.clone();
+                if let Some(before) = &prev
+                    && *before != gz
+                {
+                    {
+                        turns.push((month, day));
+                        // 换岁那天，农历必是非闰的正月初一。
+                        assert_eq!(
+                            (m.lunar.month, m.lunar.day, m.lunar.leap),
+                            (1, 1, false),
+                            "{year}-{month:02}-{day:02} 年柱由 {before} 换成 {gz}，但农历不是正月初一"
+                        );
+                    }
+                }
+                prev = Some(gz);
+            }
+        }
+        assert_eq!(turns.len(), 1, "{year} 年该只换一次岁，实得 {turns:?}");
+    }
+}
+
+/// 立春派与春节派在公历下半年必须一致——两者只在年初那一段分歧。
+///
+/// 立春在公历二月初、正月初一在一月下旬到二月中，两个界都落在年初；
+/// 三月之后到年末，两派该给同一根年柱。原先那套反推在十一、十二月上会岔开，
+/// 这条正是那个岔口的守卫。
+#[test]
+fn the_two_year_break_schools_only_disagree_early_in_the_year() {
+    use crate::{BaziSchool, YearBreakMethod, ZiHourMethod};
+    let sf = BaziSchool { zi_hour: ZiHourMethod::Late, year_break: YearBreakMethod::SpringFestival };
+    for year in 2020..=2030i32 {
+        for month in 3..=12u32 {
+            for day in [1u32, 15, 28] {
+                let m = Moment::new(year, month, day, 12, 0, 8.0);
+                assert_eq!(
+                    compute_at_school(&m, None, sf).year.ganzhi,
+                    compute_at_school(&m, None, BaziSchool::default()).year.ganzhi,
+                    "{year}-{month:02}-{day:02} 两派年柱不该分歧"
+                );
+            }
+        }
+    }
+}
+
+
 #[test]
 fn fortune_at_aggregates_natal_and_t() {
     // 1987 长沙男（本命主用神=木官杀，忌火印+土比劫）；t=2026-06-16(age ~38.7)
