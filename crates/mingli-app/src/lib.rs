@@ -144,6 +144,54 @@ mod tests {
         Birth { year, month, day, hour: 12, minute: 0, tz: 8.0, gender: None, true_solar_time: false, longitude: None }
     }
 
+    fn hm(hour: u32, minute: u32) -> Birth {
+        Birth { year: 1990, month: 6, day: 15, hour, minute, tz: 8.0, gender: None, true_solar_time: false, longitude: None }
+    }
+
+    /// 时与分也要收，理由与「日」那一条一样：不收不是多算，而是**算成另一时刻**。
+    ///
+    /// 打成 25 点的人不会收到任何提示——`hour_branch` 把 25 点折成丑时，
+    /// 儒略日把它滚进次日，返回的是一张别的盘。此前时与分一次没测过：
+    /// 把 `hour > 23 || minute > 59` 的 `||` 换成 `&&`（于是只有两者同时越界才拦），
+    /// 全量套件一条都不红。
+    ///
+    /// 两个边界各站两次，并且**分开**试——`||` 与 `&&` 只有在「一个越界一个不越界」
+    /// 时才分得出来。
+    #[test]
+    fn an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over() {
+        for hour in 0..=23u32 {
+            assert!(hm(hour, 0).validate().is_ok(), "{hour} 点是合法的");
+        }
+        for minute in 0..=59u32 {
+            assert!(hm(12, minute).validate().is_ok(), "12 点 {minute} 分是合法的");
+        }
+        // 只有时越界（分合法）——`&&` 会在这里放行。
+        assert!(hm(24, 0).validate().is_err(), "24 点应被拒");
+        assert!(hm(25, 30).validate().is_err(), "25 点 30 分应被拒");
+        assert!(hm(99, 59).validate().is_err());
+        // 只有分越界（时合法）——`&&` 同样会在这里放行。
+        assert!(hm(12, 60).validate().is_err(), "60 分应被拒");
+        assert!(hm(0, 100).validate().is_err());
+        // 两者都越界当然也要拒。
+        assert!(hm(24, 60).validate().is_err());
+
+        // 越界的时刻若放过去会变成什么：25 点被折进次日丑时，与真正的次日 01:00 同盘。
+        // 这正是必须在门口拦下的理由——放行不会报错，只会悄悄换一张盘。
+        let rolled = mingli_astro::Moment::new(1990, 6, 15, 25, 0, 8.0);
+        let next_day_1am = mingli_astro::Moment::new(1990, 6, 16, 1, 0, 8.0);
+        let same_day = mingli_astro::Moment::new(1990, 6, 15, 12, 0, 8.0);
+        // 儒略日把它当作次日凌晨一点……
+        assert!(
+            (rolled.jd_ut - next_day_1am.jd_ut).abs() < 1e-9,
+            "25 点的瞬时等同于次日 01:00"
+        );
+        // ……而民用日序仍停在当日。同一个时刻对象内部就对不上：
+        // 吃 `jd_ut` 的（节气、月柱、太阳黄经）看到十六日，吃 `civil_day` 的
+        // （日柱、农历）看到十五日，拼出来的是两天合成的一张盘。
+        assert_eq!(rolled.civil_day, same_day.civil_day, "民用日序仍是十五日");
+        assert_ne!(rolled.civil_day, next_day_1am.civil_day, "两者对不上，正是要在门口拦下的理由");
+    }
+
     /// 日要按当月实际长度收。
     ///
     /// 不收的后果不是「多算一天」而是**算成另一天**：历法换算会把 1990-02-31 悄悄挪到
