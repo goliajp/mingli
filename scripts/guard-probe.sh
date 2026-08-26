@@ -557,6 +557,14 @@ probe "择日：百年不闰那一支丢了" mingli-app day_stepping_crosses_mon
   crates/mingli-app/src/lib.rs \
   's|        2 if year % 4 == 0 && (year % 100 != 0 \|\| year % 400 == 0) => 29,|        2 if year % 4 == 0 => 29,|'
 
+probe "入参：时越界只在分也越界时才拦" mingli-app an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over \
+  crates/mingli-app/src/lib.rs \
+  's|    if hour > 23 \|\| minute > 59 {|    if hour > 23 \&\& minute > 59 {|'
+
+probe "入参：时的上界放宽一格" mingli-app an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over \
+  crates/mingli-app/src/lib.rs \
+  's|    if hour > 23 \|\| minute > 59 {|    if hour > 24 \|\| minute > 59 {|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
