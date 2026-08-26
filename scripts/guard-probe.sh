@@ -545,6 +545,18 @@ probe "印占：主星查表取错位次" mingli-jyotish graha_maitri_reads_the_
   crates/mingli-jyotish/src/kuta.rs \
   's|        .position(\|x\| \*x == lord)|        .position(\|x\| *x != lord)|'
 
+probe "择日：上限那天被多拒了一天" mingli-app window_bounds_are_checked \
+  crates/mingli-app/src/election.rs \
+  's|    if days > MAX_DAYS {|    if days >= MAX_DAYS {|'
+
+probe "择日：月长表少一档" mingli-app day_stepping_crosses_months_and_leap_years \
+  crates/mingli-app/src/lib.rs \
+  's|        1 \| 3 \| 5 \| 7 \| 8 \| 10 \| 12 => 31,|        1 \| 3 \| 5 \| 7 \| 8 \| 12 => 31,|'
+
+probe "择日：百年不闰那一支丢了" mingli-app day_stepping_crosses_months_and_leap_years \
+  crates/mingli-app/src/lib.rs \
+  's|        2 if year % 4 == 0 && (year % 100 != 0 \|\| year % 400 == 0) => 29,|        2 if year % 4 == 0 => 29,|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
