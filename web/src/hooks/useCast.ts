@@ -4,7 +4,7 @@
 // 它们的时序，读的人得先把两件事在脑子里分开。分出来之后 App 只剩连线。
 
 import { useCallback, useEffect, useState } from 'react'
-import { fetchAnalysis, fetchBazi, fetchCast, fetchInterpretation, fetchZiwei } from '../api/client'
+import { fetchAnalysis, fetchBazi, fetchCast, fetchInterpretation, fetchZiwei, describeFailure } from '../api/client'
 import type { Analysis, BaziChart, CastLeaf, ChartRequest, ZiweiChart } from '../types'
 
 /** 一片叶的释义：正文、谁说的、是不是还在等。 */
@@ -33,7 +33,9 @@ export function useNatalCast(form: ChartRequest) {
       setLeaves(all.leaves)
       setRunId((n) => n + 1)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
+      // 用 describeFailure 而不是直接取 message：重试的提示只该加给真连不上的那种，
+      // 后端拒绝时的理由要原样呈给用户（见 api/client.ts 的 ApiError）。
+      setErr(describeFailure(e))
     } finally {
       setLoading(false)
     }

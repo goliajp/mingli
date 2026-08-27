@@ -113,7 +113,7 @@ export default function App() {
         </button>
       </section>
 
-      {err && <div className="err">⚠ {err}（服务连接失败，请稍后重试）</div>}
+      {err && <div className="err">⚠ {err}</div>}
 
       {intent === 'fortune' && bazi && (
         <div className="result" key={`fortune-${runId}`}>
