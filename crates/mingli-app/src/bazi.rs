@@ -30,6 +30,11 @@ pub fn birth_input(b: &Birth) -> BirthInput {
 }
 
 /// 本命盘。开启真太阳时且给了经度时走校正排法，否则走钟表时。
+///
+/// 两半都有守卫：回退那半见 `true_solar_time_only_applies_with_longitude`，
+/// 生效那半见 `true_solar_time_actually_takes_the_corrected_path_when_it_can`。
+/// 从前只有前者，于是删掉下面那条 match 臂——请求真太阳时的人静默拿到钟表时的盘——
+/// 全量套件一条都不红。
 #[must_use]
 pub fn natal(b: &Birth) -> BaziChart {
     let input = birth_input(b);
@@ -235,6 +240,42 @@ mod tests {
         b.true_solar_time = true;
         // 没给经度 → 静默回退钟表时（数据完整性优先于校正信仰）
         assert_eq!(natal(&b).hour.ganzhi, natal(&sample()).hour.ganzhi);
+    }
+
+    /// 开了真太阳时又给了经度，就得真的走校正那条路。
+    ///
+    /// 上面那条只验了**回退**那一半。删掉 `(true, Some(lon))` 那条 match 臂——于是
+    /// 请求了真太阳时的人静默拿到钟表时的盘——全量套件一条都不红。正负两半都要验。
+    ///
+    /// 不预测校正后是哪根时柱，而是与底层入口对账：走这条路的结果必须与
+    /// `compute_with_true_solar` 逐字段相同，且与钟表时那张盘不同。
+    #[test]
+    fn true_solar_time_actually_takes_the_corrected_path_when_it_can() {
+        let mut b = sample();
+        b.true_solar_time = true;
+        // 东八区的标准经线是 120°E。取 90°E：经度差 −30° × 4 分钟 = −120 分钟，
+        // 足以把 14:30 推过时辰边界。
+        b.longitude = Some(90.0);
+
+        let corrected = natal(&b);
+        let direct = mingli_bazi::compute_with_true_solar(birth_input(&b), 90.0);
+        assert_eq!(corrected.hour.ganzhi, direct.hour.ganzhi, "该与校正入口给的一致");
+        assert_eq!(corrected.day.ganzhi, direct.day.ganzhi);
+        assert_eq!(corrected.month.ganzhi, direct.month.ganzhi);
+
+        let clock = natal(&sample());
+        assert_ne!(
+            corrected.hour.ganzhi, clock.hour.ganzhi,
+            "差两小时应当换一根时柱——否则这条测试等于没验"
+        );
+
+        // 站在标准经线上，只剩均时差，时柱不该被推过边界。
+        b.longitude = Some(120.0);
+        assert_eq!(
+            natal(&b).hour.ganzhi,
+            clock.hour.ganzhi,
+            "120°E 是东八区的标准经线，此处只剩几分钟的均时差"
+        );
     }
 }
 
