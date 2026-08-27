@@ -573,6 +573,10 @@ probe "用例：请求真太阳时却给钟表时" mingli-app true_solar_time_ac
   crates/mingli-app/src/bazi.rs \
   's|        (true, Some(lon)) => mingli_bazi::compute_with_true_solar(input, lon),|        (true, Some(_lon)) => mingli_bazi::compute(input),|'
 
+probe "承接层：释义不说是谁说的" mingli-api the_backend_field_names_whoever_actually_spoke \
+  services/mingli-api/src/backend.rs \
+  's|            Self::Offline => mingli_interpret::Template.backend(),|            Self::Offline => ClaudeCli.backend(),|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
