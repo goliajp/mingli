@@ -64,10 +64,18 @@ g /api/analysis
 p /api/route "$(printf '%s' "$N" | sed 's/^{/{"kind":"natal",/')"
 p /api/bazi "$N"
 p /api/bazi '{"year":1990}'
-# 三类「看着像合法、其实不存在」的输入。不收的话，历法换算会把 2 月 31 日悄悄挪成 3 月 3 日
+# 「看着像合法、其实不存在」的输入。不收的话，历法换算会把 2 月 31 日悄悄挪成 3 月 3 日
+#
+# 入参校验能给出八种拒绝，这里逐一走到。从前只走到五种——月份、时分、经度三种
+# 从没出现在契约里，于是它们的措辞改了、不再触发、或从 400 变成 500，
+# 这份「逐字节比对」都看不见。而 400 的答法与 200 的一样是对外契约。
 p /api/bazi '{"year":1990,"month":2,"day":31,"hour":14,"tz":8}'
+p /api/bazi '{"year":1990,"month":13,"day":1,"hour":14,"tz":8}'
+p /api/bazi '{"year":1990,"month":6,"day":15,"hour":25,"tz":8}'
+p /api/bazi '{"year":1990,"month":6,"day":15,"hour":14,"minute":60,"tz":8}'
 p /api/bazi '{"year":1990,"month":6,"day":15,"hour":14,"tz":99}'
 p /api/bazi '{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"latitude":91}'
+p /api/bazi '{"year":1990,"month":6,"day":15,"hour":14,"tz":8,"longitude":181}'
 p /api/ziwei "$N"
 p /api/ziwei '{"year":1800,"month":1,"day":1,"hour":0,"tz":8}'
 p /api/cast "$N"
@@ -112,8 +120,8 @@ if grep -qE '^000$' "$out"; then
   exit 1
 fi
 n=$(grep -c '^### ' "$out")
-if [ "$n" != 39 ]; then
-  echo "✗ 只抓到 $n 个请求，应是 39" >&2
+if [ "$n" != 43 ]; then
+  echo "✗ 只抓到 $n 个请求，应是 43" >&2
   exit 1
 fi
 

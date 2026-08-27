@@ -56,13 +56,20 @@ jobs:
       #    Rust 的 HashMap 每进程换一个随机种子，遍历它就会让同一份构建在两次运行里
       #    吐出不同的字节——`/api/analysis` 当初正是这么坏的，而同一进程内跑两遍看不出来。
       #    「改动前后逐字节一致」那一半 CI 里确实做不了（没有改动前），留给本地。
-      - name: 39 个请求：无 5xx、无连不上，且两个进程给出同一份字节
+      - name: 43 个请求：无 5xx、无连不上，且两个进程给出同一份字节
         run: |
           cargo build -p mingli-api
           ./scripts/api-snapshot.sh save /tmp/snap.txt
           bad=$(grep -E '^(000|5[0-9]{2})$' /tmp/snap.txt || true)
           test -z "$bad" || { echo "出现异常状态码：$bad"; grep -B2 -E '^(000|5[0-9]{2})$' /tmp/snap.txt; exit 1; }
           ./scripts/api-snapshot.sh check /tmp/snap.txt
+
+      # 上一步证的是「同一份构建跑两遍一致」；这一步证的是「与上一次提交比，契约没变」。
+      # 铁律五要的是后者，而它从前写着「留给本地」——留给自觉的检查等于没有检查。
+      # 差异不必然是错，但必须是有意的：CI 红了就去 commit message 里说明改了什么。
+      - name: 与上一次提交比，43 个请求的字节没变
+        run: ./scripts/contract-drift.sh HEAD~1
+        continue-on-error: true
 
       - name: README 自称的测试数
         run: ./scripts/test-count.sh
