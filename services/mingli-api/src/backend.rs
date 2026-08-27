@@ -103,3 +103,47 @@ where
     let json = serde_json::to_string(&value).unwrap_or_default();
     interpret_blocking(move || interpret(json)).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ClaudeCli, Interpret};
+    use mingli_interpret::{Interpreter, Template};
+
+    /// `backend` 字段要诚实写明这段话出自哪个后端。
+    ///
+    /// 它经释义层进响应，是对外契约的一部分——注释里承诺的「主后端起不来照样落到
+    /// 离线模板，那时 `backend` 字段会诚实地写着模板」，靠的就是这几个字符串。
+    /// 而变异测试可以把它们整个换成空串或别的词，全套测试一条都不红：
+    /// 释义端点验的是「这条路走得通、出来的东西标着 INT」，从不看是谁说的。
+    ///
+    /// 名字写死在这里，因为它是字段值而不是内部细节：改了名就是改了契约。
+    #[test]
+    fn the_backend_field_names_whoever_actually_spoke() {
+        assert_eq!(ClaudeCli.backend(), "claude-cli");
+        assert_eq!(Template.backend(), "template");
+        // 派发要转对方向——两支各自委托给自己那个后端，不能对调也不能都指向同一个。
+        assert_eq!(Interpret::Cli.backend(), ClaudeCli.backend());
+        assert_eq!(Interpret::Offline.backend(), Template.backend());
+        assert_ne!(
+            Interpret::Cli.backend(),
+            Interpret::Offline.backend(),
+            "两条路必须报得出区别，否则回退时读者看不出换了后端"
+        );
+        for name in [Interpret::Cli.backend(), Interpret::Offline.backend()] {
+            assert!(!name.is_empty(), "后端名不该是空串");
+        }
+    }
+
+    /// 离线那一支不出进程：同样的提示词进去，出来的东西必须一样，且非空。
+    ///
+    /// 这条只管离线模板。走 CLI 的那一支要起外部进程，慢、不确定、还依赖机器上装没装，
+    /// 故意不测——它是承接层刻意留的外部 I/O 边界。
+    #[test]
+    fn the_offline_backend_stays_in_process_and_repeats_itself() {
+        let out = Interpret::Offline.interpret("测试提示词").expect("离线模板不该失败");
+        assert!(!out.is_empty(), "离线模板该给出点东西");
+        let again = Interpret::Offline.interpret("测试提示词").expect("离线模板不该失败");
+        assert_eq!(out, again, "同样的输入该给同样的输出");
+        assert_eq!(out, Template.interpret("测试提示词").expect("模板不该失败"));
+    }
+}
