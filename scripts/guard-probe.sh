@@ -633,6 +633,14 @@ probe_cmd "前端：新字段没有任何一处显示" \
   's|aspects|aspects_probe_renamed|g' \
   "" 6027
 
+# 种的是「认变量的正则失效」——文件照样扫到，变量一个也认不出，
+# 两边都空于是对账天然「平」。守卫要在此处出声，而不是报一纸清白。
+probe_cmd "前端：CSS 变量的尺子坏了却报平" \
+  'node e2e/css-vars.mjs' \
+  web/e2e/css-vars.mjs \
+  's|matchAll(/var\\((--\[\\w-\]+)/g)|matchAll(/varX\\((--[\\w-]+)/g)|' \
+  "" ""
+
 probe_cmd "前端：等第名两边各说各的" \
   'node e2e/wired.mjs' \
   web/src/views/ElectionView.tsx \
