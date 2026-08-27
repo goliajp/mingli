@@ -25,8 +25,28 @@ trap 'rm -f "$out"' EXIT
 
 cargo test --workspace >"$out" 2>&1 || { cat "$out"; echo "套件没全绿，数出来的不作数" >&2; exit 1; }
 
+# 数两遍，两种数法：一遍加各二进制的汇总行，一遍数逐条 `... ok`。
+#
+# 只有一种数法时，「非零但错」是拦不住的——下限只挡得住 0，而 `--fix` 会把错数
+# 直接写回 README。两种算法同时错到同一个数上，比一种错难得多。
+# 实测（2026-08-28）：两者皆 793，86 个汇总行，0 条 ignored。
 actual=$(grep -E '^test result: ok\. [0-9]+ passed' "$out" | awk '{s+=$4} END {print s+0}')
+lines=$(grep -cE '^test .* \.\.\. ok$' "$out" || true)
+binaries=$(grep -cE '^test result: ok\.' "$out" || true)
+
 [ "$actual" -gt 0 ] || { echo "一条测试都没数到——数法怕是失效了" >&2; exit 1; }
+[ "$binaries" -gt 10 ] || {
+  echo "只数到 ${binaries} 个测试二进制的汇总行——套件不会这么小，数法怕是失效了" >&2
+  exit 1
+}
+if [ "$actual" != "$lines" ]; then
+  # 变量名一律加花括号：`$actual，` 这种写法会让 bash 把全角逗号的头一个字节
+  # 并进变量名，于是 set -u 报 `actual?: unbound variable`——这条错误分支从前正是
+  # 这么坏的：它真要开口的那一刻死在一句莫名其妙的 bash 报错上，而正常路径永远不经过它。
+  echo "两种数法对不上：汇总行加总 ${actual}，逐条 ok 行 ${lines}" >&2
+  echo "先弄清哪一种坏了——在这之前数出来的都不作数，更不该 --fix 写回 README" >&2
+  exit 1
+fi
 
 fail=0
 for f in README.md README.zh-CN.md; do
@@ -37,7 +57,7 @@ for f in README.md README.zh-CN.md; do
     continue
   fi
   if [ "$claimed" = "$actual" ]; then
-    echo "✓ $f 自称 $claimed 个，实测 $actual 个"
+    echo "✓ $f 自称 $claimed 个，实测 $actual 个（$binaries 个测试二进制，两种数法一致）"
   elif [ "${1:-}" = "--fix" ]; then
     sedi "s/${claimed} tests green/${actual} tests green/; s/${claimed} 个测试全绿/${actual} 个测试全绿/" "$f"
     sedi "s/# ${claimed} tests/# ${actual} tests/; s/# ${claimed} 个测试/# ${actual} 个测试/" "$f"
