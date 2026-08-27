@@ -569,6 +569,10 @@ probe "跨叶：常量列的熵写出去变成 -0" mingli-analysis entropy_known
   crates/mingli-analysis/src/lib.rs \
   's|^        + 0.0$|        - 0.0|'
 
+probe "用例：请求真太阳时却给钟表时" mingli-app true_solar_time_actually_takes_the_corrected_path_when_it_can \
+  crates/mingli-app/src/bazi.rs \
+  's|        (true, Some(lon)) => mingli_bazi::compute_with_true_solar(input, lon),|        (true, Some(_lon)) => mingli_bazi::compute(input),|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
