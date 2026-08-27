@@ -5,8 +5,15 @@
 // 后端一直在算、JSON 一直在发，只是没人在前端接。类型检查看不见这件事，
 // 截图也看不见——屏幕上少一块，跟本来就没有这块，长得一模一样。
 //
-// 判据：/api/cast 每片叶盘面上的每个顶层字段，都要在 web/src 的某处源码里出现。
+// 判据：/api/cast 每片叶盘面上的每个顶层字段，都要在 web/src 的某处源码里**被用到**。
 // 不必渲染成什么样子，但至少得被认领。EXCUSED 里的另说，且要写明为什么。
+//
+// 「用到」不含 types.ts。那是 DTO 层——字段写进类型定义只说明它到了浏览器，
+// 不说明有谁看它一眼。从前把 types.ts 也算作认领，于是「算出来、类型也写了、
+// 没人渲染」这一类恰好躲过去：实测收紧后当场浮出两个（紫微的局数、择日的等第名）。
+//
+// 豁免项本身也要还成立：一条不再对应任何字段的豁免是死条目，
+// 留着只会在日后遮住一个同名的新缺口。
 //
 //   node e2e/wired.mjs            # 需先起好 :6027 后端
 
@@ -20,14 +27,26 @@ const EXCUSED = [
   ['*', 'input', '入参回显，前端本来就有这份表单数据'],
   ['*', 'lunar', '入参时刻的农历写法，同为回显'],
   ['yijing', 'changing_mask', '变爻的位掩码；界面按 `lines[].changing` 逐爻画，是同一件事的另一种写法'],
+  ['ziwei', 'ju_number', '五行局的数；界面写的是 `wuxing_ju` 那个名（「土五局」），数就在名里'],
+  ['jyotish', 'lagna_rasi', '上升所在宫的序号；界面写的是 `lagna_rasi_name`，同一件事的名'],
+  ['jyotish', 'lagna_navamsa', '上升在 D-9 的宫序号；界面写的是 `lagna_navamsa_name`'],
+  [
+    'zeri',
+    'grade_label',
+    '等第的中文名；ElectionView 自带一张表，因为它还要按四档排序并各带一句建除口诀，'
+      + '空档也得列出来。两份措辞由下面 GRADE_LABELS 那条对账守着',
+  ],
 ]
 
-async function sources(dir) {
+/** 后端发来的等第名，必须与前端那张表里的字字相同。 */
+const GRADE_TABLE = 'src/views/ElectionView.tsx'
+
+async function sources(dir, skip = null) {
   let out = ''
   for (const e of await readdir(dir, { withFileTypes: true })) {
     const p = join(dir, e.name)
-    if (e.isDirectory()) out += await sources(p)
-    else if (/\.tsx?$/.test(e.name)) out += await readFile(p, 'utf8')
+    if (e.isDirectory()) out += await sources(p, skip)
+    else if (/\.tsx?$/.test(e.name) && !(skip && p.endsWith(skip))) out += await readFile(p, 'utf8')
   }
   return out
 }
@@ -71,7 +90,9 @@ const EXTRA = [
 const shown = (src, k) =>
   new RegExp(`(^|[^A-Za-z0-9_])${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z0-9_]|$)`).test(src)
 
-const src = await sources(new URL('../src/', import.meta.url).pathname)
+// 认领面不含 types.ts：字段写进类型定义只说明它到了浏览器，不说明有谁看它一眼。
+const srcRoot = new URL('../src/', import.meta.url).pathname
+const src = await sources(srcRoot, 'types.ts')
 const gaps = []
 let fields = 0
 for (const leaf of leaves) {
@@ -99,6 +120,42 @@ for (const [path, payload] of EXTRA) {
   for (const k of Object.keys(body)) {
     fields++
     if (!shown(src, k)) gaps.push(`${path} · ${k}`)
+  }
+}
+
+// 豁免项本身还成立吗——一条不再对应任何字段的豁免是死条目，
+// 留着只会在日后遮住一个同名的新缺口。
+const present = new Set()
+for (const leaf of leaves) {
+  for (const k of Object.keys(leaf.chart ?? {})) {
+    present.add(`${leaf.id}·${k}`)
+    present.add(`*·${k}`)
+  }
+}
+for (const [id, f, why] of EXCUSED) {
+  if (!present.has(`${id}·${f}`)) {
+    gaps.push(`豁免已失效：${id} · ${f}（理由写着「${why}」，但盘面上已无此字段）`)
+  }
+}
+
+// 择日的等第名在两处各写了一份：后端算好发过来，前端另有一张表（它还要排序与注解）。
+// 重复本身是有理由的，但两边的字必须一样，否则界面上的词与释义层收到的词会各说各的。
+{
+  const zeri = leaves.find((l) => l.id === 'zeri')
+  const label = zeri?.chart?.grade_label
+  const table = await readFile(new URL(`../${GRADE_TABLE}`, import.meta.url).pathname, 'utf8')
+  // 不能用上面那个 `shown`：它的边界字符类是 [A-Za-z0-9_]，对中文不起作用——
+  // 把「黄道」改成「黄道日」照样算命中。改成把表里的标签逐个解析出来做整串比对。
+  const labels = [...table.matchAll(/label:\s*'([^']+)'/g)].map((m) => m[1])
+  if (labels.length !== 4) {
+    gaps.push(`${GRADE_TABLE} 里解析出 ${labels.length} 个等第名，应为四个——这条对账失效了`)
+  }
+  if (typeof label !== 'string' || !label) {
+    gaps.push('zeri · grade_label 没发过来，等第名的对账无从做起')
+  } else if (!labels.includes(label)) {
+    gaps.push(
+      `等第名对不上：后端发「${label}」，${GRADE_TABLE} 里那四个是 ${labels.map((x) => `「${x}」`).join('')}`,
+    )
   }
 }
 

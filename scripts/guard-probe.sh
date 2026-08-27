@@ -204,12 +204,17 @@ probe_script() {
   fi
 }
 
+# probe_cmd <组名> <命令> <文件> <sed 表达式> [确认命令] [需要的端口，缺省 "6026 6027"]
+#
+# 端口做成参数而不是写死两个：`wired.mjs` 与 `errors.mjs` 各自的说明里写的都是
+# 「需先起好 :6027 后端」，它们碰不到 vite。写死两个的后果是——只要 dev server 没起，
+# 这两条也跟着跳过，而它们本来跑得动。实测这么白跳过了四条里的三条。
 probe_cmd() {
-  local group=$1 cmd=$2 file=$3 expr=$4 confirm=${5:-}
+  local group=$1 cmd=$2 file=$3 expr=$4 confirm=${5:-} ports=${6:-"6026 6027"}
   wanted "$group" || return 0
 
   printf '  %-46s ' "$group"
-  for port in 6026 6027; do
+  for port in $ports; do
     if ! curl -sf -m3 "http://127.0.0.1:$port/" >/dev/null 2>&1 \
        && ! curl -sf -m3 "http://127.0.0.1:$port/api/health" >/dev/null 2>&1; then
       printf '⊘ :%s 没应答，前端这一族跑不了\n' "$port"
@@ -605,12 +610,28 @@ probe "流派：选项收下了却不改盘" mingli-registry every_school_option
 probe_cmd "前端：新字段没有任何一处显示" \
   'node e2e/wired.mjs' \
   web/src \
-  's|aspects|aspects_probe_renamed|g'
+  's|aspects|aspects_probe_renamed|g' \
+  "" 6027
+
+probe_cmd "前端：等第名两边各说各的" \
+  'node e2e/wired.mjs' \
+  web/src/views/ElectionView.tsx \
+  "s|{ key: 'Huang', label: '黄道', note: '除 · 危 · 定 · 执' },|{ key: 'Huang', label: '黄道日', note: '除 · 危 · 定 · 执' },|" \
+  "" 6027
+
+# 种的是「某个字段退化成只写在 types.ts 里」——把界面上用它的那一处换成别的字段。
+# （种「把 types.ts 重新算进认领面」是不行的：那是放松判据，放松只会更绿。）
+probe_cmd "前端：字段只写在类型里没人用" \
+  'node e2e/wired.mjs' \
+  web/src/views/leaves/Jyotish.tsx \
+  's|c.lagna_navamsa_name|c.lagna_rasi_name|g' \
+  "" 6027
 
 probe_cmd "前端：把「你输错了」说成连不上" \
   'node e2e/errors.mjs' \
   web/src/App.tsx \
-  's|      {err \&\& <div className="err">⚠ {err}</div>}|      {err \&\& <div className="err">⚠ {err}（服务连接失败，请稍后重试）</div>}|'
+  's|      {err \&\& <div className="err">⚠ {err}</div>}|      {err \&\& <div className="err">⚠ {err}（服务连接失败，请稍后重试）</div>}|' \
+  "" 6027
 
 probe_cmd "前端：渲染里又读起了时钟" \
   'node e2e/shoot.mjs 30-运势' \
