@@ -330,6 +330,63 @@ mod tests {
     // 4/7/8/9 由对宫等同性派生。geocult.org 给出的 11=226.0594° / 12=243.2997° 与上一致。
     //
     // 验证容差：0.05°（角分级，匹配本算用平恒星时/平交角、ELP 截断的精度）。
+    /// 第二张实测盘，换一个纬度。
+    ///
+    /// 唯一的外部锚此前只有戴安娜一张——一个 RAMC、一个纬度（52°50′N）。宫尖是随
+    /// RAMC 与纬度两个参数变的曲面，一点定不住它：变异测试在 `cusps` / `solve_cusp` /
+    /// `asc1` 上留下的活口，多半只是「那一点上恰好没差别」。
+    ///
+    /// 爱因斯坦：1879-03-14 11:30 LMT，乌尔姆 48°24′N 10°00′E，纬度比戴安娜低四度半。
+    /// 升点与中天两源相合：
+    ///
+    /// 1. <https://www.astro.com/astro-databank/Einstein,_Albert> 一系的排盘细目，
+    ///    作升 11°39′ 巨蟹、中天 12°50′ 双鱼，并给出二宫 28°37′ 巨蟹、三宫 17°48′ 狮子、
+    ///    五宫 18°20′ 天秤、六宫 3°06′ 射手
+    /// 2. <https://www.astrotheme.com/astrology/Albert_Einstein> 作升 11°38′ 巨蟹、
+    ///    中天 12°50′ 双鱼（升点两源差一角分）
+    ///
+    /// 六个值本实现逐分复现。中间四个宫尖只有第一源给出，这一点写明——不假装两源。
+    ///
+    /// 另有一家（astro-charts）把时区记作 UTC+0:53 而非乌尔姆的 LMT+0:40，故整盘差
+    /// 三度余。按它自己的偏移重算，本实现给 8°56′ 而它写 8°43′，仍差十余角分，
+    /// 多半是 ΔT 或取整约定不同——不构成干净的旁证，故不取。
+    #[test]
+    fn einstein_placidus_cusps_at_another_latitude() {
+        // 乌尔姆 10°00′E 的地方平时 = 10/15 小时。
+        let m = mingli_astro::Moment::new(1879, 3, 14, 11, 30, 10.0 / 15.0);
+        let (lat, lon) = (48.4, 10.0);
+        let ramc = (m.sidereal_time + lon).rem_euclid(360.0);
+        let (asc, mc) = crate::asc_mc(ramc, m.obliquity, lat);
+        let cs = cusps(ramc, m.obliquity, lat, asc, mc).expect("乌尔姆非极区");
+
+        // (宫号, 公布度数)：巨蟹起 90°、狮子 120°、天秤 180°、射手 240°、双鱼 330°。
+        let expected: [(usize, f64); 6] = [
+            (1, 90.0 + 11.0 + 38.0 / 60.0),
+            (2, 90.0 + 28.0 + 37.0 / 60.0),
+            (3, 120.0 + 17.0 + 48.0 / 60.0),
+            (5, 180.0 + 18.0 + 20.0 / 60.0),
+            (6, 240.0 + 3.0 + 6.0 / 60.0),
+            (10, 330.0 + 12.0 + 50.0 / 60.0),
+        ];
+        for (k, want) in expected {
+            let got = cs.cusps[k];
+            let diff = signed_diff_deg(got, want).abs();
+            assert!(
+                diff < 1.0 / 60.0,
+                "第 {k} 宫：算出 {got:.4}°，公布 {want:.4}°，差 {:.2} 角分",
+                diff * 60.0
+            );
+        }
+        // 对宫等同性在这张盘上同样成立（与戴安娜那条是同一条规则的另一处取样）。
+        for k in 1..=6usize {
+            assert!(
+                signed_diff_deg(cs.cusps[k + 6], cs.cusps[k] + 180.0).abs() < 1e-9,
+                "第 {k} 宫与第 {} 宫应正对",
+                k + 6
+            );
+        }
+    }
+
     #[test]
     fn diana_placidus_cusps() {
         // Diana, Princess of Wales (Rodden AA): 1961-07-01 19:45 BST=UT 18:45,
