@@ -4,22 +4,59 @@ import type {
   Interpretation, Locative, Mundane, OverlayStrength, Synastry, TeamResult, ZiweiChart,
 } from '../types'
 
+/** 两种失败要分得开：服务说「你给的不对」，与服务根本没应答。 */
+export type ApiFailure = 'refused' | 'unreachable'
+
+/**
+ * 一次请求没成的原因。
+ *
+ * 后端每一次拒绝都带着一句具体的中文理由（「1990 年 2 月只有 28 天」「hour/minute 越界」），
+ * 那是**给用户看的**，重试一百次也不会变。而服务没起来是另一回事，重试才有意义。
+ * 从前两者都被渲染成同一句「服务连接失败，请稍后重试」，于是输错日期的人被告知
+ * 这是网络问题——理由明明就在同一行上。
+ */
+export class ApiError extends Error {
+  readonly kind: ApiFailure
+  constructor(kind: ApiFailure, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.kind = kind
+  }
+}
+
+/** 一句可以直接放进界面的话。重试的提示只加给真正连不上的那种。 */
+export function describeFailure(e: unknown): string {
+  if (e instanceof ApiError) {
+    return e.kind === 'unreachable' ? `${e.message}（服务连接失败，请稍后重试）` : e.message
+  }
+  return e instanceof Error ? e.message : String(e)
+}
+
+async function send(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(path, init)
+  } catch (e) {
+    // fetch 只在连不上时抛；HTTP 4xx/5xx 是正常返回，走下面那一支。
+    throw new ApiError('unreachable', e instanceof Error ? e.message : String(e))
+  }
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await send(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!res.ok) {
     const e = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(e.error ?? '请求失败')
+    throw new ApiError('refused', e.error ?? '请求失败')
   }
   return res.json()
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path)
-  if (!res.ok) throw new Error(res.statusText)
+  const res = await send(path)
+  if (!res.ok) throw new ApiError('refused', res.statusText)
   return res.json()
 }
 

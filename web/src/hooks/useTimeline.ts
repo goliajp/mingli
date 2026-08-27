@@ -5,7 +5,7 @@
 // 不属于「怎么摆」。
 
 import { useEffect, useMemo, useState } from 'react'
-import { fetchCast, fetchFortune } from '../api/client'
+import { fetchCast, fetchFortune, describeFailure } from '../api/client'
 import { MS_PER_YEAR, reqAt } from '../lib/ganzhi'
 import type { CastLeaf, ChartRequest, FortuneResponse } from '../types'
 
@@ -66,7 +66,7 @@ export function useFortune(
         year: playDate.getFullYear(), month: playDate.getMonth() + 1, day: playDate.getDate(),
         hour: playDate.getHours(), minute: playDate.getMinutes(), tz: form.tz,
       }).then((r) => { if (alive) { setFortune(r); onError(null) } })
-        .catch((e) => { if (alive) onError(e instanceof Error ? e.message : String(e)) })
+        .catch((e) => { if (alive) onError(describeFailure(e)) })
     }, 120)
     return () => { alive = false; clearTimeout(id) }
   }, [active, form, age, playDate]) // eslint-disable-line react-hooks/exhaustive-deps

@@ -607,6 +607,11 @@ probe_cmd "前端：新字段没有任何一处显示" \
   web/src \
   's|aspects|aspects_probe_renamed|g'
 
+probe_cmd "前端：把「你输错了」说成连不上" \
+  'node e2e/errors.mjs' \
+  web/src/App.tsx \
+  's|      {err \&\& <div className="err">⚠ {err}</div>}|      {err \&\& <div className="err">⚠ {err}（服务连接失败，请稍后重试）</div>}|'
+
 probe_cmd "前端：渲染里又读起了时钟" \
   'node e2e/shoot.mjs 30-运势' \
   web/src/hooks/useTimeline.ts \
