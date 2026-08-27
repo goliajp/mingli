@@ -24,8 +24,22 @@ async function walk(dir, ext, out = []) {
   return out
 }
 
+// 只扫 .css 与 .tsx。今天没有一个 .ts 碰 CSS 变量（查过），故够用；
+// 哪天有了，下面那条「扫到几个文件」的下限不会替你发现，得记着把后缀加上。
 const cssFiles = await walk(SRC, '.css')
 const tsxFiles = await walk(SRC, '.tsx')
+
+// 尺子坏了长什么样：扫不到文件、或正则不再匹配，两边都得空表，对账自然「平」，
+// 于是这支脚本会打着「两个方向都对得上」退出 0——一纸清白与什么都没量长得一模一样。
+// 本文件头部记着的那次翻车正是同一种（按行首找声明，漏掉除头一个以外的全部）。
+// 所以先把「扫到了东西」本身钉住。
+if (cssFiles.length === 0 || tsxFiles.length < 5) {
+  console.error(
+    `✗ 只扫到 ${cssFiles.length} 个 .css 与 ${tsxFiles.length} 个 .tsx——`
+      + '这支脚本什么也没量。先修扫描，别让它报「平」。',
+  )
+  process.exit(1)
+}
 
 const used = new Map()    // 变量名 → 用到它的文件
 const declared = new Map() // 变量名 → 声明它的文件
@@ -70,9 +84,21 @@ for (const [name, where] of inline) {
 
 const n = used.size
 const src = `${declared.size} 个在样式里、${inline.size} 个由组件内联注入`
+
+// 文件扫到了、变量却一个没认出来，同样是尺子的事而不是样式表的事。
+if (n < 10) {
+  console.error(
+    `✗ 扫了 ${cssFiles.length} 个 .css，只认出 ${n} 个变量——`
+      + '多半是 `var(--x)` 的写法变了而正则没跟上，不是样式表里真的只剩这几个。',
+  )
+  process.exit(1)
+}
 if (problems.length) {
   console.log(`CSS 变量对账不平（用到 ${n} 个，${src}）：`)
   for (const p of problems) console.log(`  · ${p}`)
   process.exit(1)
 }
-console.log(`CSS 变量对账平：用到 ${n} 个，${src}，两个方向都对得上`)
+console.log(
+  `CSS 变量对账平：${cssFiles.length} 个 .css 与 ${tsxFiles.length} 个 .tsx 里用到 ${n} 个，`
+    + `${src}，两个方向都对得上`,
+)
