@@ -595,6 +595,13 @@ probe_script "可裁：逐叶名单推空了却不出声" \
   crates/mingli-registry/Cargo.toml \
   's|^\([a-z][a-z0-9_-]*\) = \[|  \1 = [|'
 
+# 覆盖率那支不在 CI 里（llvm-cov 一趟十来分钟），故这条也慢。种的是「判词过期」——
+# 文件补上测试爬过门槛后判词没撤，理由随之作废而没人知道。
+probe_script "覆盖：判词过期了却还留着" \
+  './scripts/coverage.sh' \
+  scripts/coverage.sh \
+  's|    "crates/mingli-contract/src/declare.rs": "同 intent.rs：`const fn s` 只在编译期求值",|    "crates/mingli-contract/src/declare.rs": "同 intent.rs：`const fn s` 只在编译期求值",\n    "crates/mingli-core/src/gf2.rs": "过期判词",|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \

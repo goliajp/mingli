@@ -62,9 +62,11 @@ EXPLAINED = {
         "未覆盖的是 `const fn i(...)` 构造器——它只在 `const {}` 块里求值，编译期跑完，"
         "运行时永不执行。同理 declare.rs 的 `const fn s`。这类不是没测，是构造使然不可达",
     "crates/mingli-contract/src/declare.rs": "同 intent.rs：`const fn s` 只在编译期求值",
-    "crates/mingli-app/src/lib.rs":
-        "Birth::validate 的几条越界分支只在 api 层被触发，用例层自己的测试不构造非法输入",
 }
+# 摘掉的判词，留个记号免得下次又照原样写回来：
+#   crates/mingli-app/src/lib.rs —— 曾判作「Birth::validate 的几条越界分支只在 api 层
+#   被触发，用例层自己的测试不构造非法输入」。2026-08-28 复跑时它已在门槛之上：
+#   用例层补了时与分越界的测试，那句理由连同这条判词一起过期。
 
 files = data["data"][0]["files"]
 total = data["data"][0]["totals"]["regions"]
@@ -84,9 +86,25 @@ for f in sorted(files, key=lambda x: x["summary"]["regions"]["percent"]):
     else:
         unexplained.append(path)
 
+# 判词本身还成立吗。
+#
+# 一条判词说的是「这个文件低于门槛，原因是……」。文件后来被补上测试、爬过门槛之后，
+# 判词不会自己消失——它留在名单里，理由也随之过期，而下一个读它的人会以为那仍是实情。
+# 本轮就是这么发现 mingli-app/src/lib.rs 那条已经作废的：用例层补了越界测试，
+# 文件早已在门槛之上，判词却还写着「用例层不构造非法输入」。
+below = {f["filename"].split("mingli/")[-1]
+         for f in files if f["summary"]["regions"]["percent"] < threshold}
+stale = sorted(set(EXPLAINED) - below)
+
 if unexplained:
     print(f"\n有 {len(unexplained)} 个文件低于 {threshold}% 且未判过。")
     print("逐条判「补测试」还是「测不到且有理由」——后者写进本脚本的 EXPLAINED。")
+if stale:
+    print(f"\n有 {len(stale)} 条判词已经不成立——它说的文件如今在门槛之上：")
+    for path in stale:
+        print(f"  {path}")
+    print("补上测试是好事，判词得跟着撤；留着只会让下一个人把过期的理由当实情。")
+if unexplained or stale:
     sys.exit(1)
-print(f"\n低于 {threshold}% 的文件都判过了。")
+print(f"\n低于 {threshold}% 的文件都判过了，{len(EXPLAINED)} 条判词也都还成立。")
 PY
