@@ -633,6 +633,11 @@ probe_cmd "前端：把「你输错了」说成连不上" \
   's|      {err \&\& <div className="err">⚠ {err}</div>}|      {err \&\& <div className="err">⚠ {err}（服务连接失败，请稍后重试）</div>}|' \
   "" 6027
 
+probe_cmd "前端：内容断言被悄悄摘掉一条" \
+  'node e2e/shoot.mjs' \
+  web/e2e/shoot.mjs \
+  "s|^  '21-数字学': async (page) => {|  '21-数字命理学': async (page) => {|"
+
 probe_cmd "前端：渲染里又读起了时钟" \
   'node e2e/shoot.mjs 30-运势' \
   web/src/hooks/useTimeline.ts \
