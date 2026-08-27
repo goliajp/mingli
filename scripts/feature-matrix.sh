@@ -24,6 +24,21 @@ run() {
   printf '  ✓\n'
 }
 
+# 末尾的 `|| true` 不是兜底，是让下面那条告警有机会开口：`set -euo pipefail` 下
+# grep 无匹配即非零，整条赋值会当场终止脚本——退出码是 1，却一个字也不打，
+# 而「解析坏了」与「叶少了」正是要靠那句话分开。
+LEAVES=$(sed -n '/^\[features\]/,$p' crates/mingli-registry/Cargo.toml \
+  | grep -oE '^[a-z][a-z0-9_-]* = \[' | sed 's/ = \[//' | grep -vxE 'default|full' | sort || true)
+LEAF_COUNT=$(printf '%s\n' "$LEAVES" | grep -c . || true)
+
+# 解析失效长得跟「本来就没有叶」一模一样：那时循环跑零次，脚本照样绿，
+# 而它其实什么都没验。所以先把推导本身钉住——少于二十片就是解析坏了，不是叶少了。
+if [ "$LEAF_COUNT" -lt 20 ]; then
+  printf '\n✗ 从 manifest 只推出 %s 个叶 feature——多半是 [features] 段的写法变了，\n' "$LEAF_COUNT"
+  printf '   这一段于是什么都没验。先修推导，别让它静默跑零次。\n'
+  exit 1
+fi
+
 fail=0
 run "全开（默认）"                                                     || fail=1
 run "全关（无星历，轻量构建）"  --no-default-features                    || fail=1
@@ -31,14 +46,16 @@ run "只开 astrology"           --no-default-features --features astrology || f
 run "只开 jyotish"             --no-default-features --features jyotish   || fail=1
 run "只开 qizhengsiyu"         --no-default-features --features qizhengsiyu || fail=1
 
-# 逐叶开关：二十四片各自单独装配一次。
+# 逐叶开关：每片各自单独装配一次。
 #
 # 这一段不是凑数——「只要其中一片」是这棵树对使用者的一个承诺，而承诺只有真的裁一次
 # 才算数。装配根里每片一行 `#[cfg(feature = ...)]`，少写一行、或某片叶被别处无条件依赖，
 # 单开它就会编不过（或悄悄把别的叶一并拉进来）。
-for leaf in bazi ziwei astrology jyotish qizhengsiyu yijing geomancy sikidy ifa cartomancy \
-            meihua xiaoliuren zeri maya pawukon mahabote liuren qimen taiyi tibetan \
-            numerology gematria abjad wuge; do
+#
+# 叶名从装配根的 manifest 推出来，不写死：写死的名单在加新叶时会静默漏掉那一片，
+# 而「可裁」对它就此失效，没有任何东西会说一声。
+printf '\n=== 逐叶单装（%s 片，名单由 manifest 推出）\n' "$LEAF_COUNT"
+for leaf in $LEAVES; do
   run "只装 $leaf" --no-default-features --features "$leaf" || fail=1
 done
 

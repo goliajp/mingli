@@ -588,6 +588,13 @@ probe_script "契约：拒绝的措辞悄悄改了" \
   crates/mingli-app/src/lib.rs \
   's|return Err("month 须 1–12".into());|return Err("month 须在 1 到 12 之间".into());|'
 
+# 种的是「[features] 段换了写法」——推导取空，逐叶单装那一整段就会跑零次。
+# 守卫要在此处出声，而不是安静地跑完什么也没验。
+probe_script "可裁：逐叶名单推空了却不出声" \
+  './scripts/feature-matrix.sh' \
+  crates/mingli-registry/Cargo.toml \
+  's|^\([a-z][a-z0-9_-]*\) = \[|  \1 = [|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
