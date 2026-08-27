@@ -565,6 +565,10 @@ probe "入参：时的上界放宽一格" mingli-app an_hour_or_a_minute_out_of_
   crates/mingli-app/src/lib.rs \
   's|    if hour > 23 \|\| minute > 59 {|    if hour > 24 \|\| minute > 59 {|'
 
+probe "跨叶：常量列的熵写出去变成 -0" mingli-analysis entropy_known \
+  crates/mingli-analysis/src/lib.rs \
+  's|^        + 0.0$|        - 0.0|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
