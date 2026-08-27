@@ -1,8 +1,13 @@
 // 视觉自查：用 headless Chromium 跑一遍界面，逐屏截图、断言、收集运行时报错。
 //
 // 编译通过不等于画面对：类型检查看不到布局塌陷、配色失效、渲染时抛错。
-// 而截图也只是「有东西」——图存下来没人逐张看，就等于没看。所以每屏另带断言：
-// 该有几格就是几格、该对上的两个数就得对上。断言不过 → 非零退出。
+// 而截图也只是「有东西」——图存下来没人逐张看，就等于没看。
+//
+// 每屏得到的是两层，强弱不同，别把它们混成一句「每屏都有断言」：
+//   · 每一屏都要等到自己的 `wait` 选择器出现，等不到即为不过——这是「渲染了什么」；
+//   · 其中一部分另有 CHECKS 里的内容断言——该有几格就是几格、该对上的两个数就得对上。
+// 下面 CHECKED_FLOOR 记着目前有几屏带内容断言，删掉一条会让这支脚本红，
+// 免得断言被悄悄摘掉而只剩一堆没人看的图。断言不过 → 非零退出。
 //
 // 两个视口各跑一遍：1440 宽（常态）与 1024 宽（窄屏）。窄屏是另一套布局，
 // 只在宽屏拍，等于那套布局从来没人看过。
@@ -17,6 +22,15 @@ import { mkdir, rm } from 'node:fs/promises'
 
 const BASE = process.env.MINGLI_WEB ?? 'http://127.0.0.1:6026'
 const OUT = new URL('./shots/', import.meta.url).pathname
+
+/**
+ * 目前有几屏带内容断言。
+ *
+ * 这是道棘轮，不是目标：加断言时把它调上去，而摘掉一条会让脚本红。
+ * 三十屏里目前十屏有，其余只保证「该出现的选择器出现了」——把这个比例摆在明处，
+ * 比在文件头写一句「每屏都有断言」诚实。
+ */
+const CHECKED_FLOOR = 10
 
 /** 每屏的断言。拿到 page，抛异常即为不过。 */
 const CHECKS = {
@@ -290,6 +304,24 @@ for (const vp of VIEWPORTS) {
 }
 
 await browser.close()
+
+// 内容断言的棘轮：屏数与带断言的屏数都摆出来，少了就红。
+// 只在整跑时对——按名字挑几屏跑时，屏表本来就是裁过的。
+if (!only.length) {
+  const checked = SCREENS.filter((s) => CHECKS[s.name]).length
+  const stray = Object.keys(CHECKS).filter((k) => !SCREENS.some((s) => s.name === k))
+  console.log(`\n${SCREENS.length} 屏，其中 ${checked} 屏带内容断言（其余只保证选择器出现）`)
+  if (checked < CHECKED_FLOOR) {
+    problems.push(
+      `带内容断言的屏由 ${CHECKED_FLOOR} 降到 ${checked}——摘掉断言只会让图更多、看得更少。`
+        + '确实不该再验了就把 CHECKED_FLOOR 调下来，并写明为什么',
+    )
+  }
+  // 断言写给一个不存在的屏名，等于没写：改屏名时最容易留下这种孤儿。
+  for (const k of stray) {
+    problems.push(`CHECKS 里的「${k}」不在屏表上——屏名改过而断言没跟着改，这条从来没跑过`)
+  }
+}
 
 if (problems.length) {
   console.log(`\n运行时问题 ${problems.length} 条：`)
