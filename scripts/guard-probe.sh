@@ -582,6 +582,12 @@ probe "承接层：释义不说是谁说的" mingli-api the_backend_field_names_
   services/mingli-api/src/backend.rs \
   's|            Self::Offline => mingli_interpret::Template.backend(),|            Self::Offline => ClaudeCli.backend(),|'
 
+# 基准取自 HEAD（已提交的那一版），与工作树比——种在工作树上的错正好落在被比的一侧。
+probe_script "契约：拒绝的措辞悄悄改了" \
+  './scripts/contract-drift.sh' \
+  crates/mingli-app/src/lib.rs \
+  's|return Err("month 须 1–12".into());|return Err("month 须在 1 到 12 之间".into());|'
+
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
 probe "两道门：HTTP 少做一项 wasm 做了的校验" mingli-api the_two_doors_refuse_the_same_things \
