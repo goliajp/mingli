@@ -502,6 +502,18 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "占星：宫尖归到前一宫" mingli-astrology house_of_basic_assignment \
+  crates/mingli-astrology/src/placidus.rs \
+  's|        if off < span {|        if off <= span {|'
+
+probe "占星：Porphyry 的 IC 算错" mingli-astrology porphyry_lower_arc_trisects_from_the_ic \
+  crates/mingli-astrology/src/placidus.rs \
+  's|    let ic = norm360(mc + 180.0);|    let ic = norm360(mc * 180.0);|'
+
+probe "占星：收敛判据恒为零" mingli-astrology signed_diff_deg_is_the_short_way_round_and_keeps_its_sign \
+  crates/mingli-astrology/src/placidus.rs \
+  's|    let d = (a - b).rem_euclid(360.0);|    let d = 0.0 * (a - b).rem_euclid(360.0);|'
+
 probe "印占：大运的儒略日算错" mingli-jyotish the_julian_days_tile_the_timeline_at_every_year_length \
   crates/mingli-jyotish/src/dasha.rs \
   's|            start_jd: birth_jd_ut + age \* days_per_year,|            start_jd: birth_jd_ut + age * days_per_year * 1.001,|'

@@ -539,6 +539,39 @@ mod tests {
         }
     }
 
+    /// 迭代的收敛判据全靠它，而它此前没有一条自己的测试。
+    ///
+    /// 把整个函数换成常数 0 时，`solve_cusp` 的循环第一轮就认为已收敛，交出初值而非解，
+    /// 宫尖最多偏 598.87″（近 10 角分）——公开盘只精确到角分，取样点又都落在初值与解接近
+    /// 的位置，所以整套测试一条都不红。这里按定义直接钉住。
+    #[test]
+    fn signed_diff_deg_is_the_short_way_round_and_keeps_its_sign() {
+        // 跨 0° 时走短弧，且方向不同号相反。
+        assert!((signed_diff_deg(10.0, 350.0) - 20.0).abs() < 1e-12);
+        assert!((signed_diff_deg(350.0, 10.0) + 20.0).abs() < 1e-12);
+        // 半圈是闭端：值域 (-180， 180]，所以正对面取 +180 而不是 -180。
+        assert!((signed_diff_deg(180.0, 0.0) - 180.0).abs() < 1e-12);
+        assert!((signed_diff_deg(0.0, 180.0) - 180.0).abs() < 1e-12);
+        assert!(signed_diff_deg(42.0, 42.0).abs() < 1e-12);
+        // 绕多少圈都不改变答案，且与直接作差在短弧内一致。
+        for a in (0..360).step_by(11) {
+            for b in (0..360).step_by(7) {
+                let (a, b) = (f64::from(a), f64::from(b));
+                let d = signed_diff_deg(a, b);
+                assert!(d > -180.0 && d <= 180.0, "signed_diff_deg({a}， {b}) = {d} 出界");
+                assert!(
+                    (signed_diff_deg(a + 720.0, b - 360.0) - d).abs() < 1e-9,
+                    "整圈应无影响：{a}， {b}"
+                );
+                // 定义式：b 加上这个差就回到 a。
+                assert!(
+                    norm360(b + d) - norm360(a) < 1e-9 || (norm360(b + d) - norm360(a)).abs() > 359.9,
+                    "b + diff 应回到 a：{a}， {b}， {d}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn house_of_basic_assignment() {
         let m = mingli_astro::Moment::new(1961, 7, 1, 19, 45, 1.0);
@@ -552,6 +585,16 @@ mod tests {
         // cusp 边界右极限：正好落在 cusp k 上应归入 k
         for k in 1..=12u8 {
             assert_eq!(house_of(&cs, cs.cusps[k as usize] + 1e-6), k);
+        }
+        // 边界本身。上面那行加了 1e-6，正好跳过唯一有争议的那个点：宫尖属于它开启的那一宫，
+        // 还是属于它结束的那一宫。区间取半开 [lo， hi)，所以答案是前者，而这要求区间判定
+        // 用严格小于——写成 `<=` 时，落在 cusp k 上的黄经会被判给 k-1，全盘偏一宫。
+        for k in 1..=12u8 {
+            assert_eq!(
+                house_of(&cs, cs.cusps[k as usize]),
+                k,
+                "黄经恰在 cusp {k} 上，应归入第 {k} 宫"
+            );
         }
     }
 
@@ -695,6 +738,41 @@ mod tests {
         let two_third = 2.0 * arc / 3.0;
         assert!((((cs.cusps[11] - mc).rem_euclid(360.0)) - one_third).abs() < 1e-9);
         assert!((((cs.cusps[12] - mc).rem_euclid(360.0)) - two_third).abs() < 1e-9);
+    }
+
+    /// 下半弧的三分，扫一圈而不是钉一个点。
+    ///
+    /// 上面两条只验 11/12，它们由 MC 直接派生；2/3 由 IC 派生，而 IC 是这个函数里唯一
+    /// 一处独立算出来的量。它此前完全没有被检查：唯一碰到 2/3 的测试取 MC=180°，
+    /// 而 180+180 与 180×180 在模 360 下同为 0——那一个取样点上，正确的 IC 与一个
+    /// 彻底错误的 IC 恰好重合。换任何别的 MC 都不会重合，所以这里扫一圈。
+    #[test]
+    fn porphyry_lower_arc_trisects_from_the_ic() {
+        let mut checked = 0;
+        for mc in (0..360).step_by(7) {
+            for delta in (10..350).step_by(23) {
+                let mc = f64::from(mc);
+                let asc = norm360(mc + f64::from(delta));
+                let cs = porphyry_cusps(asc, mc);
+                let ic = norm360(mc + 180.0);
+                assert!(
+                    signed_diff_deg(cs.cusps[4], ic).abs() < 1e-9,
+                    "第 4 宫尖应正是 IC：MC={mc} Asc={asc}"
+                );
+                // IC→DC 弧与 MC→Asc 弧等长，2/3 在其上三分。
+                let arc = norm360(asc - mc);
+                for (k, part) in [(2usize, arc / 3.0), (3, 2.0 * arc / 3.0)] {
+                    let want = norm360(ic + part);
+                    assert!(
+                        signed_diff_deg(cs.cusps[k], want).abs() < 1e-9,
+                        "第 {k} 宫尖偏了：MC={mc} Asc={asc} 得 {} 期望 {want}",
+                        cs.cusps[k]
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 500, "只验了 {checked} 个宫尖，取样太少");
     }
 
     #[test]
