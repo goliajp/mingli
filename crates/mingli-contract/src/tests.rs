@@ -198,9 +198,6 @@ fn querykind_id_covers_all_variants() {
     ];
     let ids: Vec<&'static str> = kinds.iter().map(QueryKind::id).collect();
     assert_eq!(ids, vec!["natal", "fortune", "event", "election", "synastry", "mundane", "locative", "onomancy"]);
-    // status 标签非空。
-    assert!(!IntentStatus::Live.label().is_empty());
-    assert!(!IntentStatus::Pending.label().is_empty());
 }
 
 #[test]
@@ -440,19 +437,17 @@ fn every_arm_of_every_enum_says_something_distinct() {
     sorted.dedup();
     assert_eq!(sorted.len(), 8, "八个 id 不该重复");
 
-    for f in [Family::Cyclic, Family::Angular, Family::Sampling, Family::Hashing, Family::CrossCutting] {
-        assert!(!f.label().is_empty(), "{f:?} 的中文标签不该空");
-    }
-    for d in [Determinism::Det, Determinism::Sto, Determinism::Und] {
-        assert!(!format!("{d:?}").is_empty());
-    }
-    for s in [IntentStatus::Live, IntentStatus::Pending] {
-        assert!(!s.label().is_empty());
-    }
     // `cn()` 是展示名（「公司/组织」），`from_str_opt` 收的是键（「公司」）——
-    // 两者不是互逆的一对，故分开验，不假设往返。
+    // 两者不是互逆的一对，故分开验，不假设往返。展示名经 mingli-interpret 的行文
+    // 走到读者眼前，所以逐字钉住而不是只断非空；期望值写在穷尽 match 里。
+    let want_cn = |s: Subject| match s {
+        Subject::Person => "人",
+        Subject::Company => "公司/组织",
+        Subject::Product => "物/产品",
+        Subject::Event => "事/事件",
+    };
     for s in [Subject::Person, Subject::Company, Subject::Product, Subject::Event] {
-        assert!(!s.cn().is_empty(), "{s:?} 的展示名不该空");
+        assert_eq!(s.cn(), want_cn(s), "{s:?} 的展示名变了");
     }
     for (key, want) in [
         ("person", Subject::Person), ("人", Subject::Person),

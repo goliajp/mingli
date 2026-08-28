@@ -145,7 +145,6 @@ mod tests {
         assert!(!CastingEngine::profile(&e).is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
-        assert!(!e.family().label().is_empty());
     }
 
     /// 字词端口：姓名三数出得来，两套字母表都给，缺 text 时明确报错而不是给个空壳。

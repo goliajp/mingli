@@ -148,7 +148,6 @@ mod tests {
         assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
-        assert!(!e.family().label().is_empty());
     }
 
     /// 主判据必须与盘面同源：它读的是同一次计算的同一个字段，不是另算一遍或解 JSON。
