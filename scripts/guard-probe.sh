@@ -502,6 +502,14 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "契约：家族标签被改字" mingli-contract every_label_is_exactly_what_the_api_ships \
+  crates/mingli-contract/src/declare.rs \
+  's|            Family::Angular => "角度量化",|            Family::Angular => "角度",|'
+
+probe "契约：两族撞了同一个标签" mingli-contract every_label_is_exactly_what_the_api_ships \
+  crates/mingli-contract/src/declare.rs \
+  's|            Family::Hashing => "哈希环",|            Family::Hashing => "角度量化",|'
+
 probe "占星：宫尖归到前一宫" mingli-astrology house_of_basic_assignment \
   crates/mingli-astrology/src/placidus.rs \
   's|        if off < span {|        if off <= span {|'
