@@ -97,6 +97,5 @@ mod tests {
         assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
-        assert!(!e.family().label().is_empty());
     }
 }

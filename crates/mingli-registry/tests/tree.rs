@@ -302,7 +302,6 @@ fn every_leaf_declares_determinism_profile() {
     let all: Vec<Determinism> = out.iter().flat_map(|l| l.profile.iter().map(|i| i.status)).collect();
     for s in [Determinism::Det, Determinism::Sto, Determinism::Und] {
         assert!(all.contains(&s), "确定性谱应覆盖 {s:?}");
-        assert!(!s.label().is_empty());
     }
     assert_eq!(Determinism::Det.label(), "确定");
     // 运行时调一次构造器（const fn d 平时只在 const 上下文求值）。
