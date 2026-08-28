@@ -120,12 +120,57 @@ fn a_leaf_is_usable_through_the_trait_object() {
 }
 
 #[test]
-fn every_label_is_populated() {
-    for f in [Family::Cyclic, Family::Angular, Family::Sampling, Family::Hashing, Family::CrossCutting] {
-        assert!(!f.label().is_empty());
+fn every_label_is_exactly_what_the_api_ships() {
+    // 这条原先只断 `!label().is_empty()`。label() 每个分支返回的都是字面量，所以那个断言
+    // 永远不可能红——把三个标签全换成 "xyzzy" 跑整个 workspace，只有 mingli-engine 里
+    // 钉了 Cyclic 一个变体的那条红了，其余九个标签一路畅通。它们经 `cast_all_detailed`
+    // 的 `family_label` 走到 API 与界面上，是对外契约，所以逐字钉住。
+    //
+    // 期望值写在穷尽 match 里：往枚举加变体而不来这里补一行，编译就过不去。
+    fn family_label(f: Family) -> &'static str {
+        match f {
+            Family::Cyclic => "循环群/CRT",
+            Family::Angular => "角度量化",
+            Family::Sampling => "抽样/二进制",
+            Family::Hashing => "哈希环",
+            Family::CrossCutting => "飞布/横切",
+        }
+    }
+    fn determinism_label(d: Determinism) -> &'static str {
+        match d {
+            Determinism::Det => "确定",
+            Determinism::Sto => "随机·种子可复现",
+            Determinism::Und => "欠定",
+        }
+    }
+    fn status_label(s: IntentStatus) -> &'static str {
+        match s {
+            IntentStatus::Live => "已上线",
+            IntentStatus::Pending => "待承接",
+        }
+    }
+
+    let fams = [
+        Family::Cyclic,
+        Family::Angular,
+        Family::Sampling,
+        Family::Hashing,
+        Family::CrossCutting,
+    ];
+    for f in fams {
+        assert_eq!(f.label(), family_label(f), "{f:?} 的标签变了");
     }
     for d in [Determinism::Det, Determinism::Sto, Determinism::Und] {
-        assert!(!d.label().is_empty());
+        assert_eq!(d.label(), determinism_label(d), "{d:?} 的标签变了");
+    }
+    for s in [IntentStatus::Live, IntentStatus::Pending] {
+        assert_eq!(s.label(), status_label(s), "{s:?} 的标签变了");
+    }
+
+    // 标签同时是界面上的分组名，重了两族就并成一堆，所以互不相同也要守。
+    let mut seen = std::collections::HashSet::new();
+    for f in fams {
+        assert!(seen.insert(f.label()), "两个家族共用标签 {}", f.label());
     }
 }
 
