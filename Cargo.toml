@@ -111,3 +111,11 @@ pedantic = { level = "warn", priority = -1 }
 # 两个对「中文文档 + 数学符号代码」是纯噪音的 pedantic lint，全树豁免：
 doc_markdown = "allow"          # 中文/数学术语(GF(2)/Z_n/S¹)误报缺反引号
 many_single_char_names = "allow" # 数学代码 a,b,m,n,g,p 等单字符是惯例
+
+[profile.dev]
+# debug=1 (line tables) instead of the default 2 (full DWARF). Backtraces keep
+# file and line; what is lost is variable inspection in a debugger, which this
+# project's workflow does not use. Measured 2026-08-28: target/debug/deps is
+# the largest single thing on these machines — 104 GB in smix alone — and the
+# debug info is most of it.
+debug = 1
