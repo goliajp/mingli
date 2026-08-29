@@ -14,6 +14,125 @@ fn trigram_table() {
     assert_eq!(Trigram(5).name(), "离"); // 101
 }
 
+/// 八卦三张表逐格钉住，外加一条来自 Unicode 的独立对照。
+///
+/// 上面那条只问了 `Trigram(7).symbol()`，而取符号时的 `& 0b111` 若写成 `| 0b111`，
+/// 下标恒为 7、返回的永远是 ☰——恰好是被问的那一个。八格都问才看得出来。
+#[test]
+fn every_trigram_has_its_own_name_symbol_and_number() {
+    // 值即三爻二进制，bit0 = 初爻，1 = 阳。先天数取自宋人「乾一兑二离三震四，
+    // 巽五坎六艮七坤八」。
+    const ROWS: [(u8, &str, &str, u8); 8] = [
+        (0, "坤", "☷", 8),
+        (1, "震", "☳", 4),
+        (2, "坎", "☵", 6),
+        (3, "兑", "☱", 2),
+        (4, "艮", "☶", 7),
+        (5, "离", "☲", 3),
+        (6, "巽", "☴", 5),
+        (7, "乾", "☰", 1),
+    ];
+    for (v, name, sym, xt) in ROWS {
+        assert_eq!(Trigram(v).name(), name, "值 {v} 的卦名");
+        assert_eq!(Trigram(v).symbol(), sym, "值 {v} 的卦象符号");
+        assert_eq!(Trigram(v).xiantian(), xt, "值 {v} 的先天数");
+    }
+    // 三张表各自不重样——重了就有两卦共用一个格子。
+    let (mut names, mut syms, mut nums) = (
+        std::collections::HashSet::new(),
+        std::collections::HashSet::new(),
+        std::collections::HashSet::new(),
+    );
+    for (_, name, sym, xt) in ROWS {
+        assert!(names.insert(name), "卦名 {name} 出现两次");
+        assert!(syms.insert(sym), "符号 {sym} 出现两次");
+        assert!(nums.insert(xt), "先天数 {xt} 出现两次");
+    }
+    // 独立对照：Unicode 的 Yijing Trigram Symbols 区段 U+2630..=U+2637 按
+    // 乾兑离震巽坎艮坤 排列，也就是把 7−v 的三位二进制倒过来读。符号表若与它对不上，
+    // 要么我们的表错了，要么符号根本不是那个字。
+    for (v, _, sym, _) in ROWS {
+        let rev = ((7 - v) & 1) << 2 | ((7 - v) & 2) | ((7 - v) >> 2);
+        let cp = char::from_u32(0x2630 + u32::from(rev)).unwrap();
+        assert_eq!(sym, cp.to_string(), "值 {v} 的符号与 Unicode 排序对不上");
+    }
+}
+
+/// 卦象字 → 卦值：十六个字逐个问。
+///
+/// 这张表只在编译期派生 64 卦全名时走过，而那 64 个名字用不到它的多数分支组合，
+/// 于是「哪个字得哪个值」从来没有被单独问过一次。这条问的是认得的字答得对不对；
+/// 「除了这些字一个都不认」是下面那条的事，两条各管一半。
+#[test]
+fn every_xiang_character_maps_to_its_trigram() {
+    for (s, want) in [
+        // 八个卦象别名
+        ("天", 7u8), ("地", 0), ("雷", 1), ("风", 6),
+        ("水", 2), ("火", 5), ("山", 4), ("泽", 3),
+        // 八卦本字
+        ("乾", 7), ("坤", 0), ("震", 1), ("巽", 6),
+        ("坎", 2), ("离", 5), ("艮", 4), ("兑", 3),
+    ] {
+        assert_eq!(trigram_from_xiang(s.as_bytes()), want, "「{s}」应得 {want}");
+    }
+}
+
+/// 这十六个字之外，一个都不许认。
+///
+/// 上面那条只问它「认得的字答得对吗」，而它的注释还说了另一半：表里出现生字要当场
+/// 炸掉。二十个把某条 `&&` 放松成 `||` 的变异体全活在这一半上——放松后多认的字
+/// 恰好都不在那十六个里，逐字问永远问不到。这里把整个 CJK 基本区扫一遍，
+/// 要求被接受的**正好**是那十六个。
+#[test]
+fn nothing_but_those_sixteen_characters_is_accepted() {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {})); // 两万次拒绝不必刷屏
+    let mut accepted: Vec<char> = Vec::new();
+    for cp in 0x4E00..=0x9FFFu32 {
+        let Some(ch) = char::from_u32(cp) else { continue };
+        let mut buf = [0u8; 4];
+        let bytes = ch.encode_utf8(&mut buf).as_bytes();
+        if bytes.len() != 3 {
+            continue;
+        }
+        let owned = [bytes[0], bytes[1], bytes[2]];
+        if std::panic::catch_unwind(|| trigram_from_xiang(&owned)).is_ok() {
+            accepted.push(ch);
+        }
+    }
+    std::panic::set_hook(prev);
+    let mut want: Vec<char> = "天地雷风水火山泽乾坤震巽坎离艮兑".chars().collect();
+    want.sort_unstable();
+    accepted.sort_unstable();
+    assert_eq!(
+        accepted.iter().collect::<String>(),
+        want.iter().collect::<String>(),
+        "被接受的字集变了"
+    );
+}
+
+/// 「X 为 Y」的判定要认准「为」这个字，不是它字节里的某一段。
+///
+/// 纯卦与非纯卦走两条完全不同的路：前者取首字重叠成上下卦，后者取头两字分别作上下卦。
+/// 判定写成三个字节的连比，把其中任何一个 `&&` 放松成 `||` 都不会改动那 64 个真名字的
+/// 归类，于是双射、锚点、配对一概看不出来。要一个第二字并非「为」、字节却与它有交集的
+/// 名字才问得出来——「中」是 E4 B8 AD，与「为」E4 B8 BA 只差末字节。
+#[test]
+fn the_pure_hexagram_test_keys_on_the_character_not_a_byte() {
+    // 真名字先各走一遍：纯卦上下同卦，非纯卦上下不同。
+    assert_eq!(value_from_full_name("乾为天"), 0b111_111);
+    assert_eq!(value_from_full_name("坤为地"), 0b000_000);
+    assert_eq!(value_from_full_name("坎为水"), 0b010_010);
+    assert_eq!(value_from_full_name("天风姤"), (7 << 3) | 6);
+    assert_eq!(value_from_full_name("风天小畜"), (6 << 3) | 7);
+    // 第二字不是「为」，就不该走纯卦那条路；此处「中」不是卦象字，应当炸。
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let got = std::panic::catch_unwind(|| value_from_full_name("乾中天"));
+    std::panic::set_hook(prev);
+    assert!(got.is_err(), "「乾中天」被当成了纯卦，得 {got:?}——「为」的判定放宽了");
+}
+
 #[test]
 fn hexagram_split_roundtrip() {
     for v in 0..64u8 {
@@ -27,6 +146,13 @@ fn lines_bottom_up() {
     // 乾为天 = 六阳 = 0b111111
     assert_eq!(Hexagram(0b111111).lines(), [true; 6]);
     assert!(Hexagram(0b000001).lines()[0]); // 仅初爻为阳
+    // 上面两条都被「恒返六阳」满足——挑的正是坏实现也答得对的两个点。爻自下而上数，
+    // 位 i 即第 i+1 爻，要混合卦才问得出这回事。
+    assert_eq!(Hexagram(0b000000).lines(), [false; 6]); // 坤为地
+    assert_eq!(Hexagram(0b000001).lines(), [true, false, false, false, false, false]);
+    assert_eq!(Hexagram(0b100000).lines(), [false, false, false, false, false, true]);
+    assert_eq!(Hexagram(0b010101).lines(), [true, false, true, false, true, false]);
+    assert_eq!(Hexagram(0b101010).lines(), [false, true, false, true, false, true]);
 }
 
 #[test]

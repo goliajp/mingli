@@ -502,6 +502,22 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "六十四卦：八卦符号取错格" mingli-gua every_trigram_has_its_own_name_symbol_and_number \
+  crates/mingli-gua/src/lib.rs \
+  's@TRIGRAM_SYMBOLS\[(self.0 \& 0b111) as usize\]@TRIGRAM_SYMBOLS[(self.0 | 0b111) as usize]@'
+
+probe "六十四卦：爻位读错" mingli-gua lines_bottom_up \
+  crates/mingli-gua/src/lib.rs \
+  's@\*slot = (self.0 >> i) \& 1 == 1;@*slot = (self.0 >> 1) \& 1 == 1;@'
+
+probe "六十四卦：卦象字认宽了" mingli-gua nothing_but_those_sixteen_characters_is_accepted \
+  crates/mingli-gua/src/lib.rs \
+  's@if b0 == 0xE5 \&\& b1 == 0xA4 \&\& b2 == 0xA9@if b0 == 0xE5 \&\& b1 == 0xA4 || b2 == 0xA9@'
+
+probe "六十四卦：纯卦判定认宽了" mingli-gua the_pure_hexagram_test_keys_on_the_character_not_a_byte \
+  crates/mingli-gua/src/lib.rs \
+  's@if b\[3\] == 0xE4 \&\& b\[4\] == 0xB8 \&\& b\[5\] == 0xBA@if b[3] == 0xE4 || b[4] == 0xB8 \&\& b[5] == 0xBA@'
+
 probe "编排：目录与路由分了岔" mingli-registry the_catalogue_advertises_exactly_what_the_router_delivers \
   crates/mingli-engine/src/lib.rs \
   's@.filter(|e| e.answers().contains(&spec.id))@.filter(|e| e.answers().contains(\&mingli_contract::Intent::Natal))@'
