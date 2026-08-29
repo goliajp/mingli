@@ -44,9 +44,12 @@ fn layers() -> BTreeMap<&'static str, u8> {
     m.insert("mingli-app", 6);
     // L7 装配根
     m.insert("mingli-registry", 7);
-    // L8 承接层
+    // L8 承接层。门面与 API / wasm 同层：三者都只消费装配根，互不认识，
+    // 也都不许自己列叶——门面的每个 feature 都转发给装配根，凭据见
+    // `crates/mingli/tests/facade.rs`。
     m.insert("mingli-api", 8);
     m.insert("mingli-wasm", 8);
+    m.insert("mingli", 8);
     m
 }
 
@@ -179,7 +182,7 @@ fn the_composition_root_is_the_only_place_that_lists_leaves() {
         APP_MAY_KNOW.len(),
         "APP_MAY_KNOW 里有名单上的叶没被真正依赖——清单与现实要一致，否则它就成了摆设"
     );
-    for outer in ["services/mingli-api", "crates/mingli-wasm"] {
+    for outer in ["services/mingli-api", "crates/mingli-wasm", "crates/mingli"] {
         assert_eq!(leaf_count(&root.join(outer).join("Cargo.toml")), 0, "{outer} 应经装配根取叶");
     }
 }

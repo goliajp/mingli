@@ -9,6 +9,87 @@
 
 use mingli_contract::{CastingEngine, WordEngine};
 
+/// 各叶的类型化 API，按 feature 转发。
+///
+/// 门面 crate（`mingli`）从这里取叶，而不是在自己的清单里再列一遍二十四行——
+/// 再列一遍就是第二个装配根，漏掉一片不会有任何报错，只会让那片叶从门面上消失。
+/// 本模块与 [`registry`] 用的是同一批 `#[cfg]`，两者不可能各说各话。
+pub mod leaves {
+    /// `bazi`。
+    #[cfg(feature = "bazi")]
+    pub use mingli_bazi as bazi;
+    /// `ziwei`。
+    #[cfg(feature = "ziwei")]
+    pub use mingli_ziwei as ziwei;
+    /// `astrology`。
+    #[cfg(feature = "astrology")]
+    pub use mingli_astrology as astrology;
+    /// `jyotish`。
+    #[cfg(feature = "jyotish")]
+    pub use mingli_jyotish as jyotish;
+    /// `qizhengsiyu`。
+    #[cfg(feature = "qizhengsiyu")]
+    pub use mingli_qizhengsiyu as qizhengsiyu;
+    /// `yijing`。
+    #[cfg(feature = "yijing")]
+    pub use mingli_yijing as yijing;
+    /// `geomancy`。
+    #[cfg(feature = "geomancy")]
+    pub use mingli_geomancy as geomancy;
+    /// `sikidy`。
+    #[cfg(feature = "sikidy")]
+    pub use mingli_sikidy as sikidy;
+    /// `ifa`。
+    #[cfg(feature = "ifa")]
+    pub use mingli_ifa as ifa;
+    /// `cartomancy`。
+    #[cfg(feature = "cartomancy")]
+    pub use mingli_cartomancy as cartomancy;
+    /// `meihua`。
+    #[cfg(feature = "meihua")]
+    pub use mingli_meihua as meihua;
+    /// `xiaoliuren`。
+    #[cfg(feature = "xiaoliuren")]
+    pub use mingli_xiaoliuren as xiaoliuren;
+    /// `zeri`。
+    #[cfg(feature = "zeri")]
+    pub use mingli_zeri as zeri;
+    /// `maya`。
+    #[cfg(feature = "maya")]
+    pub use mingli_maya as maya;
+    /// `pawukon`。
+    #[cfg(feature = "pawukon")]
+    pub use mingli_pawukon as pawukon;
+    /// `mahabote`。
+    #[cfg(feature = "mahabote")]
+    pub use mingli_mahabote as mahabote;
+    /// `liuren`。
+    #[cfg(feature = "liuren")]
+    pub use mingli_liuren as liuren;
+    /// `qimen`。
+    #[cfg(feature = "qimen")]
+    pub use mingli_qimen as qimen;
+    /// `taiyi`。
+    #[cfg(feature = "taiyi")]
+    pub use mingli_taiyi as taiyi;
+    /// `tibetan`。
+    #[cfg(feature = "tibetan")]
+    pub use mingli_tibetan as tibetan;
+    /// `numerology`。
+    #[cfg(feature = "numerology")]
+    pub use mingli_numerology as numerology;
+    /// `gematria`。
+    #[cfg(feature = "gematria")]
+    pub use mingli_gematria as gematria;
+    /// `abjad`。
+    #[cfg(feature = "abjad")]
+    pub use mingli_abjad as abjad;
+    /// `wuge`。
+    #[cfg(feature = "wuge")]
+    pub use mingli_wuge as wuge;
+}
+
+
 /// 已登记的全部**时刻叶**（吃出生/占问时刻，进并行 fan-out）。
 ///
 /// 顺序即 `/api/cast` 与 `/api/health` 的输出顺序，属对外契约的一部分。

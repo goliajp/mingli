@@ -1,0 +1,73 @@
+[package]
+name = "mingli"
+description = "Twenty-four divination algorithms behind one name: four pillars, zi wei, western and vedic astrology, yi jing, qi men, da liu ren and more, each behind its own feature."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["divination", "astrology", "bazi", "yijing", "almanac"]
+categories = ["algorithms", "date-and-time"]
+
+[dependencies]
+# 门面只依赖装配根。列叶的地方只有一处——再列一遍就是第二个装配根，
+# 漏掉一片不会有任何报错，只会让那片叶从这个名字下悄悄消失。
+mingli-registry = { workspace = true, default-features = false }
+mingli-engine = { workspace = true }
+mingli-contract = { workspace = true }
+
+[features]
+default = ["full"]
+# 二十四片全要。
+full = [
+    "abjad",
+    "astrology",
+    "bazi",
+    "cartomancy",
+    "gematria",
+    "geomancy",
+    "ifa",
+    "jyotish",
+    "liuren",
+    "mahabote",
+    "maya",
+    "meihua",
+    "numerology",
+    "pawukon",
+    "qimen",
+    "qizhengsiyu",
+    "sikidy",
+    "taiyi",
+    "tibetan",
+    "wuge",
+    "xiaoliuren",
+    "yijing",
+    "zeri",
+    "ziwei",
+]
+abjad = ["mingli-registry/abjad"]
+astrology = ["mingli-registry/astrology"]
+bazi = ["mingli-registry/bazi"]
+cartomancy = ["mingli-registry/cartomancy"]
+gematria = ["mingli-registry/gematria"]
+geomancy = ["mingli-registry/geomancy"]
+ifa = ["mingli-registry/ifa"]
+jyotish = ["mingli-registry/jyotish"]
+liuren = ["mingli-registry/liuren"]
+mahabote = ["mingli-registry/mahabote"]
+maya = ["mingli-registry/maya"]
+meihua = ["mingli-registry/meihua"]
+numerology = ["mingli-registry/numerology"]
+pawukon = ["mingli-registry/pawukon"]
+qimen = ["mingli-registry/qimen"]
+qizhengsiyu = ["mingli-registry/qizhengsiyu"]
+sikidy = ["mingli-registry/sikidy"]
+taiyi = ["mingli-registry/taiyi"]
+tibetan = ["mingli-registry/tibetan"]
+wuge = ["mingli-registry/wuge"]
+xiaoliuren = ["mingli-registry/xiaoliuren"]
+yijing = ["mingli-registry/yijing"]
+zeri = ["mingli-registry/zeri"]
+ziwei = ["mingli-registry/ziwei"]
+
+[lints]
+workspace = true

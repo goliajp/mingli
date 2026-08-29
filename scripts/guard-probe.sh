@@ -502,6 +502,10 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_leaves_the_composition_root_registers \
+  crates/mingli/Cargo.toml \
+  's@^yijing = \["mingli-registry/yijing"\]$@yijing = []@'
+
 probe_script "发版：内部依赖的版本对不上" \
   "bash scripts/publish-rehearsal.sh" \
   Cargo.toml \
