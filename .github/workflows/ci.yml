@@ -55,6 +55,8 @@ jobs:
         run: ./scripts/leaf-isolation.sh
       - name: 类型化出口不许拖着 serde
         run: ./scripts/leaf-deps.sh
+      - name: 发版彩排（清单 / 元数据 / 打包内容 / 拓扑序）
+        run: ./scripts/publish-rehearsal.sh
       - name: 装 binaryen（wasm-opt，体积闸要用）
         run: sudo apt-get update && sudo apt-get install -y binaryen
       - name: 各发布档位的体积没超预算
