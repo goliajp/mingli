@@ -22,11 +22,14 @@
     reason = "梅花起卦全是模运算：年支/月/日/时辰均落在 1..=31 的小范围，窄化到 u8 受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::MeihuaEngine;
 
 use mingli_astro::Moment;
 use mingli_gua::{Hexagram, Trigram, TRIGRAM_XIANTIAN};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 起卦法（流派）。默认 [`Method::Time`]。
@@ -64,7 +67,8 @@ impl Method {
 ///
 /// 时间法填 [`year_branch`](Self::year_branch)/[`month`](Self::month)/[`day`](Self::day)；
 /// 数字法填 [`numbers`](Self::numbers)；[`hour_branch`](Self::hour_branch) 两法都填。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 起卦法稳定 id（"time" / "numbers"）。
     pub method_id: &'static str,

@@ -36,14 +36,18 @@
     reason = "叶内各模块以 `use super::*` 共享 crate 顶层的领域 import——这是把一张大盘拆成多文件的常规手法"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::QimenEngine;
 
 // 各模块经 `use super::*` 共享这三个顶层 import。
 use mingli_astro::Moment;
 use mingli_ganzhi::Element;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
+#[cfg(feature = "port")]
 pub mod bearings;
 pub mod cast;
 pub mod earth;
@@ -57,6 +61,7 @@ pub mod vigor;
 mod tests;
 
 // 全部出口在 crate 根平铺——拆成多文件是内部组织，对外仍是一片叶。
+#[cfg(feature = "port")]
 pub use bearings::*;
 pub use cast::*;
 pub use earth::*;

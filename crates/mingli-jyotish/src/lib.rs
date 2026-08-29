@@ -39,14 +39,17 @@
 )]
 
 pub mod varga;
+#[cfg(feature = "port")]
 mod engine;
 pub mod kuta;
 pub use varga::{all_vargas, varga_rasi, Varga, VargaPositions};
+#[cfg(feature = "port")]
 pub use engine::JyotishEngine;
 
 use mingli_astro::Moment;
 use mingli_ephemeris::{asc_mc, GeoLocation};
 use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 pub use mingli_ephemeris::mean_lunar_node;

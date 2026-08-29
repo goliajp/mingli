@@ -57,7 +57,8 @@ pub fn compute(input: BirthInput) -> BaziChart {
 }
 
 /// 子时归属流派（影响 23：00–23：59 出生的日柱）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum ZiHourMethod {
     /// **晚子（Late，主流）**：子时整体属次日，23-24 点 → 次日日柱。
     Late,
@@ -66,7 +67,8 @@ pub enum ZiHourMethod {
 }
 
 /// 年柱换岁流派（影响立春前/正月初一前出生的年柱）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum YearBreakMethod {
     /// **立春换年（主流）**：节气立春（太阳黄经 315°）为新年界。子平命理主流。
     LiChun,
@@ -75,7 +77,8 @@ pub enum YearBreakMethod {
 }
 
 /// 八字流派全集。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct BaziSchool {
     /// 子时归属流派。
     pub zi_hour: ZiHourMethod,

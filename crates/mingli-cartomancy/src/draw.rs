@@ -3,7 +3,8 @@
 use super::*;
 
 /// 抽出的一张牌：牌副中的序号、方向 + 牌名。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct DrawnCard {
     /// 牌序号（`0..deck_size`）。
     pub index: usize,
@@ -18,7 +19,8 @@ pub struct DrawnCard {
 }
 
 /// 一次抽牌的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Spread {
     /// 流派 id（与 [`Deck::id`] 一致；用户由原始 `draw` 调用则为空字符串）。
     pub deck_id: String,

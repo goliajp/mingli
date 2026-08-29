@@ -1,10 +1,12 @@
 //! 一课的结果形状：课式（九宗门）、盘面、以及涉害的两派取用。
 
 use crate::Course;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 三传课式（九宗门）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Pattern {
     /// 重审（下贼上，取受贼之上神）。
     ZhongShen,
@@ -51,7 +53,8 @@ impl Pattern {
 }
 
 /// 一次大六壬起课的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 日干（甲=0…癸=9）。
     pub day_stem: u8,
@@ -87,8 +90,9 @@ pub struct Cast {
 ///   《六壬粹言》卷一亦记「近来诸家，均未用之者」。
 ///
 /// 默认取古法：它被算例直接支持，且近法只是它去掉第一步。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum SheHaiSchool {
     /// 古法：先数深浅。
     #[default]

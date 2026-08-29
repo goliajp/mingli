@@ -22,7 +22,8 @@ pub const JIU_XING_ELEMENT: [Element; 10] = [
 ///
 /// 取《五行大义》以来的通行判法：**当令者旺、令生者相、生令者休、克令者囚、令克者死**。
 /// （另有一路以星为主体、含「废」的五等级说法，非通行，本 crate 不取。）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Vigor {
     /// 旺：与月令同五行，当令。
     Wang,

@@ -3,10 +3,12 @@
 //! 一课取日干的寄宫，二课取一课上神之上，三课取日支，四课取三课上神之上。
 
 use crate::plates::{heaven_plate, STEM_LODGING};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 一课：下（地盘支）与上（天盘上神）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Course {
     /// 下神（地盘地支序 0..11）。
     pub down: u8,

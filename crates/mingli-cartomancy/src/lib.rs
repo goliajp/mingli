@@ -28,10 +28,13 @@
     reason = "叶内各模块以 `use super::*` 共享 crate 顶层的领域 import——这是把一张大盘拆成多文件的常规手法"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::TarotEngine;
 
 use mingli_core::sampler::{shuffle, SplitMix64};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 pub mod decks;

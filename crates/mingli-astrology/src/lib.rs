@@ -31,7 +31,9 @@ pub mod progression;
 pub const PROGRESSION_MAX_AGE: u32 = 100;
 pub mod placidus;
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::AstrologyEngine;
 
 pub use mingli_ephemeris::{asc_mc, GeoLocation};
@@ -39,6 +41,7 @@ pub use mingli_ephemeris::{asc_mc, GeoLocation};
 use mingli_astro::Moment;
 use mingli_core::quantizer;
 use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 回归黄道十二星座（按 `floor(λ/30)` 索引，0=白羊）。
@@ -73,7 +76,8 @@ pub const DEFAULT_ORB: f64 = 6.0;
 
 
 /// 一颗星的位置。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct PlanetPos {
     /// 星名。
     pub name: String,
@@ -88,7 +92,8 @@ pub struct PlanetPos {
 }
 
 /// 本命盘四轴中的上升点 Asc 与中天 MC（需地理坐标）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Angles {
     /// 上升点黄经（度）。
     pub ascendant: f64,
@@ -105,7 +110,8 @@ pub struct Angles {
 }
 
 /// Whole Sign 整宫制下的一宫（整个星座为一宫，第一宫=上升星座）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct House {
     /// 宫位序号 1..=12。
     pub number: u8,
@@ -116,7 +122,8 @@ pub struct House {
 }
 
 /// 占星分宫制(house system)。同盘可切换；Placidus 为业界默认。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum HouseSystem {
     /// **Placidus**：半弧三分，移植 Swiss `swehouse.c`；极区失效。占星圈默认。
     Placidus,
@@ -167,7 +174,8 @@ impl HouseSystem {
 }
 
 /// 分宫制下的一宫（通用，按宫尖之间夹角分宫）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct CuspHouseEntry {
     /// 宫位序号 1..=12。
     pub number: u8,
@@ -182,7 +190,8 @@ pub struct CuspHouseEntry {
 }
 
 /// 一组相位。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Aspect {
     /// 星 A。
     pub a: String,
@@ -195,7 +204,8 @@ pub struct Aspect {
 }
 
 /// 一张本命盘（九星落座 + 相位；给定地理坐标时含 Asc/MC + 整宫制 + 所选分宫制十二宫）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NatalChart {
     /// 九星位置（日月+水金火木土天海）。
     pub planets: Vec<PlanetPos>,
@@ -229,7 +239,8 @@ pub fn separation(a: f64, b: f64) -> f64 {
 }
 
 /// 两张盘之间的一个相位：甲盘某星与乙盘某星成角。
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct CrossAspect {
     /// 甲盘的星名。
     pub a: String,

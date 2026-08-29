@@ -13,7 +13,9 @@
     reason = "十二宫/十四星均为 Z₁₂ 上的有界模运算，整数窄化安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::ZiweiEngine;
 
 use mingli_astro::Moment;
@@ -21,6 +23,7 @@ use mingli_core::group::shift;
 use mingli_ganzhi::{
     hour_branch, month_pillar_stem, nayin_element, year_ganzhi, Element, GanZhi, BRANCHES, STEMS,
 };
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 十二宫名（自命宫起，逆时针即地支递减方向）。
@@ -35,8 +38,9 @@ pub mod limit;
 /// 多源交叉验证仅确证两组分歧：庚干「太阴 vs 天府」化科（王亭之自述传授）、壬干「左辅 vs 天府」化科
 /// （《紫微斗数全书》古本 vs 通行本）。戊/癸两干的派别分歧本次研究**未取得多源证据**，
 /// 各派一致取通行表（在两派下完全一致）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum SihuaSchool {
     /// 通行版（中州/三合派，默认）：5 独立源完全一致(cnblogs/51xingli×2/vocus/wikipedia)。
     /// 庚=太阴化科、壬=左辅化科。
@@ -72,7 +76,8 @@ impl SihuaSchool {
 }
 
 /// 一个生年天干对应的四化星名（禄/权/科/忌）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct SihuaStars {
     /// 化禄星名。
     pub lu: &'static str,
@@ -130,7 +135,8 @@ pub fn sihua_for(stem_id: u8, school: SihuaSchool) -> SihuaStars {
 
 /// 四化排盘结果（星名 + 落入宫位地支）。落宫由排盘扫 18 颗（十四主星 + 4 辅星）反查；
 /// 若该化星不在前述 18 颗中（罕见），`*_branch` 为 `None`。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Sihua {
     /// 流派 id(`standard` / `quanshu`)。
     pub school_id: &'static str,
@@ -153,8 +159,9 @@ pub struct Sihua {
 }
 
 /// 性别。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Gender {
     /// 男。
     Male,
@@ -163,7 +170,8 @@ pub enum Gender {
 }
 
 /// 出生信息（排盘输入）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct BirthInput {
     /// 公历年。
     pub year: i32,
@@ -182,7 +190,8 @@ pub struct BirthInput {
 }
 
 /// 一宫。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Palace {
     /// 宫名（命宫/兄弟/…/父母）。
     pub name: String,
@@ -199,7 +208,8 @@ pub struct Palace {
 }
 
 /// 农历日期。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct LunarChart {
     /// 农历年。
     pub year: i32,
@@ -212,7 +222,8 @@ pub struct LunarChart {
 }
 
 /// 一张紫微斗数命盘。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ZiweiChart {
     /// 排盘输入。
     pub input: BirthInput,

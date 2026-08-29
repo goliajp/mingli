@@ -25,9 +25,12 @@
     reason = "0..22 的字母索引转 u64 在所有目标平台都不截断"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::GematriaEngine;
 
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 希伯来 22 本形字母（字母表序）。
@@ -44,7 +47,8 @@ const VALUES: [u64; 22] = [
 /// 计法（Mispar method）。
 ///
 /// 多种计法在 Kabbalah 与希伯来语言学中都是定义性的——`compute` 一次性给出全部七法值。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Method {
     /// Mispar Hechrachi（标准值，尾形 = 本形）。
     Hechrachi,
@@ -144,7 +148,8 @@ const fn digital_root_nine(n: u64) -> u64 {
 }
 
 /// 一次 gematria 换算结果（七种计法并出，对照式输出）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 标准值（Mispar Hechrachi）。
     pub hechrachi: u64,

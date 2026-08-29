@@ -19,7 +19,8 @@ use super::*;
 ///
 /// **🟡 流派分歧**：取用神有扶抑/调候/通关/病药/格局用神五法，各家先后顺序不同；
 /// 「从格 / 化格」反扶抑（扶其太过、抑其不及）本算法不覆盖。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct YongShen {
     /// 取用法（扶抑·身强 / 扶抑·身弱 / 调候为主）。
     pub method: String,

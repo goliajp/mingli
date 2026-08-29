@@ -39,10 +39,13 @@
     reason = "积年 mod 24 ∈ 0..24、step∈0..8、三才∈0..3，窄化到 u8/usize 受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::TaiyiEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 太乙积年历元锚：唐开元十二年 = 公元 724 年。
@@ -180,7 +183,8 @@ pub fn can_jiang(da_jiang: u8) -> u8 {
 }
 
 /// 一组「目 → 算 → 大将 → 参将」。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Mu {
     /// 所在十六神位序 0..16。
     pub position: usize,
@@ -226,7 +230,8 @@ pub fn is_yang_dun(sun_longitude: f64) -> bool {
 }
 
 /// 太乙行宫结果。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct TaiyiPalace {
     /// 八宫序 `0..8`（沿阴阳遁方向的第几步）。
     pub step: u8,
@@ -268,7 +273,8 @@ pub fn taiyi_palace(jinian: i64, yang_dun: bool) -> TaiyiPalace {
 }
 
 /// 一次太乙起局（确定部分）的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 公历年。
     pub year: i64,

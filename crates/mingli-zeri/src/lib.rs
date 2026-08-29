@@ -17,10 +17,13 @@
 //! 完全确定。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::ZeriEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 建除十二神的通行分档，出自口诀「**建满平收黑，除危定执黄，成开皆可用，破闭不可当**」。
@@ -28,7 +31,8 @@ use serde::Serialize;
 /// 🟡 另有一说把「成 · 开」并入黄道合称**六黄道**（除危定执成开）；本 crate 依口诀原文分四档，
 /// 两说只在「成 · 开」算不算黄道上有别，其余一致。**分档只是通行的粗筛，不是断语**——
 /// 具体某事宜忌还要看事类，那部分各家出入大，交释义层。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum DayGrade {
     /// 黄道：除 · 危 · 定 · 执。
     Huang,
@@ -236,7 +240,8 @@ pub mod tianyi {
 }
 
 /// 一日择日循环要素的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 月建地支序（0..11，子=0）。
     pub month_branch: u8,

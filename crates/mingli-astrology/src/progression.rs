@@ -13,10 +13,12 @@
 //! 推运太阳约 **1°/年**、推运月亮约 **13°/年**（故月亮每两三年换一座）。
 
 use crate::{compute_planets, CrossAspect, PlanetPos, DEFAULT_ORB};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 一年的推运切片。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ProgressedYear {
     /// 岁数（0 = 出生当年）。
     pub age: u32,
@@ -27,7 +29,8 @@ pub struct ProgressedYear {
 }
 
 /// 一生的推运时间序列。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Progression {
     /// 换算法的稳定 id。
     pub method: &'static str,

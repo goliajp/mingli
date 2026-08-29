@@ -10,7 +10,8 @@ use super::*;
 pub const BA_MEN_ORBIT: [&str; 8] = ["休门", "生门", "伤门", "杜门", "景门", "死门", "惊门", "开门"];
 
 /// 人盘八门：值使门与其落宫，以及旋转后的八门分布。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct GatePlate {
     /// 值使门 —— 旬首六仪所在宫的本位门（本旬不变）。
     pub zhi_shi_gate: &'static str,

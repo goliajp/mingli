@@ -21,10 +21,13 @@
     reason = "全部相位经 rem_euclid 落在 0..260 / 0..365 / 0..20 等小范围，窄化到 u8/usize 受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::MayaEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// GMT correlation：JDN 584283 = Long Count `0.0.0.0.0`（学界主流）。
@@ -109,7 +112,8 @@ pub fn long_count(jdn: i64) -> [i64; 5] {
 }
 
 /// 一次玛雅历日换算的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 民用儒略日数。
     pub jdn: i64,

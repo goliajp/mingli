@@ -20,11 +20,14 @@
     reason = "掐指全在 Z₆ 上：count_to 的 i64 结果恒落 0..6，窄化到 u8 受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::XiaoliurenEngine;
 
 use mingli_astro::Moment;
 use mingli_core::group::count_to;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 六神固定环（次序即掐指方向）：大安→留连→速喜→赤口→小吉→空亡。
@@ -58,7 +61,8 @@ pub const DEITY_DIRECTION: [Option<&str>; 6] = [
 ];
 
 /// 一次小六壬掐指的结果。三个神位皆为 `0..6` 的环上下标。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 农历月（用于起月神）。
     pub lunar_month: u32,

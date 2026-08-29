@@ -17,10 +17,12 @@
 //! 性别缺省时不出大限（与四柱大运同一处置：顺逆定不下就不给）。
 
 use mingli_ganzhi::BRANCHES;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 一步大限（十年）。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct MajorLimit {
     /// 第几步（1 起）。
     pub step: u32,
@@ -37,7 +39,8 @@ pub struct MajorLimit {
 }
 
 /// 大限盘：十二步走满一轮。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct MajorLimits {
     /// 起运岁 = 五行局数。
     pub start_age: u32,

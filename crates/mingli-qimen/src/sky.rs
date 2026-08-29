@@ -33,7 +33,8 @@ pub(crate) fn orbit_index(palace: u8) -> usize {
 }
 
 /// 天盘：九星与三奇六仪随值符整体旋转后的结果。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SkyPlate {
     /// 旋转格数（沿 [`ORBIT`] 顺时针 0..=7）：值符从「旬首宫」走到「时干宫」的位移。
     pub shift: u8,

@@ -19,6 +19,7 @@
 )]
 
 use mingli_core::gf2;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 八卦名（按八卦值 0..7 索引；值 = 三爻二进制，初爻为最低位）。
@@ -29,7 +30,8 @@ pub const TRIGRAM_SYMBOLS: [&str; 8] = ["☷", "☳", "☵", "☱", "☶", "☲"
 pub const TRIGRAM_XIANTIAN: [u8; 8] = [8, 4, 6, 2, 7, 3, 5, 1];
 
 /// 一个八卦（三爻），低 3 位有效（初爻=bit0）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Trigram(pub u8);
 
 impl Trigram {
@@ -51,7 +53,8 @@ impl Trigram {
 }
 
 /// 一个重卦（六爻），低 6 位有效（初爻=bit0，上爻=bit5）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Hexagram(pub u8);
 
 impl Hexagram {

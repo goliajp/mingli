@@ -5,8 +5,9 @@
 use super::*;
 
 /// Ayanamsa 流派（春分点恒星黄道偏移）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Ayanamsa {
     /// 印度政府 1955 历改采用，N. C. Lahiri 提案。
     /// Swiss Ephemeris SE_SIDM=1。1956-01-01 TT anchor = 23.245524743°（源码直读）。

@@ -11,10 +11,12 @@ use crate::{
     civil_day_number, jd_ut_to_jde, local_civil_day_of,
     moon::{new_moon_jd_ut, new_moon_k_near},
 };
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 阴阳合历日期（公历换算所得）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct LunarDate {
     /// 农历年（以正月初一为界；十一、十二月归本岁起始年）。
     pub year: i32,

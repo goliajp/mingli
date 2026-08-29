@@ -22,10 +22,13 @@
     reason = "全部相位经 rem_euclid 落在 0..210 等小范围，与 i64/usize 间换算受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::PawukonEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// baliEpoch：`day = (JDN − BALI_EPOCH) mod 210`，day 0 = 2020-07-05。
@@ -109,7 +112,8 @@ pub fn sangawara_index(day: usize) -> usize {
 }
 
 /// 一日 Pawukon 全週的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// Pawukon 日序 `0..210`。
     pub day: usize,

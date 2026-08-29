@@ -16,7 +16,8 @@ pub const RUNES_YOUNGER: usize = 16;
 /// 抽牌的 deck（流派）。
 ///
 /// 每个 deck 由「大小 + 是否允许逆位」唯一确定（其余抽取机制完全共享）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Deck {
     /// 塔罗 78 张（Major 22 + Minor 56），允许逆位。
     TarotFull,
@@ -92,8 +93,9 @@ impl Deck {
 /// **Rider-Waite-Smith （1909，默认）**：8=Strength 力量、11=Justice 正义；
 /// Waite 依 Golden Dawn 体系将 8 对应狮子座（Leo→力量），11 对应天秤座（Libra→正义）。
 /// **Tarot de Marseille （传统）**：8=Justice 正义、11=Strength 力量。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum TarotOrder {
     /// Rider-Waite-Smith（默认，8=Strength）。
     #[default]

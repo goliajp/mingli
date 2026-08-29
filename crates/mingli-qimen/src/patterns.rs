@@ -16,7 +16,8 @@ pub const SAN_QI: [&str; 3] = ["乙", "丙", "丁"];
 /// ⚠ 这**不是**三奇得使。《烟波钓叟歌》把二者分作两句（「吉门偶尔合三奇」与
 /// 「三奇得使诚堪使」），《奇门遁甲秘笈大全》卷十五也把「三奇上吉门格」与
 /// 「三奇得使格」分列为两条。得使是天盘奇加地盘旬首之仪，见 [`QiDeShi`]。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct QiGate {
     /// 宫号 1..=9。
     pub palace: u8,
@@ -31,7 +32,8 @@ pub struct QiGate {
 /// 这里只出**结构事实**（哪几处成立）与古籍自身的吉凶归类，不出断语——判读属释义层。
 /// 只收多源无争议的几类：伏吟 / 反吟（由旋转格数直接判定）、三奇合吉门、
 /// 天地盘干相加的八格（见 [`STEM_PATTERNS`]）与三奇得使（见 [`QI_DE_SHI_PAIRS`]）。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[allow(
     clippy::struct_excessive_bools,
     reason = "星/门 × 伏吟/反吟 是四条彼此独立、可同时成立的判定，摊平比塞进枚举更贴合盘面"
@@ -63,7 +65,8 @@ pub struct Patterns {
 /// 《奇门法窍》卷六吉格注释 ·《奇门遁甲秘笈大全》卷十五）：
 /// 乙配甲戌己、甲午辛；丙配甲子戊、甲申庚；丁配甲辰壬、甲寅癸。
 /// 口诀自证：「乙逢犬马丙鼠猴，六丁玉女骑龙虎」——犬戌马午归乙、鼠子猴申归丙、龙辰虎寅归丁。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct QiDeShi {
     /// 宫号 1..=9。
     pub palace: u8,
@@ -87,7 +90,8 @@ pub struct QiDeShi {
 /// 《奇门遁甲统宗》卷一「奇门四十格」·《遁甲演义》卷二逐格详解（引赤松子 / 王璋）·
 /// 《奇门法窍》卷六吉凶格注释 ·《奇门遁甲秘笈大全》卷十五。
 /// 《遁甲演义》所引王璋的表述最直白，两处都写作「**天上**六 X 加**地下**六 Y」，方向无歧义。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct StemPattern {
     /// 宫号 1..=9。
     pub palace: u8,
