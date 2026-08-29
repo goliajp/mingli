@@ -16,11 +16,13 @@ pub mod declare;
 pub mod intent;
 pub mod ports;
 pub mod query;
+pub mod validate;
 
 pub use declare::{d, s, DetItem, Determinism, Family, SchoolItem};
 pub use intent::{intents, Intent, IntentSpec, IntentStatus};
 pub use ports::{effective_school_id, Bearing, CastingEngine, LeafOutput, Principal, WordEngine, WordQuery};
 pub use query::{effective_seed, AskTime, Gender, Query, QueryKind, Subject};
+pub use validate::{days_in_month, validate_coords, validate_instant, validate_query};
 
 #[cfg(test)]
 mod tests;

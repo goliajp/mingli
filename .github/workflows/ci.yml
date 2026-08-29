@@ -49,6 +49,15 @@ jobs:
       - name: 两扇门排出同一棵树
         run: ./scripts/wasm-parity.sh
 
+      # 装配的两件事，缺一件另一件就骗得过去：
+      # 装了别的叶但没胖（不可能），或者胖了但依赖图看着干净（改了优化档就会）。
+      - name: 单叶档里不许有别的叶
+        run: ./scripts/leaf-isolation.sh
+      - name: 装 binaryen（wasm-opt，体积闸要用）
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+      - name: 各发布档位的体积没超预算
+        run: ./scripts/wasm-size.sh
+
       # 两件事，都不是同义反复：
       # 1. 没有一个请求把服务打崩、也没有一个连不上（`000` 是连不上——
       #    它长得跟「所有端点都变了」一模一样，必须单独拎出来认）
