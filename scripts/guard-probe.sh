@@ -502,6 +502,10 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "编排：目录与路由分了岔" mingli-registry the_catalogue_advertises_exactly_what_the_router_delivers \
+  crates/mingli-engine/src/lib.rs \
+  's@.filter(|e| e.answers().contains(&spec.id))@.filter(|e| e.answers().contains(\&mingli_contract::Intent::Natal))@'
+
 probe "契约：主体展示名被改字" mingli-contract every_arm_of_every_enum_says_something_distinct \
   crates/mingli-contract/src/query.rs \
   's|            Self::Company => "公司/组织",|            Self::Company => "公司",|'

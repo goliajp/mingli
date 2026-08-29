@@ -487,6 +487,27 @@ fn the_intent_catalogue_says_who_answers_each_class() {
     assert_eq!(natal.1.len(), registry().len(), "「命」应覆盖整个注册表");
 }
 
+/// 目录说「谁来答」，路由决定「谁真的答」——这两句话由两段各写一遍的筛选给出。
+///
+/// `route` 与 `intent_catalog` 各自写着 `answers().contains(..)`。没有任何东西
+/// 迫使它们一致：改了一处忘了另一处，编译照过、两边各自的测试也照绿，只是界面上
+/// 宣传的叶与实际排出来的盘对不上，而这种不一致要到有人照着目录去找那片叶时才发现。
+#[test]
+fn the_catalogue_advertises_exactly_what_the_router_delivers() {
+    let reg = registry();
+    let cat = mingli_engine::intent_catalog(&reg);
+    assert_eq!(cat.len(), 8, "八类问局各一条");
+    for (spec, advertised) in &cat {
+        let routed = route(&reg, &kind_of(spec.id));
+        assert_eq!(
+            advertised, &routed,
+            "「{}」目录宣传 {advertised:?}，路由实际给 {routed:?}",
+            spec.id.id()
+        );
+        assert!(!routed.is_empty(), "「{}」一片叶都没有认领", spec.id.id());
+    }
+}
+
 #[test]
 fn route_natal_returns_full_registry_in_order() {
     let r = route(&registry(), &QueryKind::Natal(sample()));
