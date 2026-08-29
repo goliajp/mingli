@@ -29,7 +29,8 @@ pub(crate) fn wx_pct(wx: &WuxingPower, e: Element) -> u32 {
 ///  权重 30%–60% 不一)。用神/扶抑会以本结果为输入。
 ///
 /// **诚实**：量化是辅助判断，非定论；阈值（强/偏强/中和/偏弱/弱）亦为常见区分。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Strength {
     /// 综合强弱 0–100。
     pub score: u32,
@@ -48,7 +49,8 @@ pub struct Strength {
 /// 五行力量分布（百分比，合 100）。
 ///
 /// 权重：天干 10、地支本气 12、中气 6、余气 3；月支×1.5（得令加成）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct WuxingPower {
     /// 木 %。
     pub wood: u32,

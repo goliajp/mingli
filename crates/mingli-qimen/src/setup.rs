@@ -3,7 +3,8 @@
 //! 冬至→芒种阳遁、夏至→大雪阴遁；三元由符头地支定。72 局常数表 6 源零冲突，
 //! 且满足结构不变量——阳遁「中元 = 上元 + 6、下元 = 上元 + 3」，阴遁「−6 / −3」。
 
-use super::*;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 
 /// 24 节气名，按 `floor(λ/15)` 索引（春分=0 … 惊蛰=23）。
 pub const SOLAR_TERMS: [&str; 24] = [
@@ -40,7 +41,8 @@ pub const YUAN_JU: [[u8; 3]; 24] = [
 ];
 
 /// 三元。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Yuan {
     /// 上元（符头地支 子午卯酉）。
     Upper,
@@ -96,7 +98,8 @@ pub fn is_yang_dun(term_index: usize) -> bool {
 }
 
 /// 定局结果：节气、阴阳遁、三元、局数。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Setup {
     /// 节气下标（春分=0 … 惊蛰=23）。
     pub term_index: usize,

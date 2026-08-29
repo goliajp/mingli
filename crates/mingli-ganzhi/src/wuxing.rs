@@ -3,7 +3,8 @@
 use super::*;
 
 /// 五行（金木水火土）。既用于纳音，也用于天干地支本气。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Element {
     /// 金。
     Metal,

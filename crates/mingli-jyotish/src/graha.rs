@@ -3,8 +3,9 @@
 use super::*;
 
 /// 9 行星标识（印度占星 navagraha）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Graha {
     /// 太阳 Surya.
     Sun,
@@ -51,7 +52,8 @@ impl Graha {
 }
 
 /// 一颗行星的排盘条目（恒星黄道下）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct GrahaPosition {
     /// 行星 id。
     pub graha: Graha,

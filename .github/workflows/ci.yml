@@ -53,6 +53,8 @@ jobs:
       # 装了别的叶但没胖（不可能），或者胖了但依赖图看着干净（改了优化档就会）。
       - name: 单叶档里不许有别的叶
         run: ./scripts/leaf-isolation.sh
+      - name: 类型化出口不许拖着 serde
+        run: ./scripts/leaf-deps.sh
       - name: 装 binaryen（wasm-opt，体积闸要用）
         run: sudo apt-get update && sudo apt-get install -y binaryen
       - name: 各发布档位的体积没超预算

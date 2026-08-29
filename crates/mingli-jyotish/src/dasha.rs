@@ -40,7 +40,8 @@ pub const YEAR_LENGTHS: [(&str, f64); 6] = [
 /// 「daśābdāḥ svasvamānaghnāḥ sarvāyuryogabhājitāḥ」），
 /// 首个子运即主星自己，其后依同一固定顺序循环（BPHS 51.2）。
 /// drik-panchanga、PyJHora、VedAstro 三个开源实现的源码常量与此逐条一致。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Antardasha {
     /// 子星名。
     pub lord: &'static str,
@@ -57,7 +58,8 @@ pub struct Antardasha {
 }
 
 /// 一段 mahadasha（主星 + 起止儒略日 + 持续年数 + 九步 antardaśā）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Mahadasha {
     /// 主星名（IAST，9 之一）。
     pub lord: &'static str,

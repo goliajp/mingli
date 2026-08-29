@@ -10,11 +10,14 @@
 //! 各列的角色见 [`COLUMN_ROLES`]，16 个图（四行点阵）的马达加斯加名分歧太大，不在此出。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::SikidyEngine;
 
 use mingli_core::gf2;
 use mingli_core::sampler::SplitMix64;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 16 列各自的角色（中文意译），按**生成序**编号，`COLUMN_ROLES[k]` = 第 `k+1` 列。
@@ -63,7 +66,8 @@ pub const COLUMN_ROLES: [Option<&str>; 16] = [
 pub const SPATIAL_POSITION: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 15, 10, 14, 12, 16];
 
 /// 一盘 Sikidy：16 列（各 4 位，0..16），C15 为创世者列。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Reading {
     /// 4 母列（随机起）。
     pub mothers: [u8; 4],

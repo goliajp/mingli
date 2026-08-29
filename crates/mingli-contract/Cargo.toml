@@ -10,7 +10,7 @@ categories = ["algorithms", "api-bindings"]
 
 [dependencies]
 # 契约里的 `cast(&Moment, ..)` 需要共享时刻这一领域类型；除此之外不依赖任何叶。
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

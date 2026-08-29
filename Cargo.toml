@@ -51,10 +51,12 @@ rust-version = "1.97"
 [workspace.dependencies]
 mingli-core = { path = "crates/mingli-core" }
 mingli-contract = { path = "crates/mingli-contract" }
-mingli-astro = { path = "crates/mingli-astro" }
-mingli-ephemeris = { path = "crates/mingli-ephemeris" }
-mingli-ganzhi = { path = "crates/mingli-ganzhi" }
-mingli-gua = { path = "crates/mingli-gua" }
+# 缺省不带 serde：只想拿类型化结果的叶不该被迫链上 serde_derive 与 syn。
+# 需要序列化的消费者显式 `features = ["serde"]`。
+mingli-astro = { path = "crates/mingli-astro", default-features = false }
+mingli-ephemeris = { path = "crates/mingli-ephemeris", default-features = false }
+mingli-ganzhi = { path = "crates/mingli-ganzhi", default-features = false }
+mingli-gua = { path = "crates/mingli-gua", default-features = false }
 mingli-luoshu = { path = "crates/mingli-luoshu" }
 mingli-astrology = { path = "crates/mingli-astrology" }
 mingli-jyotish = { path = "crates/mingli-jyotish" }

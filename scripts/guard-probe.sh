@@ -502,6 +502,11 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe_script "装配：类型化出口又拖上了 serde" \
+  "bash scripts/leaf-deps.sh yijing" \
+  crates/mingli-yijing/Cargo.toml \
+  's@^serde = { workspace = true, optional = true }$@serde = { workspace = true }@'
+
 probe_script "装配：单叶档混进了别的叶" \
   "bash scripts/leaf-isolation.sh yijing" \
   crates/mingli-wasm/Cargo.toml \

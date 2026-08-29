@@ -17,7 +17,8 @@ use super::*;
 /// - 平  ：-5 < net < +5（平衡）
 /// - 凶  ：-15 < net ≤ -5（忌神略胜）
 /// - 大凶：net ≤ -15（忌神远超）
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Judgment {
     /// 吉凶等级字面（大吉/吉/平/凶/大凶）。
     pub level: String,
@@ -104,7 +105,8 @@ pub(crate) fn active_dayun_step(dayun: Option<&DaYun>, age_years: f64) -> Option
 /// 5. 用神供给度 = `yun_strength.wuxing[本命主用神五行] / [副用神] / [忌神...]`。
 ///
 /// 主用神供给度高 = t 时刻拿到喜用多 = **吉**；忌神供给度高 = **凶**。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct FortuneAt {
     /// 本命盘（出生切片，固定底图）。
     pub natal: BaziChart,
@@ -212,7 +214,8 @@ pub fn fortune_at(
 }
 
 /// 用神供给时间序列的一年点（供「100 年用神供给曲线」时序图）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct FortuneTimelinePoint {
     /// 年龄（整数岁，0..=max_age）。
     pub age: u32,

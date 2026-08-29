@@ -8,7 +8,8 @@ use super::*;
 /// - 旬首支 = `(time_branch − time_stem + 12) mod 12`，定时柱所在 6 旬之一。
 /// - 旬首六仪 = 旬首甲所遁的仪干：甲子→戊 / 甲戌→己 / 甲申→庚 / 甲午→辛 / 甲辰→壬 / 甲寅→癸。
 /// - 旬空 2 支 = 旬首支 +10 / +11 mod 12（本旬 10 干配不上的两位地支）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Xun {
     /// 旬首干支字面（如「甲子」「甲戌」）。
     pub head_ganzhi: &'static str,
@@ -23,7 +24,8 @@ pub struct Xun {
 }
 
 /// 一次奇门定局 + 地盘的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 定局信息。
     pub setup: Setup,

@@ -16,15 +16,19 @@
     reason = "卦的二进制位型（如 0b101010）连写比加分隔符更直观对应六爻，沿用 mingli-gua 约定"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::YijingEngine;
 
 use mingli_core::sampler::SplitMix64;
 use mingli_gua::{Hexagram, Trigram};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 起卦法（仅影响爻值的概率分布）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Method {
     /// 三钱法：6/7/8/9 ~ 1/8， 3/8， 3/8， 1/8。
     ThreeCoins,
@@ -33,7 +37,8 @@ pub enum Method {
 }
 
 /// 一爻：营数值（6/7/8/9）及由它定出的阴阳与是否变爻。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Line {
     /// 营数：6 老阴、7 少阳、8 少阴、9 老阳。
     pub value: u8,
@@ -56,7 +61,8 @@ impl Line {
 }
 
 /// 一次完整起卦的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 起卦法。
     pub method: Method,

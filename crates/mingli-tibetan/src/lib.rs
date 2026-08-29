@@ -23,10 +23,13 @@
     reason = "全部相位经 rem_euclid 落 0..60 / 0..9 等小范围，与 i64/usize 间换算受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::TibetanEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 12 生肖（序从鼠起，Wylie 转写英文名）。
@@ -142,7 +145,8 @@ pub fn mewa(year: i64) -> i64 {
 }
 
 /// 一年藏历循环要素的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 公历年（≈ 藏历年；Losar 边界见 [`compute_at`] 注）。
     pub year: i64,

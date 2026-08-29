@@ -3,7 +3,8 @@
 use super::*;
 
 /// 一张 Jyotish（印度占星）排盘结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct JyotishChart {
     /// Ayanamsa 流派 id。
     pub ayanamsa_id: &'static str,

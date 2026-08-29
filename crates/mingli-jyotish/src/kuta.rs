@@ -34,10 +34,12 @@
 //! - **Bhakoot**：两人月宫相隔位次，1/3/4/7/10/11 位为吉得 7，2/5/6/8/9/12 位为凶得 0
 //! - **Nadi**：27 宿配三脉（Adi/Madhya/Antya），**同脉得 0、异脉得满 8**
 
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 一项的得分。两源一致时 `min == max`。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct KutaScore {
     /// 项名。
     pub kuta: &'static str,
@@ -54,7 +56,8 @@ pub struct KutaScore {
 }
 
 /// 八项合起来的结果。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Ashtakuta {
     /// 八项逐项。
     pub kutas: Vec<KutaScore>,

@@ -14,7 +14,8 @@ use super::*;
 ///
 /// **🟡 流派分歧**：从格/化格/专旺格成立条件分歧大（身极弱+无救助+顺势依附，各家定义不一），
 /// 杂气格（辰戌丑未）透干优先级、月令分日用事均有派别，本算法不机械化，留 INT 释义层。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Pattern {
     /// 格局名（正官格/七杀格/正财格/偏财格/正印格/偏印格/食神格/伤官格/建禄格/月刃格/暗 X 格）。
     pub name: String,

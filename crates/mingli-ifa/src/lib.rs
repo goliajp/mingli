@@ -20,11 +20,14 @@
 //! **绝不在此凭记忆硬编**——本叶只按右名 + 左名拼出复合名。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::IfaEngine;
 
 use mingli_core::gf2;
 use mingli_core::sampler::SplitMix64;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// odu 总数 = 16 × 16。
@@ -73,7 +76,8 @@ pub fn bascom_notation(figure: u8) -> String {
 }
 
 /// 一个 odu：右左两 figure（各 0..16）及合成序号（0..256）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Odu {
     /// 右 figure（**先得，为长**；ọ̀tún，男），0..16。
     pub right: u8,

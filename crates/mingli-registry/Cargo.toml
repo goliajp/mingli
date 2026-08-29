@@ -103,7 +103,7 @@ wuge = ["dep:mingli-wuge"]
 criterion = { version = "0.8", default-features = false }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
 serde_json = { workspace = true }
 
 [lints]

@@ -9,9 +9,9 @@ keywords = ["divination", "use-cases", "orchestration", "intents"]
 categories = ["algorithms", "api-bindings"]
 
 [dependencies]
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
 # 支序 ↔ 支名：紫微的流年宫要支序，而盘上给的是支名
-mingli-ganzhi = { workspace = true }
+mingli-ganzhi = { workspace = true, features = ["serde"] }
 mingli-luoshu = { workspace = true }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }

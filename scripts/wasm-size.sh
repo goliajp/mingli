@@ -12,6 +12,13 @@
 #     → gzip -9                          （浏览器实际传的量）
 # 少走一步数字就变——本项目曾经因为两次量法不同，把 1% 的管线差读成了 15 KB 的回归。
 # 预算写死字节数而不是百分比：百分比随总量一起漂，退步看不出来。
+#
+# 两列不同待遇，因为它们的性质不同：
+#   -Oz 那一列是产物本身，同样的输入给同样的字节，逐字节钉死；
+#   gzip 那一列是传输量的代理，压缩率随字节排布浮动——实测一次 -Oz 不增反减
+#   的改动让 gzip 涨了 63 字节（728,034 → 728,097，0.008%）。对它逐字节设闸，
+#   闸就会被与体积无关的改动一直触发，然后人开始习惯性重录预算，闸就废了。
+#   所以 gzip 给 0.5% 容差：真正的体积回归远大于此，噪声远小于此。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -81,8 +88,12 @@ while read -r name raw gz; do
     printf '  ✗ %-20s 预算表里没有这一档\n' "$name"; over=$((over+1)); continue
   fi
   seen=$((seen+1))
-  if [ "$raw" -gt "$want_raw" ] || [ "$gz" -gt "$want_gz" ]; then
-    printf '  ✗ %-20s %9s / %8s  超出预算 %s / %s\n' "$name" "$raw" "$gz" "$want_raw" "$want_gz"
+  gz_ceil=$(( want_gz + want_gz / 200 ))   # +0.5%
+  if [ "$raw" -gt "$want_raw" ]; then
+    printf '  ✗ %-20s %9s / %8s  产物超预算 %s\n' "$name" "$raw" "$gz" "$want_raw"
+    over=$((over+1))
+  elif [ "$gz" -gt "$gz_ceil" ]; then
+    printf '  ✗ %-20s %9s / %8s  gzip 超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_gz" "$gz_ceil"
     over=$((over+1))
   else
     printf '  ✓ %-20s %9s / %8s  预算 %s / %s\n' "$name" "$raw" "$gz" "$want_raw" "$want_gz"

@@ -3,10 +3,12 @@
 //! 这层只做几何，不含任何占星或术数语义——西洋占星与印度 Jyotish 都从这里取
 //! Asc/MC，宫位制（Placidus / Koch 等）则属于各自叶的领域知识。
 
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 地理坐标（地心算上升点/中天所需）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct GeoLocation {
     /// 纬度（度，北纬为正）。
     pub latitude: f64,

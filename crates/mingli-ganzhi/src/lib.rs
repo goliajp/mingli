@@ -16,6 +16,7 @@
     reason = "各模块以 `use super::*` 共享 crate 顶层的领域 import——这是把一张大表拆成多文件的常规手法"
 )]
 
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 pub mod cycle;

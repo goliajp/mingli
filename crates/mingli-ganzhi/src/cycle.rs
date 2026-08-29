@@ -2,7 +2,8 @@
 //!
 //! 日柱以民用日序（JDN）递推，对天文零依赖。
 
-use super::*;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 
 /// 六十干支的循环周期（= `mingli_core::cyclic::cycle_period(&[10,12])`）。
 pub const CYCLE: u8 = 60;
@@ -18,7 +19,8 @@ pub const BRANCHES: [&str; 12] = [
 ];
 
 /// 一个干支组合：`stem` 天干 0..9（甲=0），`branch` 地支 0..11（子=0）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct GanZhi {
     /// 天干序号 0..9（甲=0）。
     pub stem: u8,

@@ -17,15 +17,19 @@
 //! Y 算元音还是辅音随流派，本 crate 三说并出，见 [`YRule`]。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::NumerologyEngine;
 
 use mingli_astro::Moment;
 use mingli_core::ringhash::{string_sum, sum_digits};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 字母表系统。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum System {
     /// Pythagorean：A=1…I=9 循环。
     Pythagorean,
@@ -93,7 +97,8 @@ pub fn is_vowel(c: char) -> bool {
 }
 
 /// 生命灵数的约化方法（流派分歧）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum LifePathMethod {
     /// **Component（分量约化）**：y/m/d 各约化后求和，再约化（保留主数 11/22/33）。
     /// 当代 Pythagorean 学派多用此法，易识别中间主数。
@@ -171,7 +176,8 @@ pub fn expression(name: &str, system: System) -> u64 {
 /// Y 恒为元音（Lynn Buess）同样只有一处二手转述，不入选项。
 /// W 在 Matthew / Drew / Owen 一类里算元音的说法有 2 源（其中一处只有立场没有规则），
 /// 强度不足，本 crate 一律把 W 当辅音。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum YRule {
     /// Y 紧邻另一个元音（前或后）时作辅音，否则作元音。
     Contextual,
@@ -271,7 +277,8 @@ pub fn personality(name: &str, system: System) -> u64 {
 }
 
 /// 某一种 Y 归属约定下的灵魂数与人格数。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct VowelReading {
     /// 约定标识（`"contextual"` / `"after_vowel"` / `"never"`）。
     pub y_rule: &'static str,
@@ -282,7 +289,8 @@ pub struct VowelReading {
 }
 
 /// 姓名数（某系统下的表达/灵魂/人格）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NameNumbers {
     /// 字母表系统。
     pub system: System,
@@ -314,7 +322,8 @@ pub fn name_numbers(name: &str, system: System) -> NameNumbers {
 }
 
 /// 一次数字学换算的结果。日期数恒有；姓名数在给出姓名时附上（两套系统）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 生命灵数（按当前所选流派 `life_path_method`）。
     pub life_path: u64,

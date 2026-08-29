@@ -30,7 +30,8 @@ pub const BA_SHEN_ALT: [&str; 8] =
     ["值符", "腾蛇", "太阴", "六合", "勾陈", "朱雀", "九地", "九天"];
 
 /// 神盘八神。
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SpiritPlate {
     /// 值符（直符）所在宫 1..=9 —— 八神的起点，随天盘值符走。
     pub start_palace: u8,

@@ -8,11 +8,14 @@
 //! 图名见 [`FIGURE_NAMES`]，点阵三源一致。星占归属（行星 / 星座）与阿拉伯名另有分歧，不在此出。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::GeomancyEngine;
 
 use mingli_core::gf2;
 use mingli_core::sampler::SplitMix64;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 16 个地占图的拉丁名，按本 crate 的 4 位整数值索引。
@@ -67,7 +70,8 @@ pub const fn figure_dots(value: u8) -> u8 {
 
 
 /// 一盘里每个位置的图名（与 [`Reading`] 的各字段一一对应）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ReadingNames {
     /// 4 母图名。
     pub mothers: [&'static str; 4],
@@ -82,7 +86,8 @@ pub struct ReadingNames {
 }
 
 /// 一张地占盘：4 母图推出的全部图，皆以 4 位整数值（0..16）表示，低位 = 第一行。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Reading {
     /// 4 母图（随机起）。
     pub mothers: [u8; 4],

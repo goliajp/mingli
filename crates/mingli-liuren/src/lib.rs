@@ -26,17 +26,21 @@
     reason = "盘位全在 Z₁₂（0..12）小范围内换算；Course/数组按引用传是为可读性，受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod bearings;
 mod compute;
 mod courses;
+#[cfg(feature = "port")]
 mod engine;
 mod plates;
 mod transmission;
 mod types;
 
+#[cfg(feature = "port")]
 pub use bearings::{bearings_of, BRANCH_DIR, BRANCH_NAMES};
 pub use compute::{compute, compute_at, compute_at_with};
 pub use courses::{four_courses, Course};
+#[cfg(feature = "port")]
 pub use engine::LiurenEngine;
 pub use plates::{heaven_plate, month_general_branch, plate_offset, MONTH_GENERAL_NAMES, STEM_LODGING};
 

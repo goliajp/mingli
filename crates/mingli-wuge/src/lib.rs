@@ -15,7 +15,9 @@
 //! 诚实边界（🟡）：**康熙笔画表**（数千汉字的繁体笔画）属大查表，本 crate **不内置**——笔画由调用方
 //! 提供（错一字毒整枝）。**81 数的吉凶判断**亦属查表 + 流派分歧，本 crate 只给 81 数本身、不下吉凶断言。
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::WugeEngine;
 
 /// 五格数按 `mod-80` 归一到 `1..=81`。
@@ -30,10 +32,12 @@ pub const fn fold_81(n: u64) -> u64 {
         ((n - 1) % 80) + 1
     }
 }
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 五行（按格的个位定）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Element {
     /// 木（个位 1、2）。
     Wood,
@@ -74,7 +78,8 @@ pub fn element_of(n: u32) -> Element {
 }
 
 /// 单格：原值、归一 81 数、五行。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Grid {
     /// 笔画原值。
     pub value: u32,
@@ -99,7 +104,8 @@ fn grid(value: u32) -> Grid {
 }
 
 /// 五格剖象结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 天格。
     pub heaven: Grid,

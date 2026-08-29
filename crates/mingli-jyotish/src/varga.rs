@@ -23,13 +23,15 @@
 //! 另有传承，PyJHora 每盘并列 3–6 种。本叶只出 Parasara 一系并在 profile 里声明其余，
 //! 不静默选边。
 
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 一个分盘。
 ///
 /// 判别式即除数：`Varga::D7 as u32 == 7`，于是「每份多宽」就是 `30 / n`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Varga {
     /// D-3 drekkāṇa：兄弟姊妹。
     D3 = 3,
@@ -207,7 +209,8 @@ pub fn varga_rasi(varga: Varga, sidereal_lon: f64) -> usize {
 }
 
 /// 一个天体在全部十二个分盘上的落宫。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct VargaPositions {
     /// 分盘 id → 落宫索引（0=白羊）。
     pub rasi: std::collections::BTreeMap<&'static str, usize>,

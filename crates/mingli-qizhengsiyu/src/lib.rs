@@ -23,7 +23,9 @@
 //!   **宿度不是常数**，随纪元而变（见该模块说明），故按纪元分表而非单表。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::QizhengsiyuEngine;
 
 use mingli_astro::Moment;
@@ -31,11 +33,13 @@ use mingli_ephemeris::{
     geocentric_ecliptic_longitude, mean_lunar_apogee, mean_lunar_node, Body,
 };
 use mingli_ganzhi::{day_ganzhi, GanZhi};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 七政四余十体标识。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Star {
     /// 太阳 (Sun) — 七政之首。
     Sun,
@@ -319,7 +323,8 @@ pub fn mansion_for_jdn(jdn: i64) -> usize {
 }
 
 /// 单颗星的排盘条目。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct StarPosition {
     /// 标识（序列化为小写名）。
     pub star: Star,
@@ -338,7 +343,8 @@ pub struct StarPosition {
 }
 
 /// 七政四余完整排盘。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct QizhengsiyuChart {
     /// 十体位置（七政前置 7 颗 + 四余后置 3 颗；紫炁 🟡 不输出）。
     pub stars: Vec<StarPosition>,

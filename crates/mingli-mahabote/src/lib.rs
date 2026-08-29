@@ -22,10 +22,13 @@
     reason = "核心数/星期经 rem_euclid 落 0..7，缅历年由 JDN(~2.5e6) floor 得；与 i64/usize 间换算受控"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::MahaboteEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 缅历 0 ME 的 JDN 起点偏移（cool-emerald 算法常数）。
@@ -86,7 +89,8 @@ pub fn planet8_index(wd: usize, before_noon: bool) -> usize {
 }
 
 /// 一次 Mahabote 本命换算的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 缅历年。
     pub myanmar_year: i64,
