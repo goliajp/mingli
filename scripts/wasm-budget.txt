@@ -1,0 +1,7 @@
+# 各发布档位的体积预算（字节）。由 ./scripts/wasm-size.sh --record 写入。
+# 列：档位 -Oz后 gzip后。改这张表必须是有意的，且要写进 commit message。
+chart-solo-bazi 198777 91163
+chart-solo-yijing 159557 73227
+chart-chinese 348981 146171
+chart-all 1265177 728034
+full 1475798 807080

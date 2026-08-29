@@ -1,25 +1,43 @@
 //! 编排层：把命理大树当作一张记忆化计算 DAG 来跑。
 //!
 //! - 共享层：一个输入 → 用 [`Moment`] 把公共天文/历法子计算**算一次**。
-//! - fan-out：注册表里每片叶（[`CastingEngine`]）在该共享上下文上排盘，**rayon 并行**。
+//! - fan-out：注册表里每片叶（[`CastingEngine`]）在该共享上下文上排盘。native 走 rayon 并行；
+//!   wasm32 串行，那里没有可用线程，把 rayon 链进去只是白付 37 KB。
 //! - 统一输出：各叶输出 `serde_json::Value`，便于跨叶对齐比较。
 //!
 //! 本层**不认识任何具体叶**——注册表由调用方注入（见 `mingli-registry`）。
 //! 加一片新叶不需要改动这里的任何一行。
 
 use mingli_contract::{effective_school_id, intents, CastingEngine, IntentSpec, LeafOutput, Moment, Query, QueryKind};
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-/// 注册表：一组待并行 fan-out 的叶。
+/// 注册表：一组待 fan-out 的叶。
 pub type Leaves = [Box<dyn CastingEngine>];
+
+/// 把每片叶映射成一个结果。native 上并行，wasm 上串行。
+///
+/// wasm32 没有可用线程，rayon 在那里只是把串行遍历绕过一层调度器，
+/// 并且**实测在排盘档里占 37 KB**——易经单叶档一共才 197 KB。
+/// native 那边它是真的：整棵树并行 445 µs，其中最慢的一片占 297 µs。
+#[cfg(not(target_arch = "wasm32"))]
+fn map_leaves<T: Send>(reg: &Leaves, f: impl Fn(&Box<dyn CastingEngine>) -> T + Send + Sync) -> Vec<T> {
+    reg.par_iter().map(f).collect()
+}
+
+/// 同上，wasm32 一侧：串行，不引 rayon。
+#[cfg(target_arch = "wasm32")]
+fn map_leaves<T>(reg: &Leaves, f: impl Fn(&Box<dyn CastingEngine>) -> T) -> Vec<T> {
+    reg.iter().map(f).collect()
+}
 
 /// 一个输入 → 共享层算一次 → **并行**排所有叶 → `id → 盘(JSON)`。
 #[must_use]
 pub fn cast_all(reg: &Leaves, q: &Query) -> BTreeMap<String, Value> {
     let m = shared_moment(q);
-    reg.par_iter().map(|e| (e.id().to_string(), e.cast(&m, q))).collect()
+    map_leaves(reg, |e| (e.id().to_string(), e.cast(&m, q))).into_iter().collect()
 }
 
 /// 只算**单片**叶（按 id）——共享层仍只算一次，但仅排该叶（释义/单叶请求用，省去其余叶）。
@@ -35,7 +53,7 @@ pub fn cast_one(reg: &Leaves, id: &str, q: &Query) -> Option<LeafOutput> {
 #[must_use]
 pub fn cast_all_detailed(reg: &Leaves, q: &Query) -> Vec<LeafOutput> {
     let m = shared_moment(q);
-    reg.par_iter().map(|e| leaf_output(e.as_ref(), &m, q)).collect()
+    map_leaves(reg, |e| leaf_output(e.as_ref(), &m, q))
 }
 
 /// 把一个问局意图路由到具体的叶 id 列表。

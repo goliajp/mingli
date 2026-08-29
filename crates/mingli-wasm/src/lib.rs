@@ -6,11 +6,19 @@
 //! 入参形状与 HTTP 端点共用一套（`mingli_app::input`），所以同一份 body 打服务端还是喂 wasm，
 //! 收到的东西一样——两条交付路只是出口不同，形状不该各写一遍。
 //!
-//! 注：本包装配 `mingli-registry` 的全部叶（含占星 VSOP87 星历）。
+//! 两档装配。缺省（含 `usecases`）给出全部十六个出口；
+//! `--no-default-features --features <叶>` 只给 [`cast`] 与 [`cast_one`]，
+//! 用例层与释义层整个不进产物——只想排一张盘的人不必为跨叶用例付体积。
+//! 入参校验因此搬去了契约层：它是 `Query` 自己的前置条件，不该只有走用例层的人才拿得到。
 
+#[cfg(feature = "usecases")]
 use mingli_app::input;
-use mingli_contract::{Query, WordQuery};
-use mingli_registry::{registry, word_registry};
+use mingli_contract::Query;
+#[cfg(feature = "usecases")]
+use mingli_contract::WordQuery;
+use mingli_registry::registry;
+#[cfg(feature = "usecases")]
+use mingli_registry::word_registry;
 use wasm_bindgen::prelude::*;
 
 /// 解析并**校验**排盘入参。
@@ -18,16 +26,17 @@ use wasm_bindgen::prelude::*;
 /// 校验这一步不是可选的：HTTP 那扇门在承接层收过一次（`Birth::validate`），
 /// wasm 吃的是裸 `Query`，若不在此收，同一个 2 月 31 日在服务端被拒、在浏览器里
 /// 却被历法换算悄悄挪成 3 月 3 日照常出盘——两扇门给出的不是同一个答案。
-/// 判断本身在用例层，两边落到的是同一段代码。
+/// 判断本身在契约层（`mingli_contract::validate`），两边落到的是同一段代码。
 fn parse_query(s: &str) -> Result<Query, JsValue> {
     let q: Query = serde_json::from_str(s).map_err(|e| JsValue::from_str(&e.to_string()))?;
-    mingli_app::validate_query(&q).map_err(|e| JsValue::from_str(&e))?;
+    mingli_contract::validate_query(&q).map_err(|e| JsValue::from_str(&e))?;
     Ok(q)
 }
 fn to_json<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
 }
 
+#[cfg(feature = "usecases")]
 /// 字词叶的统一取值：注册表在装配根，派发在用例层，这里只做 JSON 出口。
 ///
 /// 出的是用例层的整份结果（`input` / `system` / `result` 三段），与 `POST /api/word` 一致。
@@ -38,10 +47,12 @@ fn word_json(system: &str, q: &WordQuery) -> String {
         .map_or_else(|_| "null".to_string(), |v| to_json(&v))
 }
 
+#[cfg(feature = "usecases")]
 fn parse<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, JsValue> {
     serde_json::from_str(s).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
+#[cfg(feature = "usecases")]
 /// 用例返回的 `Err` 是给调用方看的说明，原样带出去。
 fn out<T: serde::Serialize>(r: Result<T, String>) -> Result<String, JsValue> {
     r.map(|v| to_json(&v)).map_err(|e| JsValue::from_str(&e))
@@ -67,6 +78,7 @@ pub fn cast_one(id: &str, query_json: &str) -> Result<String, JsValue> {
 
 /// 跨叶相关性（固定网格的 NMI 矩阵）。
 #[must_use]
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn analysis() -> String {
     to_json(&mingli_app::analysis::cross_leaf_cached(&registry()))
@@ -76,6 +88,7 @@ pub fn analysis() -> String {
 ///
 /// # Errors
 /// query JSON 解析失败、或未知叶 id 时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn prompt(id: &str, query_json: &str) -> Result<String, JsValue> {
     let reg = registry();
@@ -90,6 +103,7 @@ pub fn prompt(id: &str, query_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或出生输入越界时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn bazi(birth_json: &str) -> Result<String, JsValue> {
     let b: mingli_app::Birth = parse(birth_json)?;
@@ -101,6 +115,7 @@ pub fn bazi(birth_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或出生输入越界时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn ziwei(birth_json: &str) -> Result<String, JsValue> {
     let b: mingli_app::Birth = parse(birth_json)?;
@@ -112,6 +127,7 @@ pub fn ziwei(birth_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、出生输入越界、或用例判定入参不成立时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn fortune(body_json: &str) -> Result<String, JsValue> {
     let r: input::FortuneRequest = parse(body_json)?;
@@ -123,6 +139,7 @@ pub fn fortune(body_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或人数不在 1–12 之间时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn team(body_json: &str) -> Result<String, JsValue> {
     let r: input::TeamRequest = parse(body_json)?;
@@ -133,6 +150,7 @@ pub fn team(body_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或用例判定入参不成立时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn synastry(body_json: &str) -> Result<String, JsValue> {
     let r: input::SynastryRequest = parse(body_json)?;
@@ -144,6 +162,7 @@ pub fn synastry(body_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或注册表内没有可路由的叶时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn event(body_json: &str) -> Result<String, JsValue> {
     let r: input::EventRequest = parse(body_json)?;
@@ -154,6 +173,7 @@ pub fn event(body_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或时窗倒置时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn election(body_json: &str) -> Result<String, JsValue> {
     let r: input::ElectionRequest = parse(body_json)?;
@@ -164,6 +184,7 @@ pub fn election(body_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或注册表内没有可路由的叶时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn locative(body_json: &str) -> Result<String, JsValue> {
     let r: input::LocativeRequest = parse(body_json)?;
@@ -174,6 +195,7 @@ pub fn locative(body_json: &str) -> Result<String, JsValue> {
 ///
 /// # Errors
 /// JSON 解析失败、或 `span` 为 0 时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn mundane(body_json: &str) -> Result<String, JsValue> {
     let r: input::MundaneRequest = parse(body_json)?;
@@ -191,6 +213,7 @@ pub fn mundane(body_json: &str) -> Result<String, JsValue> {
 ///
 /// 出参与 `POST /api/word`（`system` 取 `"gematria"`）同形。
 #[must_use]
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn gematria(word: &str) -> String {
     word_json("gematria", &WordQuery { text: Some(word.to_string()), ..WordQuery::default() })
@@ -200,6 +223,7 @@ pub fn gematria(word: &str) -> String {
 ///
 /// 出参与 `POST /api/word`（`system` 取 `"abjad"`）同形。
 #[must_use]
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn abjad(word: &str) -> String {
     word_json("abjad", &WordQuery { text: Some(word.to_string()), ..WordQuery::default() })
@@ -211,6 +235,7 @@ pub fn abjad(word: &str) -> String {
 ///
 /// # Errors
 /// 笔画 JSON 解析失败、或姓/名为空时返回错误。
+#[cfg(feature = "usecases")]
 #[wasm_bindgen]
 pub fn wuge(surname_json: &str, given_json: &str) -> Result<String, JsValue> {
     let s: Vec<u32> = serde_json::from_str(surname_json).map_err(|e| JsValue::from_str(&e.to_string()))?;

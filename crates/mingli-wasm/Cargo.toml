@@ -17,8 +17,8 @@ mingli-engine = { workspace = true }
 # 这两个在根 manifest 里已设为 opt-in，故此处不给 features——
 # 由本 crate 下面的 feature 逐个接上，`--no-default-features` 才真的能裁掉星历。
 mingli-registry = { workspace = true }
-mingli-app = { workspace = true }
-mingli-interpret = { workspace = true }
+mingli-app = { workspace = true, optional = true }
+mingli-interpret = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wasm-bindgen = "0.2"
@@ -34,6 +34,7 @@ wasm-bindgen = "0.2"
 # 产物两种构建一样大。
 # 装全部，同 `mingli-registry` 的 `full`。
 full = [
+    "usecases",
     "bazi",
     "ziwei",
     "astrology",
@@ -60,6 +61,7 @@ full = [
     "wuge",
 ]
 default = [
+    "usecases",
     "bazi",
     "ziwei",
     "astrology",
@@ -85,10 +87,12 @@ default = [
     "abjad",
     "wuge",
 ]
+# 跨叶用例与释义。关掉它，产物只剩排盘两个出口，用例层与释义层不进包。
+usecases = ["dep:mingli-app", "dep:mingli-interpret"]
 bazi = ["mingli-registry/bazi"]
 ziwei = ["mingli-registry/ziwei"]
-astrology = ["mingli-registry/astrology", "mingli-app/astrology"]
-jyotish = ["mingli-registry/jyotish", "mingli-app/jyotish"]
+astrology = ["mingli-registry/astrology", "mingli-app?/astrology"]
+jyotish = ["mingli-registry/jyotish", "mingli-app?/jyotish"]
 qizhengsiyu = ["mingli-registry/qizhengsiyu"]
 yijing = ["mingli-registry/yijing"]
 geomancy = ["mingli-registry/geomancy"]

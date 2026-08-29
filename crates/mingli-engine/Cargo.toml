@@ -5,12 +5,15 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["orchestration", "divination", "parallel", "rayon"]
+keywords = ["orchestration", "divination", "parallel", "fanout"]
 categories = ["algorithms", "concurrency"]
 
 [dependencies]
 mingli-contract = { workspace = true }
 serde_json = { workspace = true }
+
+# wasm32 上没有可用线程，那一侧走串行，rayon 整个不进产物。
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = "1"
 
 [lints]

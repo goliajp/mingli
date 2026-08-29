@@ -502,6 +502,16 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe_script "装配：单叶档混进了别的叶" \
+  "bash scripts/leaf-isolation.sh yijing" \
+  crates/mingli-wasm/Cargo.toml \
+  's@^yijing = \["mingli-registry/yijing"\]$@yijing = ["mingli-registry/yijing", "mingli-registry/bazi"]@'
+
+probe_script "装配：产物胖了没人拦" \
+  "bash scripts/wasm-size.sh chart-solo-yijing" \
+  Cargo.toml \
+  's@^lto = "thin"$@lto = false@'
+
 probe "六十四卦：八卦符号取错格" mingli-gua every_trigram_has_its_own_name_symbol_and_number \
   crates/mingli-gua/src/lib.rs \
   's@TRIGRAM_SYMBOLS\[(self.0 \& 0b111) as usize\]@TRIGRAM_SYMBOLS[(self.0 | 0b111) as usize]@'

@@ -216,14 +216,16 @@ fn the_snapshot_request_count_agrees_everywhere() {
 /// 读的人就会以为 1800 不受支持，反之则会拿着被拒的请求找不着北。
 #[test]
 fn the_supported_year_range_says_what_the_code_enforces() {
-    let src = read("crates/mingli-app/src/lib.rs");
-    let at = src.find("..=").expect("用例层应有一处年份区间收口");
+    // 收口住在契约层：它是 `Query` 自己的取值域，与谁来用这份入参无关。
+    // 从前在用例层，于是只想排一张盘的门要么把用例层整个链进来，要么不校验。
+    let src = read("crates/mingli-contract/src/validate.rs");
+    let at = src.find("..=").expect("契约层应有一处年份区间收口");
     let lo: String = src[..at].chars().rev().take_while(char::is_ascii_digit).collect();
     let lo: String = lo.chars().rev().collect();
     let hi: String = src[at + 3..].chars().take_while(char::is_ascii_digit).collect();
     assert!(
         lo.len() == 4 && hi.len() == 4,
-        "没能从用例层读出年份区间（读到 `{lo}..={hi}`）——收口的写法改了，本测试要跟着改"
+        "没能从契约层读出年份区间（读到 `{lo}..={hi}`）——收口的写法改了，本测试要跟着改"
     );
     for (name, text) in readmes() {
         let claim = format!("{lo}–{hi}");
