@@ -385,7 +385,7 @@ probe "石头：行星位置不再扣光行时" mingli-ephemeris every_planet_ma
 
 probe "石头：行星理论掉出独立星历的量级" mingli-ephemeris at_j2000_every_planet_matches_an_independent_theory_to_the_arcsecond \
   crates/mingli-ephemeris/src/lib.rs \
-  's|            for _ in 0..3 {|            for _ in 0..1 {|'
+  's|    for _ in 0..LIGHT_TIME_PASSES {|    for _ in 0..1 {|'
 
 probe "易经：六爻上下颠倒" mingli-yijing what_is_reported_is_the_hexagram_the_lines_actually_make \
   crates/mingli-yijing/src/lib.rs \
@@ -413,7 +413,7 @@ probe "缅历：宫名取错核心数" mingli-mahabote what_compute_reports_hang
 
 probe "巴厘：八曜正常段落成卡日" mingli-pawukon the_stuck_day_weeks_agree_with_the_reference_closed_form \
   crates/mingli-pawukon/src/lib.rs \
-  '92s|if day < 71 {|if day == 71 {|'
+  '/pub fn astawara_index/,/^}/s|    if day < 71 {|    if day == 71 {|'
 
 probe "玛雅：无名五日全报第一日" mingli-maya haab_wraps_365_and_covers_wayeb \
   crates/mingli-maya/src/lib.rs \
@@ -637,19 +637,19 @@ probe "择日：上限那天被多拒了一天" mingli-app window_bounds_are_che
   's|    if days > MAX_DAYS {|    if days >= MAX_DAYS {|'
 
 probe "择日：月长表少一档" mingli-app day_stepping_crosses_months_and_leap_years \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|        1 \| 3 \| 5 \| 7 \| 8 \| 10 \| 12 => 31,|        1 \| 3 \| 5 \| 7 \| 8 \| 12 => 31,|'
 
 probe "择日：百年不闰那一支丢了" mingli-app day_stepping_crosses_months_and_leap_years \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|        2 if year % 4 == 0 && (year % 100 != 0 \|\| year % 400 == 0) => 29,|        2 if year % 4 == 0 => 29,|'
 
 probe "入参：时越界只在分也越界时才拦" mingli-app an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|    if hour > 23 \|\| minute > 59 {|    if hour > 23 \&\& minute > 59 {|'
 
 probe "入参：时的上界放宽一格" mingli-app an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|    if hour > 23 \|\| minute > 59 {|    if hour > 24 \|\| minute > 59 {|'
 
 probe "跨叶：常量列的熵写出去变成 -0" mingli-analysis entropy_known \
@@ -667,7 +667,7 @@ probe "承接层：释义不说是谁说的" mingli-api the_backend_field_names_
 # 基准取自 HEAD（已提交的那一版），与工作树比——种在工作树上的错正好落在被比的一侧。
 probe_script "契约：拒绝的措辞悄悄改了" \
   './scripts/contract-drift.sh' \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|return Err("month 须 1–12".into());|return Err("month 须在 1 到 12 之间".into());|'
 
 # 种的是「[features] 段换了写法」——推导取空，逐叶单装那一整段就会跑零次。
