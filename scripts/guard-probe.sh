@@ -532,10 +532,12 @@ probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_le
   crates/mingli/Cargo.toml \
   's@^yijing = \["mingli-registry/yijing"\]$@yijing = []@'
 
+# 匹配任意版本号再改成一个不可能对的值。写死版本号不行：下次升版本时匹配串与替换串
+# 会被一起改成同一个数，那条 sed 就成了空操作，探针从此什么也不验——它上一次正是这么被跳过的。
 probe_script "发版：内部依赖的版本对不上" \
   "bash scripts/publish-rehearsal.sh" \
   Cargo.toml \
-  's@^mingli-core = { version = "1.1.0", path = "crates/mingli-core" }$@mingli-core = { version = "1.1.0", path = "crates/mingli-core" }@'
+  's@^mingli-core = { version = "[0-9][0-9.]*"@mingli-core = { version = "9.9.9"@'
 
 probe_script "装配：类型化出口又拖上了 serde" \
   "bash scripts/leaf-deps.sh yijing" \
