@@ -149,7 +149,7 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 | `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
 | `mingli-wasm-chart` | 二十四片，只排盘 | 1237 KB | 712 KB |
-| `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 790 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 789 KB |
 
 
 ### 自带星历
