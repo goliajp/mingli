@@ -156,7 +156,7 @@ Measured, release wasm32:
 | `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
 | `mingli-wasm-chart` | All twenty-four, charts only | 1237 KB | 712 KB |
-| `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 790 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 789 KB |
 
 
 ### Bring your own ephemeris
