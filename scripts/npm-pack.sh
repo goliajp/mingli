@@ -24,6 +24,7 @@ mingli-wasm-chart|chart-all|$LEAVES|divination,astrology,horoscope,almanac,wasm|
 mingli-wasm-chinese|chart-chinese|bazi,ziwei,qimen,liuren,meihua,yijing,xiaoliuren,zeri,taiyi,tibetan|bazi,ziwei,qimen,yijing,wasm|The ten Chinese systems, charts only.
 mingli-wasm-bazi|chart-solo-bazi|bazi|bazi,four-pillars,chinese,astrology,wasm|Four Pillars of Destiny alone.
 mingli-wasm-yijing|chart-solo-yijing|yijing|yijing,iching,hexagram,divination,wasm|Yi Jing casting alone. The smallest build there is.
+mingli-wasm-astrology-thin|astrology-thin|astrology-thin|astrology,horoscope,natal,ephemeris,wasm|Natal charts with a built-in ephemeris, truncated to a twentieth of the terms: 89% smaller than the full VSOP87D tables, at 4.3 arcseconds against published charts that resolve to the arcminute.
 mingli-wasm-astrology-lite|astrology-lite|astrology-lite|astrology,horoscope,natal,ephemeris,wasm|Natal charts from planetary longitudes you supply: houses, cusps, aspects and signs, without the ephemeris. 90% smaller than carrying VSOP87D.
 "
 
