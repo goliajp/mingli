@@ -79,8 +79,21 @@ fi
 
 # 「关掉即裁掉」不能只验编译得过——编译永远过，星历照样被拉进来。
 # 这一条直接查依赖图：轻量构建里 vsop87 必须不在。
-printf '\n=== 轻量构建真的裁掉了星历\n'
-if cargo tree -p mingli-wasm --no-default-features -e normal 2>/dev/null | grep -q vsop87; then
+# 拿一个**真的装着叶**的轻量档位来验，不是空壳。
+#
+# 从前这里查的是 `--no-default-features`：一片叶都不装，当然没有 vsop87——
+# 那句「轻量构建裁掉了星历」对一个什么也算不出的空壳成立，等于没验。
+# 同一形状的洞让 `mingli-wasm-astrology-thin@1.1.0` 带着空注册表发了出去。
+printf '\n=== 轻量构建真的裁掉了星历（且叶还在）\n'
+LIGHT="bazi,ziwei,yijing,meihua,qimen"
+light_tree=$(cargo tree -p mingli-wasm --no-default-features --features "$LIGHT" -e normal --prefix none 2>/dev/null | awk '{print $1}' | sort -u)
+for want in mingli-bazi mingli-ziwei mingli-yijing mingli-meihua mingli-qimen; do
+  grep -qx "$want" <<<"$light_tree" || {
+    printf '  ✗ 轻量档位里没有 %s——这一档装到手什么也算不出，而下面那句「没有星历」是白拿的\n' "$want"
+    fail=1
+  }
+done
+if grep -qx vsop87 <<<"$light_tree"; then
   printf '  ✗ 关掉 feature 后 vsop87 仍在依赖图里——「轻量构建」这句话不成立\n'
   printf '    多半是某个消费者按默认把星历叶全开了：继承来的依赖不许写 default-features=false，\n'
   printf '    要在根 manifest 把它设成 opt-in，再由各消费者显式声明要哪几片\n'
