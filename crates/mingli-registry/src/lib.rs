@@ -22,7 +22,7 @@ pub mod leaves {
     #[cfg(feature = "ziwei")]
     pub use mingli_ziwei as ziwei;
     /// `astrology`。`astrology-lite` 下只有排盘部分，本地星历不在。
-    #[cfg(any(feature = "astrology", feature = "astrology-lite"))]
+    #[cfg(any(feature = "astrology", feature = "astrology-lite", feature = "astrology-thin"))]
     pub use mingli_astrology as astrology;
     /// `jyotish`。
     #[cfg(feature = "jyotish")]
@@ -100,7 +100,7 @@ pub fn registry() -> Vec<Box<dyn CastingEngine>> {
         Box::new(mingli_bazi::BaziEngine),
         #[cfg(feature = "ziwei")]
         Box::new(mingli_ziwei::ZiweiEngine),
-        #[cfg(feature = "astrology")]
+        #[cfg(any(feature = "astrology", feature = "astrology-thin"))]
         Box::new(mingli_astrology::AstrologyEngine),
         #[cfg(feature = "jyotish")]
         Box::new(mingli_jyotish::JyotishEngine),

@@ -144,7 +144,7 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 
 | npm 包 | 装配 | 模块 | gzip 后 |
 |---|---|---:|---:|
-| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 140 KB | 65 KB |
+| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 229 KB | 119 KB |
 | `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
 | `mingli-wasm-astrology-lite` | 占星排盘，位置你给 | 162 KB | 73 KB |
 | `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |

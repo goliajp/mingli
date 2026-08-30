@@ -151,7 +151,7 @@ Measured, release wasm32:
 
 | npm package | Build | Module | gzipped |
 |---|---|---:|---:|
-| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 140 KB | 65 KB |
+| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 229 KB | 119 KB |
 | `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
 | `mingli-wasm-astrology-lite` | Natal charts, you supply the positions | 162 KB | 73 KB |
 | `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
