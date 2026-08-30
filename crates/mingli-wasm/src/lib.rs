@@ -106,6 +106,10 @@ pub fn astrology_with(query_json: &str, longitudes_json: &str) -> Result<String,
 ///
 /// # Errors
 /// query JSON 解析或校验失败时返回错误。
+// 只挂在 `astrology` 上，不挂 `astrology-thin`：实测把它加进 thin 档，产物从
+// 143,274 涨到 202,332 字节（+41%）——一个出口留住了整片叶里本可丢掉的代码。
+// thin 档要的是「小星历 + 排盘」，它的使用者多半不调这个口，不该替他们付这 59 KB。
+// 只要位置的人有 `mingli-wasm-chart`（全量表）或直接用 Rust 的 `longitudes_at`。
 #[cfg(feature = "astrology")]
 #[wasm_bindgen]
 pub fn longitudes(query_json: &str) -> Result<String, JsValue> {
