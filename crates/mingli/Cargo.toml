@@ -46,6 +46,11 @@ full = [
 ]
 abjad = ["mingli-registry/abjad"]
 astrology = ["mingli-registry/astrology"]
+# 占星的排盘部分，不含本地星历：行星位置由调用方给（`compute_at_with`）。
+# 它不是第二十五片叶，所以不进 `full`——`full` 是「二十四片全要」的定义，
+# 而这一档是同一片叶的另一种装配。crates/mingli/tests/facade.rs 按 `full` 核对，
+# 不会把它误当成一片叶。
+astrology-lite = ["mingli-registry/astrology-lite"]
 bazi = ["mingli-registry/bazi"]
 cartomancy = ["mingli-registry/cartomancy"]
 gematria = ["mingli-registry/gematria"]
