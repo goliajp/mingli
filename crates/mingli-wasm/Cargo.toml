@@ -92,6 +92,8 @@ usecases = ["dep:mingli-app", "dep:mingli-interpret"]
 bazi = ["mingli-registry/bazi"]
 ziwei = ["mingli-registry/ziwei"]
 astrology = ["mingli-registry/astrology", "mingli-app?/astrology"]
+# 只要排盘、不要本地星历：行星位置由调用方给。产物比整片叶小 90.7%。
+astrology-lite = ["mingli-registry/astrology-lite"]
 jyotish = ["mingli-registry/jyotish", "mingli-app?/jyotish"]
 qizhengsiyu = ["mingli-registry/qizhengsiyu"]
 yijing = ["mingli-registry/yijing"]

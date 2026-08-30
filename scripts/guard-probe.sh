@@ -331,9 +331,9 @@ probe "自陈：认领了「字」却不在字词注册表里" mingli-app every_
   crates/mingli-numerology/src/engine.rs \
   '/impl WordEngine/,/^}/s|^        "numerology"$|        "numerology-name"|'
 
-probe "自陈：README 的体积表与脚本对不上" mingli-registry the_wasm_size_table_and_the_script_agree \
+probe "自陈：README 的体积表与预算表对不上" mingli-registry the_wasm_size_table_and_the_budget_agree \
   README.md \
-  's:| Four Pillars only | 0.57 MB |:| Four Pillars only | 0.77 MB |:'
+  's:| `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |:| `mingli-wasm-bazi` | Four Pillars only | 777 KB | 89 KB |:'
 
 probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain \
   crates/mingli-analysis/src/lib.rs \
@@ -381,11 +381,11 @@ probe "石头：朔的时刻整体挪了几分钟" mingli-astro the_new_moon_ins
 
 probe "石头：行星位置不再扣光行时" mingli-ephemeris every_planet_matches_the_positions_jpl_publishes_across_a_century \
   crates/mingli-ephemeris/src/lib.rs \
-  's|                tau = LIGHT_TIME_PER_AU \* dist;|                tau = 0.0 * dist;|'
+  's|^        tau = LIGHT_TIME_PER_AU \* dist;$|        tau = 0.0 * dist;|'
 
 probe "石头：行星理论掉出独立星历的量级" mingli-ephemeris at_j2000_every_planet_matches_an_independent_theory_to_the_arcsecond \
   crates/mingli-ephemeris/src/lib.rs \
-  's|            for _ in 0..3 {|            for _ in 0..1 {|'
+  's|    for _ in 0..LIGHT_TIME_PASSES {|    for _ in 0..1 {|'
 
 probe "易经：六爻上下颠倒" mingli-yijing what_is_reported_is_the_hexagram_the_lines_actually_make \
   crates/mingli-yijing/src/lib.rs \
@@ -413,7 +413,7 @@ probe "缅历：宫名取错核心数" mingli-mahabote what_compute_reports_hang
 
 probe "巴厘：八曜正常段落成卡日" mingli-pawukon the_stuck_day_weeks_agree_with_the_reference_closed_form \
   crates/mingli-pawukon/src/lib.rs \
-  '92s|if day < 71 {|if day == 71 {|'
+  '/pub fn astawara_index/,/^}/s|    if day < 71 {|    if day == 71 {|'
 
 probe "玛雅：无名五日全报第一日" mingli-maya haab_wraps_365_and_covers_wayeb \
   crates/mingli-maya/src/lib.rs \
@@ -502,6 +502,15 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "星历：光行时收敛变慢了" mingli-ephemeris the_third_light_time_pass_is_worth_this_much \
+  crates/mingli-ephemeris/src/lib.rs \
+  's@^const LIGHT_TIME_PER_AU: f64 = 0.005_775_518_3;$@const LIGHT_TIME_PER_AU: f64 = 0.05_775_518_3;@'
+
+probe_script "浏览器：四柱与 lunar-javascript 不再一致" \
+  "bash scripts/npm-pack.sh >/dev/null 2>&1 && bash scripts/perf-vs-js.sh '' 200" \
+  crates/mingli-ganzhi/src/cycle.rs \
+  's@^pub const DAY_ANCHOR_JDN: i64 = 2_460_311;$@pub const DAY_ANCHOR_JDN: i64 = 2_460_312;@'
+
 probe_script "发版：发出去的字节与预算表对不上" \
   "bash scripts/npm-pack.sh" \
   scripts/wasm-budget.txt \
@@ -514,7 +523,7 @@ probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_le
 probe_script "发版：内部依赖的版本对不上" \
   "bash scripts/publish-rehearsal.sh" \
   Cargo.toml \
-  's@^mingli-core = { version = "1.0.0", path = "crates/mingli-core" }$@mingli-core = { version = "1.1.0", path = "crates/mingli-core" }@'
+  's@^mingli-core = { version = "1.0.1", path = "crates/mingli-core" }$@mingli-core = { version = "1.1.0", path = "crates/mingli-core" }@'
 
 probe_script "装配：类型化出口又拖上了 serde" \
   "bash scripts/leaf-deps.sh yijing" \
@@ -628,19 +637,19 @@ probe "择日：上限那天被多拒了一天" mingli-app window_bounds_are_che
   's|    if days > MAX_DAYS {|    if days >= MAX_DAYS {|'
 
 probe "择日：月长表少一档" mingli-app day_stepping_crosses_months_and_leap_years \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|        1 \| 3 \| 5 \| 7 \| 8 \| 10 \| 12 => 31,|        1 \| 3 \| 5 \| 7 \| 8 \| 12 => 31,|'
 
 probe "择日：百年不闰那一支丢了" mingli-app day_stepping_crosses_months_and_leap_years \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|        2 if year % 4 == 0 && (year % 100 != 0 \|\| year % 400 == 0) => 29,|        2 if year % 4 == 0 => 29,|'
 
 probe "入参：时越界只在分也越界时才拦" mingli-app an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|    if hour > 23 \|\| minute > 59 {|    if hour > 23 \&\& minute > 59 {|'
 
 probe "入参：时的上界放宽一格" mingli-app an_hour_or_a_minute_out_of_range_is_refused_rather_than_rolled_over \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|    if hour > 23 \|\| minute > 59 {|    if hour > 24 \|\| minute > 59 {|'
 
 probe "跨叶：常量列的熵写出去变成 -0" mingli-analysis entropy_known \
@@ -658,7 +667,7 @@ probe "承接层：释义不说是谁说的" mingli-api the_backend_field_names_
 # 基准取自 HEAD（已提交的那一版），与工作树比——种在工作树上的错正好落在被比的一侧。
 probe_script "契约：拒绝的措辞悄悄改了" \
   './scripts/contract-drift.sh' \
-  crates/mingli-app/src/lib.rs \
+  crates/mingli-contract/src/validate.rs \
   's|return Err("month 须 1–12".into());|return Err("month 须在 1 到 12 之间".into());|'
 
 # 种的是「[features] 段换了写法」——推导取空，逐叶单装那一整段就会跑零次。

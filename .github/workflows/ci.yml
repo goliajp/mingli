@@ -29,6 +29,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: 脚本里不许有变量名紧挨全角标点
+        run: ./scripts/shell-lint.sh
       - run: cargo test --workspace
       - run: cargo clippy --workspace --all-targets
       - run: cargo doc --workspace --no-deps
@@ -170,6 +172,10 @@ jobs:
 
       # 服务都还在应答，正好在这里把前端那两条守卫也反过来验一遍：
       # 种回「渲染里读时钟」那一行，看静止三秒的那条断言拦不拦。
+      - name: 浏览器形态：与当地最强的 JS 实现对拍并计时
+        run: |
+          ./scripts/npm-pack.sh
+          ./scripts/perf-vs-js.sh
       - name: 守卫自检 · 前端那一族
         run: ./scripts/guard-probe.sh 前端
 

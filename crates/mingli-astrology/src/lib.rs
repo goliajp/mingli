@@ -19,6 +19,7 @@
 )]
 
 pub mod koch;
+#[cfg(feature = "ephemeris")]
 pub mod progression;
 
 /// 推运时间序列覆盖到第几岁。取 100——与四柱大运的百年时间线同尺度，
@@ -40,7 +41,9 @@ pub use mingli_ephemeris::{asc_mc, GeoLocation};
 
 use mingli_astro::Moment;
 use mingli_core::quantizer;
-use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
+use mingli_ephemeris::Body;
+#[cfg(feature = "ephemeris")]
+use mingli_ephemeris::{geocentric_ecliptic_longitude, geocentric_ecliptic_longitudes};
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
@@ -221,6 +224,7 @@ pub struct NatalChart {
     pub cusp_houses: Option<Vec<CuspHouseEntry>>,
 }
 
+#[cfg(feature = "ephemeris")]
 /// 某时刻太阳所在星座名——只算太阳，不排整盘。
 ///
 /// 供 [`CastingEngine::principal`](mingli_contract::CastingEngine::principal) 用：
@@ -291,6 +295,56 @@ pub fn classify_aspect(a: f64, b: f64, orb: f64) -> Option<(&'static str, f64)> 
 
 
 /// 计算九星落座（与可选宫位）。
+/// 九星的星名，与 [`longitudes_at`] 的次序一一对应。
+pub const BODY_NAMES: [&str; 9] = [
+    "太阳", "月亮", "水星", "金星", "火星", "木星", "土星", "天王", "海王",
+];
+
+/// 九星的地心黄经（度），只此一项。
+///
+/// [`compute_at`] 在这之上还要排相位、定星座、分宫与落宫，每颗星要两个 `String`；
+/// 只要位置的调用方不必为那些付钱。本函数不分配任何东西，次序同 [`BODY_NAMES`]。
+///
+/// ```
+/// use mingli_astrology::{longitudes_at, BODY_NAMES};
+/// let m = mingli_astro::Moment::new(1990, 6, 15, 14, 30, 8.0);
+/// let lon = longitudes_at(&m);
+/// assert_eq!(lon.len(), BODY_NAMES.len());
+/// assert!((0.0..360.0).contains(&lon[0]));
+/// ```
+#[cfg(feature = "ephemeris")]
+#[must_use]
+pub fn longitudes_at(m: &Moment) -> [f64; 9] {
+    let mut out = [0.0_f64; 9];
+    // 走批量出口：地球那条级数只求一次，而不是每颗星求一遍。
+    let bodies: [Body; 9] = BODIES.map(|(b, _)| b);
+    geocentric_ecliptic_longitudes(&bodies, m.jde, &mut out);
+    out
+}
+
+/// 由九个黄经排出九星的落座与落宫。
+///
+/// 与 [`planets_at`] 分开，是因为「位置从哪来」和「位置怎么读」是两件事：
+/// 前者要 VSOP87D 那份 780 KB 的常量表，后者不要。调用方自带星历时走这一条。
+fn planets_from(longitudes: &[f64; 9], asc_sign_idx: Option<usize>) -> Vec<PlanetPos> {
+    BODIES
+        .iter()
+        .zip(longitudes.iter())
+        .map(|(&(_, name), &lon)| {
+            let sign_idx = quantizer::sector(lon, 12) as usize;
+            let house = asc_sign_idx.map(|a| ((sign_idx + 12 - a) % 12 + 1) as u8);
+            PlanetPos {
+                name: name.to_string(),
+                longitude: lon,
+                sign: SIGNS[sign_idx].to_string(),
+                degree: quantizer::within(lon, 12),
+                house,
+            }
+        })
+        .collect()
+}
+
+#[cfg(feature = "ephemeris")]
 fn compute_planets(jde: f64, asc_sign_idx: Option<usize>) -> Vec<PlanetPos> {
     BODIES
         .iter()
@@ -330,14 +384,26 @@ fn compute_aspects(planets: &[PlanetPos]) -> Vec<Aspect> {
     aspects
 }
 
-/// 在共享上下文 [`Moment`] 上排本命盘。
+/// 由**调用方供给**的九个黄经排本命盘。次序同 [`BODY_NAMES`]。
+///
+/// 存在的理由是体积与速度：VSOP87D 的常量表在浏览器产物里约 780 KB，占一个带星历的
+/// 档位五成以上，而算完那些级数是排一张盘里九成七的时间。宿主若已经有星历
+/// （浏览器里有几十 KB 的 JS 实现），把九个数递进来即可——上升点、中天、
+/// 整宫、分宫、相位、落座仍在这里算。
+///
+/// `mingli-ephemeris/vsop87` 关掉时，本函数是唯一的入口。
 ///
 /// `geo` 为 `None` 时只出九星落座 + 相位（位置无关、可完全自验证）；为 `Some` 时
 /// 复用 `m.sidereal_time`/`m.obliquity` 加算上升点/中天 + 整宫制 + 所选分宫制(`house_system`)。
 #[must_use]
-pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSystem) -> NatalChart {
+pub fn compute_at_with(
+    m: &Moment,
+    geo: Option<GeoLocation>,
+    house_system: HouseSystem,
+    longitudes: &[f64; 9],
+) -> NatalChart {
     let Some(g) = geo else {
-        let planets = compute_planets(m.jde, None);
+        let planets = planets_from(longitudes, None);
         let aspects = compute_aspects(&planets);
         return NatalChart {
             planets,
@@ -355,7 +421,7 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
     let asc_sign_idx = quantizer::sector(asc, 12) as usize;
     let mc_sign_idx = quantizer::sector(mc, 12) as usize;
 
-    let planets = compute_planets(m.jde, Some(asc_sign_idx));
+    let planets = planets_from(longitudes, Some(asc_sign_idx));
     let aspects = compute_aspects(&planets);
 
     // Whole Sign：第一宫=上升星座，逐宫推进一星座；星按落座归宫。
@@ -429,7 +495,17 @@ pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSyste
     }
 }
 
+/// 排本命盘，位置由本地星历算。
+///
+/// 见 [`compute_at_with`]：位置从哪来与位置怎么读是两件事，这一个把两件都做了。
+#[cfg(feature = "ephemeris")]
+#[must_use]
+pub fn compute_at(m: &Moment, geo: Option<GeoLocation>, house_system: HouseSystem) -> NatalChart {
+    compute_at_with(m, geo, house_system, &longitudes_at(m))
+}
+
 /// 由本地民用时刻排本命盘（独立入口，分宫制取 [`HouseSystem::Placidus`]）。`geo` 见 [`compute_at`]。
+#[cfg(feature = "ephemeris")]
 #[must_use]
 pub fn compute(
     year: i32,

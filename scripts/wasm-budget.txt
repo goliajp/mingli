@@ -2,6 +2,7 @@
 # 列：档位 -Oz后 gzip后。改这张表必须是有意的，且要写进 commit message。
 chart-solo-bazi 198777 91166
 chart-solo-yijing 159557 73226
-chart-chinese 348983 146281
-chart-all 1265177 728055
-full 1475798 807120
+astrology-lite 165487 74498
+chart-chinese 348981 146443
+chart-all 1267178 728900
+full 1478302 808382

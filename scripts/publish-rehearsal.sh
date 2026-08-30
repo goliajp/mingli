@@ -28,7 +28,7 @@ while read -r line; do
   if [ -z "$ver" ]; then
     say_bad "$name 在 [workspace.dependencies] 里没写 version——发版时 crates.io 会拒"
   elif [ "$ver" != "$WS_VER" ]; then
-    say_bad "$name 写的是 $ver，workspace 是 $WS_VER——两处必须一致"
+    say_bad "$name 写的是 ${ver}，workspace 是 ${WS_VER}——两处必须一致"
   fi
 done < <(grep -E '^mingli-[a-z0-9]+ = \{' Cargo.toml)
 [ "$bad" -eq 0 ] && echo "  ✓ 都对上了"

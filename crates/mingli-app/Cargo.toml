@@ -23,7 +23,7 @@ mingli-ziwei = { workspace = true }
 mingli-zeri = { workspace = true }
 mingli-taiyi = { workspace = true }
 mingli-jyotish = { workspace = true, optional = true }
-mingli-astrology = { workspace = true, optional = true }
+mingli-astrology = { workspace = true, optional = true, features = ["port"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

@@ -21,8 +21,8 @@ pub mod leaves {
     /// `ziwei`。
     #[cfg(feature = "ziwei")]
     pub use mingli_ziwei as ziwei;
-    /// `astrology`。
-    #[cfg(feature = "astrology")]
+    /// `astrology`。`astrology-lite` 下只有排盘部分，本地星历不在。
+    #[cfg(any(feature = "astrology", feature = "astrology-lite"))]
     pub use mingli_astrology as astrology;
     /// `jyotish`。
     #[cfg(feature = "jyotish")]

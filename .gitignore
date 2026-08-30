@@ -21,3 +21,5 @@ web/e2e/shots/
 .claude/
 docs/
 mutants.out*/
+bench/browser/node_modules/
+bench/browser/package-lock.json
