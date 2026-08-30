@@ -32,13 +32,21 @@ INFRA=" mingli-core mingli-astro mingli-contract mingli-engine mingli-registry m
         mingli-interpret mingli-app "
 
 want="${1:-}"
-bad=0; checked=0
+bad=0; checked=0; tried=0; missing=0; extra=0
 for leaf in $LEAVES; do
   [ -z "$want" ] || [ "$want" = "$leaf" ] || continue
+  tried=$((tried+1))
   keep=$(crate_of "$leaf")
   tree=$(cargo tree -p mingli-wasm --target wasm32-unknown-unknown -e normal --prefix none \
            --no-default-features --features "$leaf" 2>/dev/null | awk '{print $1}' | sort -u)
   [ -n "$tree" ] || { echo "  ✗ ${leaf}：cargo tree 无输出" >&2; bad=$((bad+1)); continue; }
+  # 先问它自己在不在。一片叶都没拉进来的构建，「没有别的叶」是白拿的——
+  # 这道闸会说它干净，而使用者装到手的是一个什么也算不出的包。
+  # 同一形状的洞让 `mingli-wasm-astrology-thin@1.1.0` 带着空注册表发了出去。
+  if ! grep -qx "$keep" <<<"$tree"; then
+    printf '  ✗ %-14s 开了它自己的 feature，却没把 %s 拉进来\n' "$leaf" "$keep"
+    bad=$((bad+1)); missing=$((missing+1)); continue
+  fi
   intruders=""
   for other in $LEAVES; do
     oc=$(crate_of "$other")
@@ -49,16 +57,21 @@ for leaf in $LEAVES; do
   checked=$((checked+1))
   if [ -n "$intruders" ]; then
     printf '  ✗ %-14s 混进了：%s\n' "$leaf" "${intruders# }"
-    bad=$((bad+1))
+    bad=$((bad+1)); extra=$((extra+1))
   else
     printf '  ✓ %-14s 干净\n' "$leaf"
   fi
 done
 
-[ "$checked" -gt 0 ] || { echo "一片也没查到（叶名写错了？）" >&2; exit 1; }
+# 「一片也没查到」与「查了但都没过」是两回事：前者是叶名写错，后者是真有问题。
+# 用 tried 而不是 checked 做这个判断——checked 只数通过的，全都没过时它是 0，
+# 于是真问题会被报成「叶名写错了？」。
+[ "$tried" -gt 0 ] || { echo "一片也没查到（叶名写错了？）" >&2; exit 1; }
 echo
 if [ "$bad" -gt 0 ]; then
-  echo "$checked 片里 $bad 片带进了别的叶——只要其中一片的使用者，正在为另外几片付体积"
+  # 两种失败分开报：说错原因比不报还糟——上一版把「叶没拉进来」也说成「带进了别的叶」。
+  [ "$extra" -eq 0 ] || echo "$tried 片里 $extra 片带进了别的叶——只要其中一片的使用者，正在为另外几片付体积"
+  [ "$missing" -eq 0 ] || echo "$tried 片里 $missing 片连自己都没拉进来——那样的档位装到手什么也算不出"
   exit 1
 fi
 echo "$checked 片各自干净"

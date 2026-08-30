@@ -544,6 +544,11 @@ probe_script "装配：类型化出口又拖上了 serde" \
   crates/mingli-yijing/Cargo.toml \
   's@^serde = { workspace = true, optional = true }$@serde = { workspace = true }@'
 
+probe_script "装配：单叶档连自己那片都没有" \
+  "bash scripts/leaf-isolation.sh yijing" \
+  crates/mingli-wasm/Cargo.toml \
+  's@^yijing = \["mingli-registry/yijing"\]$@yijing = []@'
+
 probe_script "装配：单叶档混进了别的叶" \
   "bash scripts/leaf-isolation.sh yijing" \
   crates/mingli-wasm/Cargo.toml \
