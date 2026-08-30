@@ -38,7 +38,7 @@ for leaf in $LEAVES; do
   keep=$(crate_of "$leaf")
   tree=$(cargo tree -p mingli-wasm --target wasm32-unknown-unknown -e normal --prefix none \
            --no-default-features --features "$leaf" 2>/dev/null | awk '{print $1}' | sort -u)
-  [ -n "$tree" ] || { echo "  ✗ $leaf：cargo tree 无输出" >&2; bad=$((bad+1)); continue; }
+  [ -n "$tree" ] || { echo "  ✗ ${leaf}：cargo tree 无输出" >&2; bad=$((bad+1)); continue; }
   intruders=""
   for other in $LEAVES; do
     oc=$(crate_of "$other")

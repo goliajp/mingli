@@ -40,7 +40,7 @@ binaries=$(grep -cE '^test result: ok\.' "$out" || true)
   exit 1
 }
 if [ "$actual" != "$lines" ]; then
-  # 变量名一律加花括号：`$actual，` 这种写法会让 bash 把全角逗号的头一个字节
+  # 变量名一律加花括号：`${actual}，` 这种写法会让 bash 把全角逗号的头一个字节
   # 并进变量名，于是 set -u 报 `actual?: unbound variable`——这条错误分支从前正是
   # 这么坏的：它真要开口的那一刻死在一句莫名其妙的 bash 报错上，而正常路径永远不经过它。
   echo "两种数法对不上：汇总行加总 ${actual}，逐条 ok 行 ${lines}" >&2
