@@ -502,6 +502,11 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe_script "浏览器：四柱与 lunar-javascript 不再一致" \
+  "bash scripts/npm-pack.sh >/dev/null 2>&1 && bash scripts/perf-vs-js.sh '' 200" \
+  crates/mingli-ganzhi/src/cycle.rs \
+  's@^pub const DAY_ANCHOR_JDN: i64 = 2_460_311;$@pub const DAY_ANCHOR_JDN: i64 = 2_460_312;@'
+
 probe_script "发版：发出去的字节与预算表对不上" \
   "bash scripts/npm-pack.sh" \
   scripts/wasm-budget.txt \
