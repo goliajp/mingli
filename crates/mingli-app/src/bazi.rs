@@ -2,6 +2,8 @@
 
 use crate::Birth;
 use mingli_bazi::{BaziChart, BirthInput};
+#[cfg(feature = "jyotish")]
+use mingli_astro::Moment;
 use mingli_contract::{AskTime, Gender};
 use serde_json::{json, Value};
 
@@ -28,6 +30,11 @@ pub fn birth_input(b: &Birth) -> BirthInput {
 }
 
 /// 本命盘。开启真太阳时且给了经度时走校正排法，否则走钟表时。
+///
+/// 两半都有守卫：回退那半见 `true_solar_time_only_applies_with_longitude`，
+/// 生效那半见 `true_solar_time_actually_takes_the_corrected_path_when_it_can`。
+/// 从前只有前者，于是删掉下面那条 match 臂——请求真太阳时的人静默拿到钟表时的盘——
+/// 全量套件一条都不红。
 #[must_use]
 pub fn natal(b: &Birth) -> BaziChart {
     let input = birth_input(b);
@@ -79,7 +86,106 @@ pub fn fortune(b: &Birth, t: &AskTime, timeline_max_age: Option<u32>) -> Result<
     let max_age = timeline_max_age.unwrap_or(100).min(MAX_AGE_CAP);
     let at = mingli_bazi::fortune_at(input, t.year, t.month, t.day, t.hour, t.minute, t.tz);
     let timeline = mingli_bazi::fortune_supply_timeline(input, max_age);
-    Ok(json!({ "at": at, "timeline": timeline, "max_age": max_age }))
+    Ok(json!({
+        "at": at,
+        "timeline": timeline,
+        "max_age": max_age,
+        "dasha": vimshottari_at(b, t),
+        "progression": progression_of(b, max_age),
+        "ziwei": ziwei_at(b, t),
+    }))
+}
+
+/// 紫微的「运」：所问之岁落在哪一步大限，以及所问之年的流年宫。
+///
+/// 大限盘本身在本命盘上（十年一宫，出生即定），可**流年宫要有「所问之年」才成立**，
+/// 本命盘上没有那个年份，所以它只能落在这一层。该叶的 `answers()` 早就写着它算这两样，
+/// 而在此之前只有前一半真的出现在输出里——第二半算完就丢了。
+///
+/// 性别缺省时大限出不来（顺逆由「年干阴阳 + 性别」定），此时 `limit` 为 `null`；
+/// 流年宫不需要性别，照常给。
+fn ziwei_at(b: &Birth, t: &AskTime) -> Value {
+    let chart = crate::ziwei::natal(b);
+    let ming = mingli_ganzhi::BRANCHES.iter().position(|x| *x == chart.ming_branch);
+    let Some(ming) = ming.and_then(|i| u8::try_from(i).ok()) else {
+        return Value::Null;
+    };
+    let (branch_index, palace) = mingli_ziwei::limit::annual_palace(ming, t.year);
+    let age = f64::from(t.year - b.year);
+    let limit = chart.major_limits.as_ref().and_then(|l| {
+        l.steps
+            .iter()
+            .find(|s| age >= f64::from(s.start_age) && age <= f64::from(s.end_age))
+            .map(|s| serde_json::to_value(s).unwrap_or(Value::Null))
+    });
+    json!({
+        "system": "ziwei",
+        "ming_branch": chart.ming_branch,
+        "limit": limit,
+        "annual": {
+            "year": t.year,
+            "branch": mingli_ganzhi::BRANCHES[usize::from(branch_index)],
+            "palace": palace,
+        },
+    })
+}
+
+/// 目标时刻所处的 Vimshottari 大运段，以及整条序列。
+///
+/// 西洋占星的二次推运（一日一年）——「运」的第三条时间线，与四柱大运、Vimshottari 并列。
+///
+/// **它不在本命盘上**：推运每一格是一次完整星历求值，而问本命盘的人没有要一生的运。
+/// 这与四柱同一处置——那一片的盘面出十步大运（干支算术，近乎免费），
+/// 逐年的供给时序在本层另算。
+#[cfg(feature = "astrology")]
+fn progression_of(b: &Birth, max_age: u32) -> Value {
+    use mingli_astro::Moment;
+    let m = Moment::new(b.year, b.month, b.day, b.hour, b.minute, b.tz);
+    let natal = mingli_astrology::compute_at(&m, None, mingli_astrology::HouseSystem::WholeSign);
+    // 每五年一格：逐年那份 101 格 × 9 星在线上过重，而推运太阳约 1°/年，
+    // 五年一格已足以看出它走到哪一座；要更细的自行调 `progression` 传 step = 1
+    let p = mingli_astrology::progression::progression(m.jde, &natal.planets, max_age, 5);
+    serde_json::to_value(p).unwrap_or(Value::Null)
+}
+
+/// 关掉 `astrology` feature 时的桩。
+#[cfg(not(feature = "astrology"))]
+fn progression_of(_b: &Birth, _max_age: u32) -> Value {
+    Value::Null
+}
+
+/// 关掉 `jyotish` feature 时返回 `null`——与 registry 关掉该叶时它从注册表里消失是同一件事：
+/// 轻量构建里没有这套算力，说没有比给一个空壳诚实。
+///
+/// 「运」这一类问局有两片叶答得起：四柱给的是「大运十步 + 百年供给曲线」，
+/// 印度占星给的是「Mahādaśā 序列」。两者都是**势**，粒度却不同——
+/// 四柱按十年一步且与节气相关，Vimshottari 按主星各自的年数（6 至 20 年不等）。
+///
+/// 形状上取加法：四柱那份原样留在顶层不动，这一段挂在 `dasha` 下。
+/// 硬要合成一条曲线会把两套各自的粒度都磨掉，而它们的粒度本身就是各自体系的一部分。
+#[cfg(feature = "jyotish")]
+fn vimshottari_at(b: &Birth, t: &AskTime) -> Value {
+    let birth = Moment::new(b.year, b.month, b.day, b.hour, b.minute, b.tz);
+    let chart = mingli_jyotish::compute_at(&birth, None, mingli_jyotish::Ayanamsa::default());
+    let target = Moment::new(t.year, t.month, t.day, t.hour, t.minute, t.tz);
+    let age = (target.jd_ut - birth.jd_ut) / 365.25;
+    let current = chart
+        .mahadashas
+        .iter()
+        .find(|d| age >= d.start_age_years && age < d.end_age_years);
+    json!({
+        "system": "jyotish",
+        "birth_lord": chart.birth_dasha_lord,
+        "age_years": age,
+        "current": current,
+        "timeline": chart.mahadashas,
+    })
+}
+
+/// 关掉 `jyotish` feature 时的桩：这套算力不在本次构建里。
+#[cfg(not(feature = "jyotish"))]
+fn vimshottari_at(_b: &Birth, _t: &AskTime) -> Value {
+    Value::Null
 }
 
 #[cfg(test)]
@@ -134,5 +240,133 @@ mod tests {
         b.true_solar_time = true;
         // 没给经度 → 静默回退钟表时（数据完整性优先于校正信仰）
         assert_eq!(natal(&b).hour.ganzhi, natal(&sample()).hour.ganzhi);
+    }
+
+    /// 开了真太阳时又给了经度，就得真的走校正那条路。
+    ///
+    /// 上面那条只验了**回退**那一半。删掉 `(true, Some(lon))` 那条 match 臂——于是
+    /// 请求了真太阳时的人静默拿到钟表时的盘——全量套件一条都不红。正负两半都要验。
+    ///
+    /// 不预测校正后是哪根时柱，而是与底层入口对账：走这条路的结果必须与
+    /// `compute_with_true_solar` 逐字段相同，且与钟表时那张盘不同。
+    #[test]
+    fn true_solar_time_actually_takes_the_corrected_path_when_it_can() {
+        let mut b = sample();
+        b.true_solar_time = true;
+        // 东八区的标准经线是 120°E。取 90°E：经度差 −30° × 4 分钟 = −120 分钟，
+        // 足以把 14:30 推过时辰边界。
+        b.longitude = Some(90.0);
+
+        let corrected = natal(&b);
+        let direct = mingli_bazi::compute_with_true_solar(birth_input(&b), 90.0);
+        assert_eq!(corrected.hour.ganzhi, direct.hour.ganzhi, "该与校正入口给的一致");
+        assert_eq!(corrected.day.ganzhi, direct.day.ganzhi);
+        assert_eq!(corrected.month.ganzhi, direct.month.ganzhi);
+
+        let clock = natal(&sample());
+        assert_ne!(
+            corrected.hour.ganzhi, clock.hour.ganzhi,
+            "差两小时应当换一根时柱——否则这条测试等于没验"
+        );
+
+        // 站在标准经线上，只剩均时差，时柱不该被推过边界。
+        b.longitude = Some(120.0);
+        assert_eq!(
+            natal(&b).hour.ganzhi,
+            clock.hour.ganzhi,
+            "120°E 是东八区的标准经线，此处只剩几分钟的均时差"
+        );
+    }
+}
+
+#[cfg(test)]
+mod dasha_tests {
+    use super::*;
+    use mingli_contract::Gender;
+
+    fn natal() -> Birth {
+        Birth {
+            year: 1990, month: 6, day: 15, hour: 14, minute: 30, tz: 8.0,
+            gender: Some(Gender::Male), true_solar_time: false, longitude: None,
+        }
+    }
+
+    /// 「运」这一类由两片叶答：四柱那份原样在顶层，印度占星的大运挂在 `dasha` 下。
+    ///
+    /// 这条钉住两件事——旧字段一个不少（加法不改旧形状），
+    /// 以及 `current` 真的是**目标年龄落在其中**的那一段，不是随手取的第一段。
+    #[test]
+    fn the_fortune_carries_both_systems_and_picks_the_right_dasha() {
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        let v = fortune(&natal(), &t, None).expect("应可算");
+        for k in ["at", "timeline", "max_age"] {
+            assert!(v.get(k).is_some(), "四柱那份的 `{k}` 不该因为加了 dasha 而消失");
+        }
+        let d = &v["dasha"];
+        assert_eq!(d["system"], "jyotish");
+        let age = d["age_years"].as_f64().expect("年龄应是数");
+        let cur = &d["current"];
+        assert!(!cur.is_null(), "目标时刻应落在某一段大运里");
+        let (a, b) = (
+            cur["start_age_years"].as_f64().expect("起"),
+            cur["end_age_years"].as_f64().expect("止"),
+        );
+        assert!(a <= age && age < b, "current 段 [{a}, {b}) 应含目标年龄 {age}");
+        assert!(!d["timeline"].as_array().expect("序列").is_empty());
+    }
+
+    /// 两套的粒度本来就不同——四柱十年一步，Vimshottari 各主星 6 至 20 年不等。
+    /// 这条不是审美，是防止有人日后把两条曲线合成一条：合了就把各自的粒度磨掉了。
+    #[test]
+    fn the_two_systems_keep_their_own_grain() {
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        let v = fortune(&natal(), &t, None).expect("应可算");
+        let dasha = v["dasha"]["timeline"].as_array().expect("序列");
+        let spans: Vec<f64> = dasha
+            .iter()
+            .map(|d| d["years"].as_f64().unwrap_or_default())
+            .collect();
+        assert!(spans.iter().any(|x| (*x - 10.0).abs() > 1.0), "Vimshottari 各段不该都是十年");
+        assert!(spans.iter().all(|x| (6.0..=20.0).contains(x)), "各段应在 6 至 20 年之间");
+    }
+
+    /// 紫微那一层：所问之岁落进哪一步大限，所问之年入哪一宫。
+    ///
+    /// 流年宫这一半在此之前算完就丢了——该叶的 `answers()` 一直写着它算这个，
+    /// 而输出里从来没有过。这条钉住它真的出得来，且落的宫与太岁支对得上。
+    #[test]
+    fn the_fortune_carries_the_ziwei_limit_and_the_year_palace() {
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        let v = fortune(&natal(), &t, None).expect("应可算");
+        let z = &v["ziwei"];
+        assert_eq!(z["system"], "ziwei", "紫微那一层应在 `ziwei` 下");
+
+        // 2026 为丙午年：年支序 = (2026 − 4) mod 12 = 6 = 午
+        assert_eq!(z["annual"]["year"], 2026);
+        assert_eq!(z["annual"]["branch"], "午", "2026 是午年");
+        assert!(!z["annual"]["palace"].is_null(), "流年宫应有宫名");
+
+        // 大限：目标年龄该落在这一步的起讫之间，而不是随手取的第一步
+        let limit = &z["limit"];
+        assert!(!limit.is_null(), "样本给了性别，大限不该为空");
+        let age = f64::from(t.year - natal().year);
+        let (a, b) = (
+            limit["start_age"].as_f64().expect("起"),
+            limit["end_age"].as_f64().expect("止"),
+        );
+        assert!(a <= age && age <= b, "大限段 [{a}, {b}] 应含目标年龄 {age}");
+    }
+
+    /// 性别缺省时大限出不来（顺逆由「年干阴阳 + 性别」定），但流年宫不需要性别。
+    /// 这条防的是「缺一样就整段返回 null」——那会把算得出的那一半也一并吞掉。
+    #[test]
+    fn the_year_palace_survives_a_missing_gender() {
+        let mut b = natal();
+        b.gender = None;
+        let t = AskTime { year: 2026, month: 8, day: 16, hour: 10, minute: 0, tz: 8.0 };
+        // fortune 本身要性别（大运顺逆），故直接问这一层
+        let z = ziwei_at(&b, &t);
+        assert!(z["limit"].is_null(), "缺性别时大限应为空");
+        assert_eq!(z["annual"]["branch"], "午", "流年宫不依赖性别，应照常给");
     }
 }

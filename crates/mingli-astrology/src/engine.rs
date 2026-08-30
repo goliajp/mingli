@@ -1,12 +1,27 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 西洋占星本命盘叶（B 族）。仅 `astrology` feature 开启时编译（连带 VSOP87 星历）。
 #[derive(Debug, Default)]
 pub struct AstrologyEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &AstrologyEngine, m: &Moment, q: &Query) -> crate::NatalChart {
+    let geo = match (q.latitude, q.longitude) {
+        (Some(latitude), Some(longitude)) => Some(crate::GeoLocation {
+            latitude,
+            longitude,
+        }),
+        _ => None,
+    };
+    let house_system = crate::HouseSystem::from_id(q.school_of(e.id(), "placidus"));crate::compute_at(m, geo, house_system)
+}
 
 impl CastingEngine for AstrologyEngine {
     fn id(&self) -> &'static str {
@@ -19,20 +34,87 @@ impl CastingEngine for AstrologyEngine {
         Family::Angular
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let geo = match (q.latitude, q.longitude) {
-            (Some(latitude), Some(longitude)) => Some(crate::GeoLocation {
-                latitude,
-                longitude,
-            }),
-            _ => None,
-        };
-        let house_system = crate::HouseSystem::from_id(q.school_of(self.id(), "placidus"));
-        serde_json::to_value(crate::compute_at(m, geo, house_system))
-            .unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（西洋占星本命盘，读懂后给出有据的性格 / 领域倾向判读）】\n\
+            - `planets[]`：每颗行星的 `longitude`（黄经）、`sign`（所落星座）、`degree`（座内度数）、\
+              `house`（所落宫位 1..12）。太阳主自我与生命力、月亮主情绪与内在需求、水星主思维沟通、\
+              金星主关系与审美、火星主行动与冲劲、木星主扩张与机遇、土星主限制与责任，\
+              天王 / 海王 / 冥王三颗外行星走得慢，主世代性主题而非个人特质。\n\
+            - `houses[12]`：十二宫及其内行星。一宫自我、二宫资源、三宫沟通、四宫家宅、五宫创造、\
+              六宫日常与健康、七宫伴侣、八宫共有与转化、九宫远行与学问、十宫事业、\
+              十一宫社群、十二宫潜隐。**行星落宫说的是这份能量用在哪个领域**。\n\
+            - `angles`：`ascendant` / `asc_sign` 上升（呈现于外的样子）、`midheaven` / `mc_sign` 中天（事业与公众面）。\
+              两者依出生地与时刻而定，缺坐标时不出。\n\
+            - `cusp_system` / `cusp_houses[12]`：所选分宫制及其十二宫头的黄经。分宫制是取舍不是对错——同一张盘换一制，行星的落宫会变，故本盘把用的是哪一制写在旁边。整宫制不出宫头（宫界即星座界），无坐标时两者皆不出。\n\
+            - `aspects[]`：行星间的角度关系，`kind` 为合 / 冲 / 拱 / 刑 / 六分。\
+              合主融合、拱与六分主顺畅、冲与刑主张力——**张力不等于坏**，是需要处理的动力。\n\
+            - `cusp_system`：宫位制（本盘所用）。各制分宫线不同，同一行星可能落在不同宫，\
+              这是流派差异不是误差，见确定性谱。\n\
+            - **读法**：先看太阳 / 月亮 / 上升三者的星座，再看最紧的两三个相位，\
+              最后看行星集中在哪几宫；挑最值得一说的几处，不必逐颗铺陈。")
+    }
+    fn answers(&self) -> &'static [Intent] {
+        // 「运」答得起：本叶算二次推运时间线（`progression.rs`，一日一年），那正是「势」要的时间序列，
+        // 且它由出生时刻单独可导出——端口层的 `cast(&Moment, &Query)` 只给一个时刻，
+        // 而行运（transit）要「本命 + 另一个当下」两个入参，落不到这一层，故走推运这一路。
+        // 「合」仍不答：本叶出的是两盘之间的几何（`cross_aspects`），而「配」要的是契合度那个形态。
+        // 「群/国」用的是立国盘，那是本命盘的一种用法，同一份计算即可，故答。
+        &[Intent::Natal, Intent::Fortune, Intent::Mundane]
+    }
+    fn principal(&self, m: &Moment, _q: &Query) -> Option<Principal> {
+        // 只要太阳所在星座，就**只算太阳**——不排整盘。
+        //
+        // 这一处曾是整棵树最重的一笔浪费：跨叶相关性要对 720 个样本各取一次主判据，
+        // 而本叶自加了二次推运之后，排一整盘要多算 101 年 × 9 星的星历。
+        // 于是那一路跑了 189 秒，契约快照整体从秒级变成三分钟。
+        // 主判据是「这套系统先看哪一个量」，它本来就不该要整盘。
+        Some(Principal { label: "太阳星座", value: crate::sun_sign_at(m.jde).to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
-        use Determinism::Det;
+        use Determinism::{Det, Und};
         const { &[
+            d(
+                "二次推运（一日一年）",
+                Det,
+                "出生后第 N 日的天象代表人生第 N 年。Cafe Astrology《Secondary Progressions》与 \
+                 Kepler College《An Introduction to Secondary Progressions》两源同述\
+                 「one day after birth equals one year of life」，并各自点出两个可独立核对的量：\
+                 推运太阳约 1°/年、推运月亮约 13°/年（故每两三年换一座）——本叶拿这两条作 oracle 校验百年序列。\
+                 相位比对复用盘内那套判定，出的是推运星与本命星之间的角。\
+                 **不在本命盘上**——每格一次完整星历求值，而问本命盘的人没有要一生的运；\
+                 它由用例层的「运」那条路按需算，与四柱逐年的供给时序同处一层",
+            ),
+            d(
+                "行运（transit）与太阳返照未实现",
+                Und,
+                "🟡 这不是定不下，是还没做，且**落不到这一层**——行运要「本命 + 另一个当下时刻」两个入参，\
+                 而端口层的 `cast(&Moment, &Query)` 只给一个时刻；太阳返照同理要先解出返照时刻再另排一盘。\
+                 二者属用例层的编排（像 `mingli_app::bazi::fortune` 那样吃两个时刻），\
+                 本叶已把「由出生时刻单独可导出」的那一路（二次推运）出全。\
+                 另：各家对推运与行运孰重、容许度取多少出入很大，那属取舍不属计算",
+            ),
+            d(
+                "两盘之间的相位（几何）",
+                Det,
+                "与盘内相位同一套判定：两个黄经的夹角落在相位角的容许度内即成。\
+                 不同的只是两个黄经来自两张盘，故每条都带主宾（甲的某星对乙的某星），全矩阵而非上三角",
+            ),
+            d(
+                "合盘取哪些相位",
+                Und,
+                "🟡 分歧在两个维度上都实测到了，且来自互不相干的两份开源实现。\
+                 **容许度**：immanuel-python 的 `settings.py` 给合冲刑拱一律 10°、六分 6°；\
+                 kerykeion 的 `DEFAULT_ACTIVE_ASPECTS` 给合冲 10°、拱 8°、六分 6°，而**刑只给 5°**——\
+                 同一个相位，两家默认值差一倍。**取哪几个相位**：两家默认都是六个，前五个相同，\
+                 第六个一个取梅花 150°(quincunx)、一个取五分 72°(quintile)。\
+                 另有第三种做法是按星体分别定容许度而非按相位——immanuel 为「点」类天体单列一张表，\
+                 其中每个相位的容许度都是 0°，等于把它们排除在外。\
+                 合盘的容许度还常与本命盘另设（AstroConnexions 把它做成按本命值缩放的独立设置）。\
+                 本叶只出几何（单一默认容许度下的全量），选哪些交释义层，不代为取舍。\
+                 也因此本叶仍不认领「合」这一类问局——出几何不等于出「配」这个形态",
+            ),
             d("行星落座·相位", Det, "VSOP87 视黄经，太阳校验 Meeus 0.02°"),
             d("月亮落座", Det, "ELP-2000/82 (astro crate)，校验 Meeus 47.a < 5″ 与 Diana(AA) < 0.2°"),
             d("Asc/MC", Det, "平恒星时+平交角，校验 Diana(AA) < 0.5°"),
@@ -54,6 +136,29 @@ impl CastingEngine for AstrologyEngine {
 mod tests {
     use super::*;
 
+    /// 坐标是本叶的可选原子：给了就出 Asc/MC 与宫位，没给就只出行星落座。
+    /// 两条路都得走一遍——缺坐标时的降级路径与带坐标时的完整路径同样是契约的一部分。
+    #[test]
+    fn coordinates_are_optional_and_both_paths_hold() {
+        let e = AstrologyEngine;
+        let m = Moment::new(1961, 7, 1, 19, 45, 1.0);
+        let mut q = Query::at(1961, 7, 1, 19, 45, 1.0);
+
+        let without = e.cast(&m, &q);
+        assert!(without["angles"].is_null(), "没有坐标就不该凭空出 Asc/MC");
+        assert!(without["planets"].is_array(), "行星落座不依赖坐标");
+
+        q.latitude = Some(52.833);
+        q.longitude = Some(0.500);
+        let with = e.cast(&m, &q);
+        assert_eq!(with["angles"]["asc_sign"], "射手", "Diana 上升在射手");
+        assert_eq!(with["cusp_system"], "placidus", "缺省分宫制");
+        // 单给一边不算给：纬度经度必须成对。
+        let mut half = Query::at(1961, 7, 1, 19, 45, 1.0);
+        half.latitude = Some(52.833);
+        assert!(e.cast(&m, &half)["angles"].is_null(), "只给纬度不成对，应走降级路径");
+    }
+
     /// 适配器把本叶接到统一契约上：元数据齐备、能出盘、确定性谱已声明、
     /// 有流派时恰有一个默认。
     #[test]
@@ -66,6 +171,5 @@ mod tests {
         assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
-        assert!(!e.family().label().is_empty());
     }
 }

@@ -1,12 +1,20 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Moment, Query};
+use mingli_contract::{d, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query};
 use serde_json::Value;
 
 /// 缅甸 Mahabote 叶（A 族）。本命核心数 = （缅历年 − 星期） mod 7。
 #[derive(Debug, Default)]
 pub struct MahaboteEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(_e: &MahaboteEngine, m: &Moment, _q: &Query) -> crate::Cast {
+crate::compute_at(m)
+}
 
 impl CastingEngine for MahaboteEngine {
     fn id(&self) -> &'static str {
@@ -18,14 +26,49 @@ impl CastingEngine for MahaboteEngine {
     fn family(&self) -> Family {
         Family::Cyclic
     }
-    fn cast(&self, m: &Moment, _q: &Query) -> Value {
-        serde_json::to_value(crate::compute_at(m)).unwrap_or(Value::Null)
+    fn cast(&self, m: &Moment, q: &Query) -> Value {
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（缅甸 Mahabote）】\n\
+            - `core`：本命核心数 =（缅历年 − 星期）mod 7，落七宫之一。\n\
+            - `house`：核心数所落之宫（Binga / Atun / Yaza / Adipati / Marana / Thike / Puti）。\n\
+            - `planet` / `weekday` / `weekday_index`：出生星期及其对应行星。\
+              缅历用八天週（周三按午前午后分 Mercury / Rahu），`weekday_index` 已按八天週编号。\n\
+            - `myanmar_year`：缅历年，由儒略日折算。\n\
+            - 🟡 七宫的含义两系互证的只有三宫，其余各家说法不一（Thike 一宫更是两说相反），\
+              宫间几何关系（Grand Trine 等）真单源，均见确定性谱。**故此处只给宫名不给宫义**。\n\
+            - **读法**：说清核心数、所落之宫与出生行星即可；宫义的部分要明说依据薄。")
+    }
+    fn answers(&self) -> &'static [Intent] {
+        &[Intent::Natal]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 本命核心数所落之宫。
+        let c = chart(self, m, q);
+        Some(Principal { label: "本命宫", value: c.house.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
         const { &[
+            d(
+                "本命宫的取法（与第二实现不合，未定）",
+                Und,
+                "🟡 本叶取 `核心数 =（缅历年 − 星期）mod 7`，宫名按 Binga…Puti 直接索引，\
+                 依据是 cool-emerald 的逐字算例（单源）。为找第二源取了 Guru-ThutaSann/py-mahahote，\
+                 它用的是**另一套模型**：`缅历年 mod 7` 定起点，七行星按「အောင်လံထူ」序 1→4→7→3→6→2→5 \
+                 依次填入七宫，本命看出生行星落在哪一宫。\
+                 把它转录后逐日比对 858 天，**754 天给出不同的宫**。\
+                 但这个比对含两处未能从源码确证的假设（Rahu 如何并入只有七个行星位的图、\
+                 本命宫是否即出生行星所落之宫），故只能说「第二源未确认本叶，且很可能冲突」，\
+                 不能据此断定谁对。要定下来须取到缅文原典或 lo tho 实体年历的算例",
+            ),
+
             d("核心数·七宫·八天週行星", Det, "（缅历年−星期） mod 7，校验 2000-01-01=Adipati"),
-            d("宫义·宫间关系", Und, "无自洽单源，不下断言"),
+            d("宫间关系", Und, "🟡 真单源。Grand Trine / Minor Trine / Square / Core / Cardinal Points 五套几何只见于 Barbara Cameron《MaHaBote, the Little Key》一脉：其学生 Sage Asita 的教学页与所附五图、荷兰 DIRAH 函授课、Scribd 两份转抄——四家英文名逐字相同、示例盘同构，判为同源。缅语侧查过缅文维基《မဟာဘုတ်》（只给三行盘面与顺时针盘序、不涉关系）与六个缅甸开源实现（一律只算宫位），一条都没有。另注：Cameron 讲的「友敌生克」是**行星之间**，不是宫之间"),
+            d("七宫含义", Und, "🟡 两系互证的只有三宫：Adipati（领袖 / 善言辞）、Atun（声誉 / 勤勉）、Marana（极端 / 无中间地带）。**Thike 一宫两说相反**——Cameron 作 House of Wealth，而缅文 zatas.ts 的 သိုက်ဖွား 条通篇讲缺钱负债劳而无获（သိုက် 字面即「埋在地下的宝藏」）。Binga 与 Yaza 两系交集过小，缅文维基则不给任何含义。故整体不出"),
+            d("盘面几何与吉凶二分", Det, "缅文维基的三行 wikitable（顶 အဓိပတိ；中 အထွန်း|သိုက်|ရာဇ；底 မရဏ|ဘင်္ဂ|ပုတိ）与 Cameron 盘图（顶 7；中 3|4|5；底 2|1|6，上两排绿底、底排橙底）逐格重合，两条源流互不相干。吉凶二分另有巴利词源独立佐证：bhaṅga 坏灭 / maraṇa 死 / pūti 腐归凶，rāja 王 / adhipati 主宰 / htun 光耀 / thike 埋藏之宝归吉"),
+            d("HOUSES 是索引序不是盘序", Det, "本叶的 HOUSES 配的是 (缅历年−星期) mod 7 的索引序，与盘面顺时针序差「每步 +2」（HOUSES[k] == BOARD[(2k) mod 7]，七项已验）。现只输出本命宫名故无碍；若日后要出整张盘或宫位坐标，直接拿它当盘序会错位"),
         ] }
     }
 }
@@ -46,6 +89,5 @@ mod tests {
         assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
-        assert!(!e.family().label().is_empty());
     }
 }

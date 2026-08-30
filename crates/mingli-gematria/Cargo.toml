@@ -1,14 +1,25 @@
 [package]
 name = "mingli-gematria"
-description = "L3 叶(D 族/确定性)：希伯来 gematria 多计法——22 字母 + 5 尾形按七种 Mispar(Hechrachi/Gadol/Siduri/Katan/KatanMispari/AtBash/AlBam)求和。字符串→数,纯函数。"
+description = "Hebrew gematria in seven methods: Hechrachi, Gadol, Siduri, Katan, Katan Mispari, AtBash and AlBam, over 22 letters and five finals."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["gematria", "hebrew", "numerology", "cipher"]
+categories = ["algorithms", "text-processing"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
-serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

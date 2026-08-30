@@ -1,53 +1,109 @@
 [package]
 name = "mingli-registry"
-description = "装配根：唯一知道「树上有哪些叶」的地方。把各叶的 CastingEngine / WordEngine 实现装配成注册表，交给编排层消费。加新叶只需在此登记一行。"
+description = "The composition root: the one place that knows which divination systems exist. Registering a leaf is one line here."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["registry", "divination", "composition", "plugin"]
+categories = ["algorithms", "api-bindings"]
 
 [dependencies]
 mingli-contract = { workspace = true }
 
-mingli-bazi = { workspace = true }
-mingli-ziwei = { workspace = true }
+mingli-bazi = { workspace = true, optional = true }
+mingli-ziwei = { workspace = true, optional = true }
 # 占星族连带 VSOP87 星历（唯一重依赖），做成 feature 可裁（默认开）。
 mingli-astrology = { workspace = true, optional = true }
 mingli-jyotish = { workspace = true, optional = true }
 mingli-qizhengsiyu = { workspace = true, optional = true }
-mingli-yijing = { workspace = true }
-mingli-geomancy = { workspace = true }
-mingli-sikidy = { workspace = true }
-mingli-ifa = { workspace = true }
-mingli-cartomancy = { workspace = true }
-mingli-meihua = { workspace = true }
-mingli-xiaoliuren = { workspace = true }
-mingli-zeri = { workspace = true }
-mingli-maya = { workspace = true }
-mingli-pawukon = { workspace = true }
-mingli-mahabote = { workspace = true }
-mingli-liuren = { workspace = true }
-mingli-qimen = { workspace = true }
-mingli-taiyi = { workspace = true }
-mingli-tibetan = { workspace = true }
-mingli-numerology = { workspace = true }
-mingli-gematria = { workspace = true }
-mingli-abjad = { workspace = true }
-mingli-wuge = { workspace = true }
+mingli-yijing = { workspace = true, optional = true }
+mingli-geomancy = { workspace = true, optional = true }
+mingli-sikidy = { workspace = true, optional = true }
+mingli-ifa = { workspace = true, optional = true }
+mingli-cartomancy = { workspace = true, optional = true }
+mingli-meihua = { workspace = true, optional = true }
+mingli-xiaoliuren = { workspace = true, optional = true }
+mingli-zeri = { workspace = true, optional = true }
+mingli-maya = { workspace = true, optional = true }
+mingli-pawukon = { workspace = true, optional = true }
+mingli-mahabote = { workspace = true, optional = true }
+mingli-liuren = { workspace = true, optional = true }
+mingli-qimen = { workspace = true, optional = true }
+mingli-taiyi = { workspace = true, optional = true }
+mingli-tibetan = { workspace = true, optional = true }
+mingli-numerology = { workspace = true, optional = true }
+mingli-gematria = { workspace = true, optional = true }
+mingli-abjad = { workspace = true, optional = true }
+mingli-wuge = { workspace = true, optional = true }
 
 [features]
-default = ["astrology", "jyotish", "qizhengsiyu"]
-# 西洋占星叶（B 族）：连带 VSOP87 星历。关掉可得轻量构建（如轻 wasm）。
+# 缺省装配全部二十四片叶。想只要其中几片，`default-features = false` 后逐片开——
+# 每片一个 feature，名字即叶 id。浏览器里这件事是有分量的：整包 1.8 MB，
+# 只要四柱一片是 0.28 MB。
+# 装全部。给「我全都要」一个名字——服务端与开发构建用它，
+# 而不是把二十四个 feature 名抄一遍（抄漏一个就少一片叶，且不会有任何报错）。
+full = [
+    "bazi",
+    "ziwei",
+    "astrology",
+    "jyotish",
+    "qizhengsiyu",
+    "yijing",
+    "geomancy",
+    "sikidy",
+    "ifa",
+    "cartomancy",
+    "meihua",
+    "xiaoliuren",
+    "zeri",
+    "maya",
+    "pawukon",
+    "mahabote",
+    "liuren",
+    "qimen",
+    "taiyi",
+    "tibetan",
+    "numerology",
+    "gematria",
+    "abjad",
+    "wuge",
+]
+default = [
+    "bazi", "ziwei", "astrology", "jyotish", "qizhengsiyu", "yijing", "geomancy", "sikidy",
+    "ifa", "cartomancy", "meihua", "xiaoliuren", "zeri", "maya", "pawukon", "mahabote",
+    "liuren", "qimen", "taiyi", "tibetan", "numerology", "gematria", "abjad", "wuge",
+]
+bazi = ["dep:mingli-bazi"]
+ziwei = ["dep:mingli-ziwei"]
 astrology = ["dep:mingli-astrology"]
-# 印度占星（Jyotish）叶，依赖行星星历与上升点几何。
 jyotish = ["dep:mingli-jyotish"]
-# 七政四余（中国本土星占）叶。
 qizhengsiyu = ["dep:mingli-qizhengsiyu"]
+yijing = ["dep:mingli-yijing"]
+geomancy = ["dep:mingli-geomancy"]
+sikidy = ["dep:mingli-sikidy"]
+ifa = ["dep:mingli-ifa"]
+cartomancy = ["dep:mingli-cartomancy"]
+meihua = ["dep:mingli-meihua"]
+xiaoliuren = ["dep:mingli-xiaoliuren"]
+zeri = ["dep:mingli-zeri"]
+maya = ["dep:mingli-maya"]
+pawukon = ["dep:mingli-pawukon"]
+mahabote = ["dep:mingli-mahabote"]
+liuren = ["dep:mingli-liuren"]
+qimen = ["dep:mingli-qimen"]
+taiyi = ["dep:mingli-taiyi"]
+tibetan = ["dep:mingli-tibetan"]
+numerology = ["dep:mingli-numerology"]
+gematria = ["dep:mingli-gematria"]
+abjad = ["dep:mingli-abjad"]
+wuge = ["dep:mingli-wuge"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
 serde_json = { workspace = true }
 
 [lints]

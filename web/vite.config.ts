@@ -11,5 +11,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://127.0.0.1:6027',
     },
+    // CI 的容器里 inotify 常常收不到改动，于是改了文件、页面还跑着旧模块。
+    // 平时无所谓（人会自己刷新），但守卫自检要靠「改一行源码 → 页面真的变了」才成立：
+    // 监视漏一次，断言就绿在「没测到」上。那一族只在 CI 上跑，故只在那里开轮询。
+    watch: process.env.MINGLI_WATCH_POLL ? { usePolling: true, interval: 300 } : undefined,
   },
 })

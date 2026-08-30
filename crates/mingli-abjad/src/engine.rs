@@ -1,7 +1,7 @@
 //! 本叶对 [`mingli_contract::WordEngine`] 的实现——字/词模态不吃出生时刻，
 //! 只吃文字或笔画，因此走与 `CastingEngine` 平行的第二条契约。
 
-use mingli_contract::{WordEngine, WordQuery};
+use mingli_contract::{d, DetItem, Determinism, WordEngine, WordQuery};
 use serde_json::Value;
 
 /// 阿拉伯 abjad叶的字词入口。
@@ -19,6 +19,15 @@ impl WordEngine for AbjadEngine {
         let w = q.text.clone().unwrap_or_default();
         Ok(serde_json::json!({ "system": "abjad", "input": w, "result": crate::compute(&w) }))
     }
+    fn profile(&self) -> &'static [DetItem] {
+        use Determinism::{Det, Und};
+        const { &[
+            d("Mashriqī 东方序 28 字母值", Det, "ا=1…غ=1000，中东通行序，多源一致"),
+            d("Maghribī 西方序 28 字母值", Det, "与东方序仅六字母不同（س ش ص ض ظ غ），马格里布传统"),
+            d("书写变体归一", Det, "hamza 各形（أ إ آ ء ئ ؤ）归本字母、alef maqsura（ى）归 ي，多数计算器一致"),
+            d("taa marbuta（ة）取值", Und, "🟡 多数计法归 ه=5，少数按发音作 ت=400；两说各有传承，本叶取 5 并在文档标注，不静默选边"),
+        ] }
+    }
 }
 
 #[cfg(test)]
@@ -35,6 +44,7 @@ mod tests {
             surname: Some(vec![7]),
             given: Some(vec![16, 9]),
         };
+        assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let v = e.compute(&q).expect("输入齐备应能取值");
         assert_eq!(v["system"], e.id());
     }

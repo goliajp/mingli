@@ -1,6 +1,6 @@
 // 运势视图：t 时刻切片 + 百年用神供给曲线。
 import type { FortuneResponse, Pillar } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 import { JUDGMENT_FILL, JudgmentChip } from '../components/JudgmentChip'
 import { YunCell } from '../components/YunCell'
 import { gzWuxing } from '../lib/ganzhi'
@@ -14,7 +14,7 @@ export function FortuneView({ fortune, age, onBackToNatal }: {
   onBackToNatal: () => void
 }) {
   if (!fortune) return <section className="card fortune"><div className="fortune-load">运势切片加载中…</div></section>
-  const { at, timeline } = fortune
+  const { at, timeline, dasha, progression, ziwei } = fortune
   const ys = at.natal.yongshen
   const primaryColor = WUXING_COLOR[ys.primary_wuxing] ?? '#888'
   const secondaryColor = ys.secondary_wuxing ? (WUXING_COLOR[ys.secondary_wuxing] ?? '#888') : '#888'
@@ -198,6 +198,100 @@ export function FortuneView({ fortune, age, onBackToNatal }: {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* —— 另一套「运」：Vimshottari 大运/小运。与上面的大运同名不同物 —— */}
+      {dasha?.current && (
+        <div className="fortune-dasha">
+          <div className="fortune-mile-l">
+            Vimshottari 大运 · 小运 <small>（印度占星的运，与四柱大运是两套独立算法，此处并列不合成）</small>
+          </div>
+          <div className="fd-now">
+            出生主星 <b>{dasha.birth_lord}</b> · 现行大运 <b>{dasha.current.lord}</b>
+            <span className="fd-span">{dasha.current.start_age_years.toFixed(1)} — {dasha.current.end_age_years.toFixed(1)} 岁</span>
+          </div>
+          <div className="fd-bar" role="img" aria-label="Vimshottari 120 年大运条">
+            {dasha.timeline.map((d) => {
+              const on = d.lord === dasha.current?.lord && d.start_age_years === dasha.current.start_age_years
+              return (
+                <i
+                  key={`${d.lord}-${d.start_age_years}`}
+                  className={on ? 'fd-seg on' : 'fd-seg'}
+                  style={{ flexGrow: d.effective_years }}
+                  title={`${d.lord} ${d.start_age_years.toFixed(1)}—${d.end_age_years.toFixed(1)} 岁`}
+                >
+                  {d.effective_years >= 9 ? d.lord : ''}
+                </i>
+              )
+            })}
+          </div>
+          <div className="fd-antar">
+            {dasha.current.antardashas.map((a) => {
+              const on = dasha.age_years >= a.start_age_years && dasha.age_years < a.end_age_years
+              return (
+                <span key={a.lord} className={on ? 'fd-chip on' : 'fd-chip'}>
+                  {a.lord} <small>{a.start_age_years.toFixed(1)}—{a.end_age_years.toFixed(1)}</small>
+                </span>
+              )
+            })}
+          </div>
+          <div className="fortune-note">
+            九主星按固定年数循环 120 年，起点由出生时月亮所在 nakshatra 已行比例定；上方一行是当前大运的九步小运。
+            本层只出周期位置，不出吉凶
+          </div>
+        </div>
+      )}
+
+      {/* —— 第三条「运」：西洋占星的二次推运。与上面两条并列，不合成 —— */}
+      {progression && progression.years.length > 0 && (
+        <div className="fortune-dasha">
+          <div className="fortune-mile-l">
+            二次推运 · 一日一年 <small>（出生后第 N 日的天象代表第 N 年；每 {progression.step} 年一格）</small>
+          </div>
+          <div className="fd-antar prog">
+            {progression.years.map((y) => {
+              const sun = y.planets.find((p) => p.name === '太阳')
+              const on = Math.abs(y.age - age) < progression.step / 2
+              return (
+                <span key={y.age} className={on ? 'fd-chip on' : 'fd-chip'} title={`与本命成角 ${y.to_natal.length} 条`}>
+                  {y.age} 岁 <small>{sun ? sun.sign : '—'}</small>
+                </span>
+              )
+            })}
+          </div>
+          <div className="fortune-note">
+            推运太阳约 1°/年、推运月亮约 13°/年（故每两三年换一座），所以日主大势、月主节奏。
+            这一条与四柱大运、Vimshottari 并列而不合成——三套各自说各自的时间，合成等于替读者选边
+          </div>
+        </div>
+      )}
+
+      {/* —— 第四条「运」：紫微的大限与流年宫。同样并列，不合成 —— */}
+      {ziwei && (
+        <div className="fortune-dasha">
+          <div className="fortune-mile-l">
+            紫微大限 · 流年宫 <small>（十年一宫，宫名相对命宫而言；命宫落{ziwei.ming_branch}）</small>
+          </div>
+          <div className="fd-now">
+            {ziwei.limit ? (
+              <>
+                现行大限 <b>{ziwei.limit.palace}宫</b>（{ziwei.limit.branch}）
+                <span className="fd-span">{ziwei.limit.start_age} — {ziwei.limit.end_age} 岁 · 第 {ziwei.limit.step}/12 步</span>
+              </>
+            ) : (
+              <>大限需性别定顺逆，此局未给</>
+            )}
+          </div>
+          <div className="fd-antar zw">
+            <span className="fd-chip on">
+              {ziwei.annual.year} 年 <small>{ziwei.annual.branch} · 入{ziwei.annual.palace}宫</small>
+            </span>
+          </div>
+          <div className="fortune-note">
+            大限十年一宫、由五行局起运岁与顺逆推；流年宫是太岁支入宫，年年在走。
+            前者出生即定，后者要有「所问之年」才成立，故它只出现在这一层而不在本命盘上
           </div>
         </div>
       )}

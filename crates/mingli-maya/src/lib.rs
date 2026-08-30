@@ -21,10 +21,13 @@
     reason = "全部相位经 rem_euclid 落在 0..260 / 0..365 / 0..20 等小范围，窄化到 u8/usize 受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::MayaEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// GMT correlation：JDN 584283 = Long Count `0.0.0.0.0`（学界主流）。
@@ -109,7 +112,8 @@ pub fn long_count(jdn: i64) -> [i64; 5] {
 }
 
 /// 一次玛雅历日换算的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 民用儒略日数。
     pub jdn: i64,
@@ -168,18 +172,35 @@ mod tests {
         assert_eq!(HAAB_MONTHS[18], "Wayeb");
     }
 
+    /// 历元锚：JDN 584283 = `0.0.0.0.0` = 4 Ahau 8 Cumku。
+    ///
+    /// 关联常数是这一片叶的全部——它错一天，每个日期都错一天，而错了不会有任何迹象。
+    /// 两个独立来源给出同一个数：
+    ///
+    /// - Wikipedia《Mesoamerican Long Count calendar》：「The generally accepted correlation
+    ///   constant is the Modified Thompson 2, "Goodman–Martinez–Thompson", or GMT correlation
+    ///   of 584,283 days」，并给出 `0.0.0.0.0` = 公元前 3114-08-11（推算格里历）。
+    /// - Peter Meyer《Maya Calendar: The Correlation Problem》(hermetic.ch/cal_stud/maya/chap2.htm)：
+    ///   取 584283，并说明判定依据是它**与危地马拉高地至今仍在数的 tzolkin 相合**。
+    ///
+    /// ★ 分歧是真的、且只差两天：Lounsbury / Schele–Freidel 一派取 584285（见 [`THOMPSON_LOUNSBURY`]）。
+    /// 本叶取 584283 并把另一说留在常数里，不静默选边——下面 [`the_two_correlations_differ_by_exactly_two_days`]
+    /// 把这个差钉住，免得哪天有人「顺手」把两个数改成一样的。
     #[test]
     fn era_oracle_0_0_0_0_0() {
-        // JDN 584283 = 0.0.0.0.0 = 4 Ahau 8 Cumku（GMT correlation，多源 + 算术复核）。
         let c = compute_from_jdn(GMT_CORRELATION);
         assert_eq!(c.long_count, [0, 0, 0, 0, 0]);
         assert_eq!((c.tzolkin_number, c.tzolkin_name), (4, "Ahau"));
         assert_eq!((c.haab_day, c.haab_month), (8, "Cumku"));
     }
 
+    /// 第二个锚：2012-12-21 = JDN 2456283 = `13.0.0.0.0` = 4 Ahau 3 Kankin。
+    ///
+    /// 与历元锚相隔 13 个 baktun，两头都对上才说明关联常数与进位表同时是对的——
+    /// 只验一头的话，常数错 N 天而进位表也错 N 天的组合能一起蒙混过去。
+    /// 上述两个来源都给出这一对应（Wikipedia 该条目正文与 hermetic.ch 全篇皆以此为讨论前提）。
     #[test]
     fn end_of_13th_baktun_2012() {
-        // 2012-12-21 = JDN 2456283 = 13.0.0.0.0 = 4 Ahau 3 Kankin。
         // 同时校验共享层民用日序与标准 JDN 一致。
         assert_eq!(mingli_astro::civil_day_number(2012, 12, 21), 2_456_283);
         let c = compute_from_jdn(2_456_283);
@@ -188,6 +209,21 @@ mod tests {
         assert_eq!((c.haab_day, c.haab_month), (3, "Kankin"));
         // 大循环算术自洽：584283 + 13×144000 = 2456283。
         assert_eq!(GMT_CORRELATION + 13 * PLACE_DAYS[4], 2_456_283);
+    }
+
+    /// 两派关联常数正好差两天——这个差本身是有来源的，不是随手写的备选值。
+    ///
+    /// hermetic.ch 那篇原话：「This is 2 days off from the Thompson correlation that I use」，
+    /// Wikipedia 的关联常数表里 GMT 584,283 与 Thompson (Lounsbury) 584,285 也正相隔 2。
+    /// 钉住它是因为「留一个不再有意义的备选常数」比没有更糟：读的人会以为那是另一种可选算法。
+    #[test]
+    fn the_two_correlations_differ_by_exactly_two_days() {
+        assert_eq!(THOMPSON_LOUNSBURY - GMT_CORRELATION, 2);
+        // 换成另一派，同一天会往前挪两天——分歧落在结果上是这个样子
+        let a = compute_from_jdn(2_456_283);
+        let b = compute_from_jdn(2_456_283 - (THOMPSON_LOUNSBURY - GMT_CORRELATION));
+        assert_eq!(a.long_count, [13, 0, 0, 0, 0]);
+        assert_eq!(b.long_count, [12, 19, 19, 17, 18], "另一派下 2012-12-21 尚差两天到 13.0.0.0.0");
     }
 
     #[test]
@@ -228,22 +264,47 @@ mod tests {
 
     #[test]
     fn haab_wraps_365_and_covers_wayeb() {
-        // 年内序遍历 0..365：月名下标恒在 0..19，Wayeb 恰 5 天。
-        let mut wayeb_days = 0;
+        // 逐月收齐日值，与整组比对——原先写的是 `assert!(day < 5)`，
+        // 而 Wayeb 五日若全报成第 1 日，`1 < 5` 一样过。实测把 `doy - 360`
+        // 改成 `doy / 360` 正是这个效果，全量套件一条不红。
+        use std::collections::BTreeSet;
+        let mut seen: [BTreeSet<u8>; 19] = core::array::from_fn(|_| BTreeSet::new());
         for k in 0..365i64 {
-            let jdn = GMT_CORRELATION + k;
-            let (day, mi) = haab(jdn);
-            assert!(mi < 19);
-            if mi == 18 {
-                wayeb_days += 1;
-                assert!(day < 5);
-            } else {
-                assert!(day < 20);
-            }
+            let (day, mi) = haab(GMT_CORRELATION + k);
+            assert!(mi < 19, "月名下标越界：{mi}");
+            seen[mi].insert(day);
         }
-        assert_eq!(wayeb_days, 5);
+        for (mi, days) in seen.iter().enumerate() {
+            let want: BTreeSet<u8> = if mi == 18 { (0..5).collect() } else { (0..20).collect() };
+            assert_eq!(
+                *days,
+                want,
+                "{} 的日值应恰为 {:?}",
+                HAAB_MONTHS[mi],
+                if mi == 18 { "0..=4" } else { "0..=19" }
+            );
+        }
         // 第 365 天 Haab 回到起点。
         assert_eq!(haab(GMT_CORRELATION + 365), haab(GMT_CORRELATION));
+    }
+
+    /// Wayeb 那五个「无名日」的具体落点。
+    ///
+    /// 不是新的权威主张：由已有的第二锚 2012-12-21 = 4 Ahau 3 Kankin 与 365 日结构
+    /// 直接推得——3 Kankin 的年内序是 13×20+3 = 263，再走 97 天到 360 即 Wayeb 首日。
+    /// 写死是为了让「年内序 → （日，月）」那一步的换算有具体值可对，而不只是范围。
+    #[test]
+    fn the_five_nameless_days_land_where_the_anchor_puts_them() {
+        let day_of = |y, m, d| haab(mingli_astro::civil_day_number(y, m, d));
+        assert_eq!(day_of(2013, 3, 27), (19, 17), "Wayeb 前一日应是 19 Cumku");
+        let wayeb_start = mingli_astro::civil_day_number(2013, 3, 28);
+        for offset in 0..5i64 {
+            let expected = u8::try_from(offset).expect("offset 取 0..5");
+            assert_eq!(haab(wayeb_start + offset), (expected, 18), "Wayeb 第 {expected} 日");
+        }
+        assert_eq!(day_of(2013, 4, 2), (0, 0), "Wayeb 之后应回到 0 Pop");
+        assert_eq!(HAAB_MONTHS[17], "Cumku");
+        assert_eq!(HAAB_MONTHS[18], "Wayeb");
     }
 
     #[test]

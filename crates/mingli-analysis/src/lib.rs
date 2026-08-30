@@ -1,7 +1,7 @@
-//! L3.5 跨叶分析：对引擎的并行 fan-out 输出做信息论统计。
+//! 跨叶分析：在一组输入上比较各套系统彼此说了多少。
 //!
 //! 思路：单一输入下每片叶都是确定的，故「相关性」只在**输入分布**上才有意义——取一组时刻样本，
-//! 每片叶产出一个分类特征，再算两两**归一化互信息 NMI**：
+//! 每片叶给出它自己的[主判据][`mingli_contract::Principal`]，再算两两**归一化互信息 NMI**：
 //!
 //! - **A / ⟂ / B 族**同吃共享天文历法层（干支/节气/黄经），故同源量高度相关——极端如 `bazi` 的日支
 //!   与 `liuren` 的日支是同一个量，`NMI = 1`。
@@ -13,6 +13,10 @@
 //!
 //! 诚实注：互信息的有限样本估计**正偏**（样本越稀偏高），故本层用 NMI + 充足样本，且「C 族低相关」
 //! 这类结论是保守的（真值更低）。
+//!
+//! 本层只认端口：给它任何一组实现了 [`mingli_contract::CastingEngine`] 的东西都能跑，
+//! 与这个仓库里有哪些叶无关——[`entropy`] / [`mutual_information`] / [`nmi`] 三个纯函数
+//! 更是连端口都不需要，拿两列整数编码即可用。
 
 #![allow(
     clippy::cast_precision_loss,
@@ -22,11 +26,14 @@
     reason = "信息论计数→f64 精度损失可忽略；px/py 等为数学惯用命名；intern 编码窄化受控；对 0.0/identity 的精确比较是有意为之"
 )]
 
-use mingli_contract::{CastingEngine, Family, Gender, Query};
-use mingli_engine::cast_all_detailed;
+use mingli_contract::{CastingEngine, Family, Gender, Moment, Query};
 use serde::Serialize;
-use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+// 计数表用 BTreeMap 而非 HashMap：浮点加法不结合，`a + b + c` 换个次序就换个末位。
+// HashMap 的遍历次序由每进程随机播种的 hasher 决定，于是同一份输入换个进程跑出的
+// 熵与互信息在最低位上不一样——同一批叶、同一组样本，换个进程跑出来的矩阵就不逐字节相同。
+// 按键有序遍历把求和次序钉死，结果才是「可复现」的。
 
 // ===================== 信息论（石头） =====================
 
@@ -37,16 +44,20 @@ pub fn entropy(xs: &[i64]) -> f64 {
     if n == 0.0 {
         return 0.0;
     }
-    let mut c: HashMap<i64, u64> = HashMap::new();
+    let mut c: BTreeMap<i64, u64> = BTreeMap::new();
     for &x in xs {
         *c.entry(x).or_insert(0) += 1;
     }
-    -c.values()
+    // `+ 0.0` 不是凑数：单值分布下每项都是 `1.0 * log2(1.0)` = `-0.0`，
+    // 取负得 `0.0`，求和却仍落在 `-0.0`——熵不可能为负，而报告里印出「-0.000 bit」
+    // 会让读的人怀疑算法。加零把负零收回正零，其余取值不受影响。
+    (-c.values()
         .map(|&k| {
             let p = k as f64 / n;
             p * p.log2()
         })
-        .sum::<f64>()
+        .sum::<f64>())
+        + 0.0
 }
 
 /// 互信息 `I(X;Y)`（bit）。`xs`/`ys` 等长，按位置配对。
@@ -56,9 +67,9 @@ pub fn mutual_information(xs: &[i64], ys: &[i64]) -> f64 {
     if n == 0.0 || xs.len() != ys.len() {
         return 0.0;
     }
-    let mut px: HashMap<i64, u64> = HashMap::new();
-    let mut py: HashMap<i64, u64> = HashMap::new();
-    let mut pxy: HashMap<(i64, i64), u64> = HashMap::new();
+    let mut px: BTreeMap<i64, u64> = BTreeMap::new();
+    let mut py: BTreeMap<i64, u64> = BTreeMap::new();
+    let mut pxy: BTreeMap<(i64, i64), u64> = BTreeMap::new();
     for (&x, &y) in xs.iter().zip(ys) {
         *px.entry(x).or_insert(0) += 1;
         *py.entry(y).or_insert(0) += 1;
@@ -86,50 +97,6 @@ pub fn nmi(xs: &[i64], ys: &[i64]) -> f64 {
 }
 
 // ===================== 逐叶特征 =====================
-
-/// 取某叶 JSON 盘里一个**低基数分类特征**（用于跨叶 NMI）。NMI 对重标号不变，故编码任意。
-#[must_use]
-pub fn feature(id: &str, c: &Value) -> Option<String> {
-    let s = |v: &Value| v.as_str().map(str::to_string);
-    let n = |v: &Value| v.as_i64().map(|x| x.to_string());
-    match id {
-        "bazi" => s(&c["day"]["branch"]),       // 日支(12)
-        "ziwei" => s(&c["ming_branch"]),         // 命宫支(12)
-        "astrology" => s(&c["planets"][0]["sign"]), // 太阳座(12)
-        "jyotish" => s(&c["grahas"][1]["nakshatra_name"]), // 月亮 nakshatra(27)
-        "qizhengsiyu" => s(&c["mansion_name"]),  // 28 宿值日
-        "meihua" => s(&c["primary_upper"]),      // 上卦(8)
-        "xiaoliuren" => n(&c["hour_pos"]),       // 时神位(6)
-        "zeri" => s(&c["jianchu"]),              // 建除(12)
-        "maya" => n(&c["tzolkin_number"]),       // 13
-        "pawukon" => s(&c["pancawara"]),         // 5
-        "mahabote" => s(&c["house"]),            // 7
-        "tibetan" => s(&c["animal"]),            // 生肖(12)
-        "qimen" => n(&c["setup"]["ju"]),         // 局(9)
-        "taiyi" => n(&c["taiyi"]["palace"]),     // 八宫(8)
-        "numerology" => n(&c["life_path"]),      // 生命数(~11)
-        "liuren" => n(&c["day_branch"]),         // 日支(12)——与 bazi 同源
-        "yijing" => s(&c["primary_lower"]),      // C：下卦(8)
-        "geomancy" => n(&c["judge"]),            // C：法官(16)
-        "sikidy" => n(&c["seer"]),               // C：创世者(16)
-        "ifa" => n(&c["left"]),                  // C：左 figure(16)
-        "tarot" => c["cards"][0]["index"].as_i64().map(|i| (i % 13).to_string()), // C：粗化(13)
-        _ => None,
-    }
-}
-
-/// 该叶所取特征的中文说明（展示用）。
-#[must_use]
-pub fn feature_label(id: &str) -> &'static str {
-    match id {
-        "bazi" | "liuren" => "日支", "ziwei" => "命宫支", "astrology" => "太阳星座",
-        "jyotish" => "月宿(nakshatra)", "qizhengsiyu" => "28 宿值日", "meihua" => "上卦",
-        "xiaoliuren" => "时神位", "zeri" => "建除", "maya" => "Tzolkʼin 数", "pawukon" => "Pancawara",
-        "mahabote" => "本命宫", "tibetan" => "生肖", "qimen" => "局数", "taiyi" => "太乙宫",
-        "numerology" => "生命灵数", "yijing" => "下卦",
-        "geomancy" => "法官", "sikidy" => "创世者", "ifa" => "左 figure", "tarot" => "首牌（粗化）", _ => "",
-    }
-}
 
 // ===================== 跨叶分析 =====================
 
@@ -162,34 +129,43 @@ pub struct Analysis {
 }
 
 /// 在一组查询样本上做跨叶分析。
+///
+/// 取的是每片叶自己声明的[主判据][`mingli_contract::Principal`]。本层因此不需要知道
+/// 任何一片叶的盘面长什么样——从前这里有一张按叶 id 分派、逐个去 JSON 里按路径取字段的表，
+/// 那张表让「跨叶统计」这一层依赖了二十一片叶的内部形状：加一片叶若忘了往表里补一行，
+/// 它只会静默地从相关性矩阵里消失，不报错。
 #[must_use]
 pub fn cross_leaf(reg: &[Box<dyn CastingEngine>], queries: &[Query]) -> Analysis {
-    let detailed: Vec<_> = queries.iter().map(|q| cast_all_detailed(reg, q)).collect();
-    if detailed.is_empty() {
+    if queries.is_empty() {
         return Analysis { n: 0, leaves: vec![], nmi: vec![] };
     }
-    let order = &detailed[0];
-    let k = order.len();
-    // 每叶一列：把分类特征 intern 成整数编码。
-    let mut cols: Vec<Vec<i64>> = vec![Vec::with_capacity(detailed.len()); k];
+    let k = reg.len();
+    // 每叶一列：把主判据的取值 intern 成整数编码（NMI 对重标号不变，故编码任意）。
+    let mut cols: Vec<Vec<i64>> = vec![Vec::with_capacity(queries.len()); k];
     let mut interns: Vec<HashMap<String, i64>> = vec![HashMap::new(); k];
-    for row in &detailed {
-        for (li, leaf) in row.iter().enumerate() {
-            let f = feature(leaf.id, &leaf.chart).unwrap_or_else(|| "∅".to_string());
+    let mut labels: Vec<&'static str> = vec![""; k];
+    for q in queries {
+        let m = Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+        for (li, e) in reg.iter().enumerate() {
+            let p = e.principal(&m, q);
+            if let Some(p) = &p {
+                labels[li] = p.label;
+            }
+            let value = p.map_or_else(|| "∅".to_string(), |p| p.value);
             let map = &mut interns[li];
             let next = map.len() as i64;
-            let code = *map.entry(f).or_insert(next);
+            let code = *map.entry(value).or_insert(next);
             cols[li].push(code);
         }
     }
-    let leaves: Vec<LeafStat> = order
+    let leaves: Vec<LeafStat> = reg
         .iter()
         .enumerate()
-        .map(|(li, leaf)| LeafStat {
-            id: leaf.id.to_string(),
-            name: leaf.name.to_string(),
-            family: leaf.family,
-            feature: feature_label(leaf.id),
+        .map(|(li, e)| LeafStat {
+            id: e.id().to_string(),
+            name: e.name().to_string(),
+            family: e.family(),
+            feature: labels[li],
             entropy: entropy(&cols[li]),
             distinct: interns[li].len(),
         })
@@ -203,7 +179,7 @@ pub fn cross_leaf(reg: &[Box<dyn CastingEngine>], queries: &[Query]) -> Analysis
             mat[j][i] = v;
         }
     }
-    Analysis { n: detailed.len(), leaves, nmi: mat }
+    Analysis { n: queries.len(), leaves, nmi: mat }
 }
 
 /// 生成采样网格：`start..=end` 年 × 12 月 × 每月 9、24 日（午时，北京坐标）。
@@ -239,11 +215,59 @@ mod tests {
     use mingli_registry::registry;
 
     #[test]
+    fn a_count_over_the_same_data_lands_on_the_same_bits() {
+        // 这条不是「值对不对」，是「同一份输入换个进程跑还是不是同一个数」。
+        //
+        // 熵与互信息都是一串浮点相加，而浮点加法不结合：换个求和次序就换个末位。
+        // 计数表若用 HashMap，遍历次序随每进程的随机 hasher 变，于是同样的输入
+        // 每跑一次 NMI 矩阵就在末位上抖一下——本层曾经就是这样，
+        // 同一个二进制连跑两遍，同一份输入的矩阵都不一样。
+        //
+        // 所以这里钉的是**位模式**：近似比较（`< 1e-9`）看不见这种抖动，
+        // 而正是这种抖动让「可复现」这句话不成立。数值本身由下面几条已有用例把关。
+        let xs = [3_i64, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3, 2, 3, 8, 4];
+        let ys = [1_i64, 1, 2, 3, 5, 8, 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7];
+        assert_eq!(entropy(&xs).to_bits(), 0x4008_5F1B_9754_E0A2);
+        assert_eq!(mutual_information(&xs, &ys).to_bits(), 0x4000_11CE_AB0F_4C06);
+        assert_eq!(nmi(&xs, &ys).to_bits(), 0x3FE5_5183_AEF9_199D);
+    }
+
+        #[test]
     fn entropy_known() {
         assert!((entropy(&[0, 0, 1, 1]) - 1.0).abs() < 1e-9); // 公平币 1 bit
-        assert_eq!(entropy(&[5, 5, 5]), 0.0); // 常量 0
+        // 常量列的熵是 0——但要的是 **+0.0**，不是 −0.0。
+        //
+        // 求和取负后天然得到 −0.0，源码末尾那个 `+ 0.0` 就是为把它归一成 +0.0。
+        // 而 IEEE754 下 `-0.0 == 0.0` 为真，所以单写 `== 0.0` 两种都过——
+        // 变异测试把 `+ 0.0` 改成 `- 0.0` 正是从这里活下来的。
+        // 这一位不是纯装饰：−0.0 打印与序列化成 `-0`，逐字节比对的那几道守卫会看见。
+        let flat = entropy(&[5, 5, 5]);
+        assert_eq!(flat, 0.0);
+        assert!(flat.is_sign_positive(), "常量列的熵该是 +0.0，实得 {flat}");
+        assert_eq!(format!("{flat}"), "0", "写出去要是 0，不是 -0");
         assert!((entropy(&[0, 1, 2, 3]) - 2.0).abs() < 1e-9); // 4 等概 = 2 bit
         assert_eq!(entropy(&[]), 0.0);
+    }
+
+    /// 常量列在相关矩阵上是什么样子。
+    ///
+    /// `cross_leaf` 的对角线写作 `if entropy > 0.0 { 1.0 } else { 0.0 }`，
+    /// 而 `no_leaf_principal_is_a_constant_column` 断言真实的叶没有一片是常量列，
+    /// 于是那条 `else` 在真实数据上到不了——变异测试把 `>` 换成 `>=`、
+    /// 或把内层循环的起点从 `i + 1` 挪到 `i`，都会因此活下来。那是定义域使然，不是缺口。
+    ///
+    /// 这里直接喂常量列给 `nmi`，把那个分支本该有的取值钉住。
+    #[test]
+    fn a_constant_column_correlates_with_nothing() {
+        assert_eq!(nmi(&[7, 7, 7], &[1, 2, 3]), 0.0, "常量列与任何列都无互信息");
+        assert_eq!(nmi(&[1, 2, 3], &[7, 7, 7]), 0.0, "反过来也一样");
+        assert_eq!(nmi(&[7, 7, 7], &[7, 7, 7]), 0.0, "两列都是常量，仍是 0");
+        // 非常量列与自身完全相关。
+        assert!((nmi(&[1, 2, 3, 4], &[1, 2, 3, 4]) - 1.0).abs() < 1e-9);
+        // 对称。
+        for (a, b) in [(&[1i64, 1, 2, 2][..], &[0i64, 1, 0, 1][..]), (&[1, 2, 3, 4], &[4, 3, 2, 1])] {
+            assert!((nmi(a, b) - nmi(b, a)).abs() < 1e-12, "互信息该对称");
+        }
     }
 
     #[test]
@@ -262,15 +286,43 @@ mod tests {
         assert_eq!(mutual_information(&[0, 1], &[0]), 0.0);
     }
 
+    /// 每片叶都要给得出主判据——给不出的那片会以「∅」进统计，成为一列常量，
+    /// 熵为 0、与谁的 NMI 都是 0，看上去像「这套系统与别的毫不相干」而不像「它没作声明」。
     #[test]
-    fn feature_extraction_smoke() {
-        let q = sample_grid(1990, 1990);
-        let leaves = cast_all_detailed(&registry(), &q[0]);
-        for leaf in &leaves {
-            let f = feature(leaf.id, &leaf.chart);
-            assert!(f.is_some(), "{} 应能取到特征", leaf.id);
-            assert!(!feature_label(leaf.id).is_empty());
+    fn every_leaf_declares_a_principal_index() {
+        let q = &sample_grid(1990, 1990)[0];
+        let m = Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+        for e in &registry() {
+            let p = e.principal(&m, q);
+            let p = p.unwrap_or_else(|| panic!("叶 `{}` 没有声明主判据", e.id()));
+            assert!(!p.label.is_empty() && !p.value.is_empty(), "{} 的主判据不该是空的", e.id());
         }
+    }
+
+    /// 主判据不能是常量——上一条只验它「说得出」，没验它「说的不总是同一句」。
+    ///
+    /// 常量列的熵是 0，与谁的 NMI 都是 0。那张矩阵上它会显示成「这套系统与其余全部毫不相干」，
+    /// 而真相是它根本没在动。这两种情形在矩阵上长得一模一样，是上一条守卫的说明里
+    /// 自己点名的失败态，却一直没有东西检查它。
+    ///
+    /// 下限取 1 bit：低于此，这一列连「两种情形」都分不开，拿它算互信息没有意义。
+    /// 实测最低的是 pawukon 的 Pancawara 2.32 bit，而 Pancawara 只有五个值、
+    /// log2(5) = 2.32——它已经顶到自己的理论上限。余量很宽，这个下限不会误伤。
+    #[test]
+    fn no_leaf_principal_is_a_constant_column() {
+        let a = cross_leaf(&registry(), &sample_grid(1980, 2009));
+        let flat: Vec<&LeafStat> = a.leaves.iter().filter(|l| l.entropy < 1.0).collect();
+        assert!(
+            flat.is_empty(),
+            "以下叶的主判据在 {} 个样本上几乎不变（熵 < 1 bit）：\n  {}\n\
+             常量列在相关性矩阵上会显示成「与其余全部毫不相干」，与「它没在动」无从分辨。\
+             要么换一个真会变的判据，要么说明为什么它本就该是常量",
+            a.n,
+            flat.iter()
+                .map(|l| format!("{} · {} · {:.3} bit", l.id, l.feature, l.entropy))
+                .collect::<Vec<_>>()
+                .join("\n  "),
+        );
     }
 
     #[test]
@@ -279,9 +331,62 @@ mod tests {
         let a = cross_leaf(&registry(), &[]);
         assert_eq!(a.n, 0);
         assert!(a.leaves.is_empty() && a.nmi.is_empty());
-        // 未知叶 id → 无特征 / 空标签。
-        assert_eq!(feature("nope", &serde_json::json!({})), None);
-        assert_eq!(feature_label("nope"), "");
+    }
+
+    /// 主判据完全互相决定的叶对。每一对都得说得出为什么。
+    ///
+    /// 这一层的全部意义就是暴露「两片叶其实在说同一件事」。既然如此，
+    /// **哪些对是完全冗余的**本身就该是一条契约：多出一对说明某片叶的主判据退化了或抄了别人，
+    /// 少一对说明其中一片的推导改了。两个方向都要红。
+    const PERFECTLY_REDUNDANT: &[(&str, &str, &str)] = &[
+        ("bazi", "liuren", "两者的主判据都是日支——同一个量，换个名字"),
+        (
+            "geomancy",
+            "sikidy",
+            "同一套 GF(2) 构造：同种子导出同一组四母，地占的「法官」与 sikidy 的「创世者」是同一个不变量。\
+             两系同源于阿拉伯 ʿilm al-raml，本仓 sikidy 的确定性谱亦记此事（Ascher 1997）。\
+             ★ 后果是：同一次取机下问这两片，拿到的是同一组数换个命名，不是两份独立判断",
+        ),
+    ];
+
+    /// ≥ 这个值即视为「完全冗余」。实测第三高的一对（ziwei × astrology）是 0.75，
+    /// 与 1.0 之间有足够间隔，取 0.9 不会因样本抖动误判。
+    const REDUNDANT_AT: f64 = 0.9;
+
+    #[test]
+    fn the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain() {
+        let a = cross_leaf(&registry(), &sample_grid(1980, 2009));
+        let k = a.leaves.len();
+        assert!(k >= 20, "只取到 {k} 片叶，取法怕是失效了");
+
+        let mut found: Vec<(String, String, f64)> = Vec::new();
+        for i in 0..k {
+            for j in (i + 1)..k {
+                if a.nmi[i][j] >= REDUNDANT_AT {
+                    found.push((a.leaves[i].id.clone(), a.leaves[j].id.clone(), a.nmi[i][j]));
+                }
+            }
+        }
+
+        for (x, y, v) in &found {
+            let known = PERFECTLY_REDUNDANT
+                .iter()
+                .any(|(p, q, _)| (p == x && q == y) || (p == y && q == x));
+            assert!(
+                known,
+                "叶对 `{x}` × `{y}` 的主判据几乎完全互相决定（NMI = {v:.4}），而本表没说为什么。\n\
+                 要么它们确实是同一个量的两种叫法——把理由写进 PERFECTLY_REDUNDANT；\n\
+                 要么其中一片的主判据退化了（取了常数、抄了邻居、或推导写错），那是缺陷。"
+            );
+        }
+        for (x, y, why) in PERFECTLY_REDUNDANT {
+            let still = found.iter().any(|(p, q, _)| (p == x && q == y) || (p == y && q == x));
+            assert!(
+                still,
+                "本表说 `{x}` × `{y}` 完全冗余（{why}），但实测已不再是。\n\
+                 其中一片的推导改了——若是有意的，删掉这一行；若不是，那是回归。"
+            );
+        }
     }
 
     #[test]

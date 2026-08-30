@@ -1,13 +1,22 @@
 [package]
 name = "mingli-astro"
-description = "L1 物理石：计算天文学与历法学——儒略日、视黄经与二十四节气、朔望与阴阳合历置闰、干支循环。确定性。"
+description = "Computational astronomy and calendrics: Julian day, apparent solar longitude and the 24 solar terms, lunar phase and lunisolar intercalation, and the sexagenary cycle."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["astronomy", "calendar", "solar-terms", "lunisolar"]
+categories = ["date-and-time", "science", "algorithms"]
 
 [dependencies]
 mingli-core = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["serde"]
+# 结构体的 `Serialize`。只想拿类型化结果的调用方可以 `default-features = false` 关掉它，
+# 那样整条依赖链上不会出现 serde（连同 serde_derive / syn 两个 proc-macro）。
+serde = ["dep:serde"]
 
 [dev-dependencies]
 # 仅测试期：基于性质的测试。

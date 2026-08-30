@@ -1,13 +1,26 @@
 //! 本叶对 [`mingli_contract::CastingEngine`] 的实现——把叶的领域计算适配成
 //! 全树统一的排盘契约，并声明本叶的确定性边界与流派。
 
-use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Moment, Query, SchoolItem};
+use mingli_contract::{d, s, CastingEngine, DetItem, Determinism, Family, Intent, Moment, Principal, Query, SchoolItem};
 use serde_json::Value;
 
 /// 印度占星(Jyotish)叶（B 族）。仅 `jyotish` feature 开启时编译（依赖 astrology + ephemeris）。
 /// 9 行星（含 Rahu/Ketu）+ 27 nakshatra + 12 rasi + Lagna，4 ayanamsa 流派。
 #[derive(Debug, Default)]
 pub struct JyotishEngine;
+
+/// 本次查询下的盘。
+///
+/// `cast` 与 `principal` 都从这里取：一个把它整份序列化，一个读它的一个字段。
+/// 分出来是为了让后者不必去解前者产出的 JSON——字段改名时，读结构体会编译报错，解 JSON 不会。
+fn chart(e: &JyotishEngine, m: &Moment, q: &Query) -> crate::JyotishChart {
+    let geo = match (q.latitude, q.longitude) {
+        (Some(latitude), Some(longitude)) => Some(mingli_ephemeris::GeoLocation { latitude, longitude }),
+        _ => None,
+    };
+    let mode = crate::Ayanamsa::from_id(q.school_of(e.id(), "lahiri"))
+        .unwrap_or_default();crate::compute_at(m, geo, mode)
+}
 
 impl CastingEngine for JyotishEngine {
     fn id(&self) -> &'static str {
@@ -20,17 +33,59 @@ impl CastingEngine for JyotishEngine {
         Family::Angular
     }
     fn cast(&self, m: &Moment, q: &Query) -> Value {
-        let geo = match (q.latitude, q.longitude) {
-            (Some(latitude), Some(longitude)) => Some(mingli_ephemeris::GeoLocation { latitude, longitude }),
-            _ => None,
-        };
-        let mode = crate::Ayanamsa::from_id(q.school_of(self.id(), "lahiri"))
-            .unwrap_or_default();
-        serde_json::to_value(crate::compute_at(m, geo, mode)).unwrap_or(Value::Null)
+        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)
+    }
+    fn reading_notes(&self) -> Option<&'static str> {
+        Some("\n【字段语义提示（印度占星，恒星黄道，读懂后给出有据的判读）】\n\
+            - `ayanamsa_id` / `ayanamsa_deg`：所用的岁差修正与其度数。**印度占星走恒星黄道**，\
+              与西洋占星的回归黄道差约 24°，同一时刻两套的星座落点会差近一个宫，这是体系差异不是矛盾。\n\
+            - `grahas[]`：九曜。`rasi` / `rasi_name` 所落宫、`nakshatra` / `nakshatra_name` 所落宿（27 宿）、\
+              `nakshatra_lord` 该宿主星、`navamsa` D-9 分盘落宫、`vargas` 其余十二个分盘落宫。\
+              Rahu / Ketu 是月亮交点，恒相对 180°，主业力主题。\n\
+            - `lagna_lon` / `lagna_rasi` / `lagna_rasi_name` / `lagna_navamsa` / `lagna_navamsa_name`：上升点的恒星黄经、所落宫与宫名，以及它在九分盘上的落宫与宫名。需出生坐标，缺则不出。\n\
+            - `mahadashas[]`：Vimshottari 大运序列，`lord` 主星、`start_age_years` / `end_age_years` 起讫年龄，\
+              内含 `antardashas` 子运。**这是本系统看时间的主路**——某段时期的主题由当时的大运主星定。\n\
+            - `birth_dasha_lord`：出生时所处大运的主星，由月宿定。\n\
+            - `vargas` 十二个分盘各主一事：`d3` 兄弟、`d4` 田宅、`d7` 子嗣、`d10` 事功、`d12` 父母、\
+              `d16` 车乘、`d20` 修行、`d24` 学问、`d27` 体质、`d40` 母系、`d45` 父系、`d60` 总述。\
+              **看某一事就看对应分盘上的落宫**，不是看本命盘。\n\
+            - 🟡 D-2 与 D-30 未出（原典未指定落宫 / 梵文两可），分盘的其余诸法（Parivritti / Somanatha 等）\
+              本盘不取，见确定性谱。\n\
+            - **读法**：先看月宿与上升，再看当前所处大运，最后按所问之事取对应分盘；\
+              挑最值得一说的 2-3 处。")
+    }
+    fn answers(&self) -> &'static [Intent] {
+        // 「运」答得起：Vimshottari 大运时间线（`dasha.rs`），那正是「势」要的时间序列。
+        // 「合」也答得起：Ashtakuta 八项（`kuta.rs`），以两人月宿月宫比对，出「配」这个形态。
+        // 但它出的是**区间**不是单值——各家判定表不一，见 profile 里那条 🟡。
+        &[Intent::Natal, Intent::Fortune, Intent::Synastry]
+    }
+    fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
+        // 月亮所在宿——印度占星以月宿定本命。
+        let c = chart(self, m, q);
+        Some(Principal { label: "月宿(nakshatra)", value: c.grahas.get(1).map_or_else(String::new, |g| g.nakshatra_name.to_string()) })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
         const { &[
+            d(
+                "合婚 Ashtakuta 八项",
+                Det,
+                "八项名目与权重（Varna 1 / Vashya 2 / Tara 3 / Yoni 4 / Graha Maitri 5 / Gana 6 / \
+                 Bhakoot 7 / Nadi 8，合 36）多源一致；27 宿→三性、→三脉、→14 兽三张表两源逐宿相同；\
+                 Varna 4×4 与 Bhakoot 的吉凶位两源全同；Nadi「同脉得零」两源同述。\
+                 判据取各家一致的结构而非某对男女的得分——那个数随选哪份表而变",
+            ),
+            d(
+                "Ashtakuta 的总分不是一个确定的数",
+                Und,
+                "🟡 逐项判定表各家不同，实测两份独立公布表：**Vashya 5×5 有 8/25 格不同**，\
+                 **Yoni 14×14 中段有 72/196 格不同**（69 格差 1）。Yoni 的结构倒是一致的——\
+                 对角恒 4、同样那 14 个零格（七对死敌完全相同），分歧只在 1/2/3 的中段。\
+                 故本叶**逐项出区间而非单值**，总分随之是区间：静默取其中一派，\
+                 得出的「36 分制得几分」会随选谁而变，而读的人无从知道。区间宽度即分歧对结论的影响。\
+                 另：南印 Porutham 十项一系未实现；摩羯前半属四足、后半属水生，本叶按整宫取四足",
+            ),
             d("9 行星 navagraha 恒星黄经", Det, "7 真行星走 VSOP87/ELP-2000/82（Lahiri J2000 容差<0.005°）；Rahu/Ketu 走 Meeus 22.4 月升交点公式"),
             d("27 nakshatra + Vimshottari 主星", Det, "Wikipedia/GrahaGuru/Vedicka 3 源完全一致"),
             d("12 rasi（白羊..双鱼）", Det, "与西洋 12 sign 一一对应，恒星黄道下"),
@@ -38,8 +93,27 @@ impl CastingEngine for JyotishEngine {
             d("Ayanamsa（4 派）", Det, "Lahiri 用 SE 1956-01-01 anchor + 平岁差线性，容差 ±0.05° vs Swiss Ephemeris；KP/Raman/Fagan 用 J2000 静态偏移"),
             d("Vimshottari mahadasha timeline", Det, "9 主星固定年表（7/20/6/10/7/18/16/19/17 总 120），月亮 nakshatra 残余比例算 birth dasha 起止；9 段完整 timeline"),
             d("D-9 navamsa 分盘", Det, "公式 floor(lon×0.3)%12；校验三类(Movable/Fixed/Dual)起算 sign 与古典分类完全一致"),
-            d("Antardasha/Pratyantar 子细分", Und, "本叶给完整 mahadasha 9 段；antardasha （mahadasha 内 9 步子细分） 留后续"),
-            d("其它分盘(D-10/D-12/...)", Und, "本叶给 D-1(rasi) + D-9(navamsa) 两核心；其余 vargas 留后续"),
+            d("Antardasha（bhukti）子细分", Det, "时长 = 主星年数 × 子星年数 ÷ 120，首个子运即主星自己、其后依同一固定顺序循环（BPHS 51.1 与 51.2）；drik-panchanga、PyJHora、VedAstro 三个开源实现的源码常量逐条一致。九步之和恰铺满主运跨度"),
+            d("Vimśottarī 一年折合多少天", Und, "🟡 原典只给年数比例、**不规定年长**；实查六个不同取值：儒略年 365.25(Wikipedia/Maitreya 默认)、savana 360(VedAstro 于 Raman ayanāṃśa)、回归年 365.24219、格里年 365.2425、365.2564(VedAstro 于 KP)、真恒星年 365.256364(PyJHora 默认)。drik-panchanga 源码自注「some say 360 days, others 365.25 or 365.2563 etc」，VedAstro 自注「vary as per the astrologer's preference」。本叶做成参数，默认儒略年，不写死"),
+            d("Pratyantardaśā 及更深层", Und, "🟡 同一条比例规则再嵌一层（三实现皆如此），但层数与命名南北传统不一（北传 dasa-antardasa-pratyantardasa，南传 dasa-bhukti-antara-sukshma，各家给到 5/6/8 层不等）；本叶只出两层"),
+            d("antardaśā 起始子星的变体", Und, "🟡 仅见 PyJHora 提供六档选项（主星/下一星/上一星 × 顺/逆），其自身只含混标注为「as calculated by various astrologers」，未取得任何文献出处；本叶只实现 BPHS 的「首个子运即主星」"),
+            d(
+                "十二个分盘（D-3/4/7/10/12/16/20/24/27/40/45/60）",
+                Det,
+                "Parasara 一系。两个彼此独立的开源实现逐条对照——kunjara/jyotish（PHP，每盘只实现此法）\
+                 与 PyJHora（Python，每盘并列 3–6 法，取其 Parasara 默认）——在 12 盘 × 12 宫 × 300 点 \
+                 共 43 200 个点上零分歧。D-10 另有原典 BPHS 6.13 直证",
+            ),
+            d(
+                "分盘的其余诸法（Parivritti / Somanatha / Jaganatha 等）",
+                Und,
+                "🟡 每盘都不止一法：PyJHora 逐盘并列 3–6 种（Parivritti cyclic / even-reverse、\
+                 Somanatha alternate、Jaganatha、以及若干 Parasara 变体如「偶宫逆数」）。\
+                 本叶只出 Parasara 一系并在此声明其余，不静默选边。要收哪一法须各自找 ≥2 源",
+            ),
+            d("D-2 hora 落宫", Und, "🟡 BPHS 6.5-6 只说奇宫前半属日后半属月、偶宫相反，**没有指定落哪个宫**。日→Leo / 月→Cancer 是后世注家所补，另有 Raman、Kashinatha、Parivritti Dwaya、Somanatha 等至少五种活跃流派"),
+            d("D-30 偶宫弧长", Und, "🟡 BPHS 6.27 作 vyatyayāt same（偶宫反转），反的是弧长还是只反主星，梵文两可；两个开源实现取另一读，实测分别在 6.7% 与 20% 的度数点上不合。另：份内度数原典未定义，各实现一律沿用等分 1°，与不等分宫位互相矛盾"),
+            d("JHora 的 D-10 变体", Und, "🟡 Jagannatha Hora 对偶宫走「第 5 宫逆数 + 份内度数 30−x」（软件标 D-10 (5-8)），与 BPHS 6.13 冲突且无文本依据——node-jhora 的 varga audit 文档明记此事并把默认改回原典读法。本叶的 D-10 按原典"),
         ] }
     }
     fn schools(&self) -> &'static [SchoolItem] {
@@ -68,6 +142,5 @@ mod tests {
         assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
-        assert!(!e.family().label().is_empty());
     }
 }

@@ -288,7 +288,20 @@ mod tests {
 
     // 日柱干支锚点测试已随 ganzhi 迁出至 mingli-ganzhi crate（其 day_pillar_anchors 测试）。
 
-    // —— 2024 节气精确时刻（北京时间 UTC+8），双源分钟级互证 ——
+    /// 2024 节气精确时刻（北京时间 UTC+8）。节气定月柱边界，而月柱定格局与用神，
+    /// 故这里日期必须精确，时刻只能差在模型已知的量级内。
+    ///
+    /// 参照两源：
+    ///
+    /// - 搜狐转发的天文科普稿《北京时间 2024 年 2 月 4 日 16 时 27 分迎来立春节气》
+    ///   <https://www.sohu.com/a/756272634_121106902>
+    /// - bmcx 节气表 <https://jieqi.bmcx.com/2024__jieqi/>，立春给到秒：`16:26:53`，
+    ///   其余四个的日期同为 03-20 / 06-21 / 09-22 / 12-21
+    ///
+    /// **本算相对参照恒偏早**：实测 −7 / −3 / −3 / −8 / −7 分钟，五个同号。
+    /// 这不是随机误差而是低精度太阳视黄经模型的系统偏置（λ 差 ~0.005° ≈ 7 分钟）。
+    /// 容差取 12 分钟——比实测最大的 8 分钟留了半倍余量，又比原先的 15 分钟紧，
+    /// 且**把「同号」这件事一并钉住**：偏置若翻号或翻倍，说明模型换了，该重新对源。
     #[test]
     fn solar_terms_2024_bjt() {
         // （公历月，日，时，分， 目标黄经）
@@ -308,13 +321,15 @@ mod tests {
             // 允许 ±2 分钟（低精度 Meeus + ΔT 误差）
             let want_min = (d as i64) * 1440 + hh as i64 * 60 + mm as i64;
             let got_min = (rd as i64) * 1440 + rhh as i64 * 60 + rmm as i64;
-            // 日期必须精确（这是定柱的关键）；时刻容差 ±15 分钟（Meeus 低精度 λ~0.01°≈15min）。
+            // 日期必须精确——这是定柱的关键，差一天就是另一个月柱
             assert_eq!(rmo, mo, "节气 λ={lambda} 月份不符：got {got} want {want}");
             assert_eq!(rd, d, "节气 λ={lambda} 日期不符：got {got} want {want}");
+            let diff = got_min - want_min;
             assert!(
-                (got_min - want_min).abs() <= 15,
-                "节气 λ={lambda}： got {got} want {want}（差 {} 分钟）",
-                got_min - want_min
+                (-12..=0).contains(&diff),
+                "节气 λ={lambda}：got {got} want {want}，差 {diff} 分钟——\
+                 本算应恒偏早 0–12 分钟（低精度太阳黄经的系统偏置）。\
+                 偏出这个区间说明模型变了，参照值要重新对源，不是把容差放宽",
             );
         }
     }
@@ -403,6 +418,151 @@ mod tests {
     }
 
     use proptest::prelude::*;
+    /// 农历序列的结构性质——穷举 1900–2100 每一天。
+    ///
+    /// 现有几条农历测试钉的都是具体日期（1990 样本、历年春节、闰月表、子月）。
+    /// 那种测试能确认「这一天算对了」，确认不了「不会在某处断开」。
+    /// 朔的**时刻**对不对，此前没有任何一处在看。整个仓库只断言朔落在哪一民用日，
+    /// 而那一步把瞬时量化掉了：只要扰动没把朔推过午夜，就一律看不见。实测把七处
+    /// 算术逐个改坏、每次跑全量套件，主项（约 0.4 天）与次项（约 4 小时）都有测试
+    /// 拦住，而朔望月长度末位改一（两百年累计约 13 秒）、ΔT 1961–1986 段三次项翻号
+    /// （约 8 秒）一条都不红——它们改的是秒，午夜离得远。
+    ///
+    /// 所以这里改成直接对时刻。取值两源相合，两源各自独立推算，不是互抄：
+    ///
+    /// 1. 美国海军天文台历书处 <https://aa.usno.navy.mil/calculated/moon/phases>
+    /// 2. Fred Espenak《Six Millennium Catalog of Phases of the Moon》
+    ///    <https://www.astropixels.com/ephemeris/phasescat/phases1901.html>
+    ///
+    /// 七个朔横跨 1901–2050，两源逐条一致，只有 1950-01-18 差一分钟（07:59 与 08:00），
+    /// 取海军天文台的那个。实测最大偏差 0.547 分钟，容差按实测取 2 分钟。
+    ///
+    /// 说清它拦得住什么、拦不住什么：秒级的扰动它一样看不见（模型自身与两源就差半分钟，
+    /// 再紧就是在钉噪声）。它补上的是另一件事——此前拿去跟外界比对的只有春节日期与闰月
+    /// 这些**日**粒度的锚，整条模型均匀平移几分钟，序列依旧自洽、月长依旧 29 或 30，
+    /// 没有一处会红。现在时刻本身有了七个外部锚点。
+    ///
+    /// `k` 直接写死而不是由日期反推——反推要用平朔公式，那正是被测对象之一。写死之后，
+    /// 朔望月长度只要动一位，同一个 `k` 指向的就是几周之外的另一个朔。
+    #[test]
+    fn the_new_moon_instants_match_two_published_ephemerides() {
+        // (k, 年, 月, 日, 时, 分) —— 时刻为世界时。
+        const PUBLISHED: [(i64, i32, u32, u32, u32, u32); 7] = [
+            (-1224, 1901, 1, 20, 14, 36),
+            (-618, 1950, 1, 18, 7, 59),
+            (300, 2024, 4, 8, 18, 21),
+            (301, 2024, 5, 8, 3, 22),
+            (304, 2024, 8, 4, 11, 13),
+            (309, 2024, 12, 30, 22, 27),
+            (619, 2050, 1, 23, 4, 57),
+        ];
+        const TOLERANCE_MINUTES: f64 = 2.0;
+
+        let mut worst = 0.0f64;
+        for (k, y, m, d, hour, minute) in PUBLISHED {
+            let published =
+                julian_day(y, m, f64::from(d) + (f64::from(hour) + f64::from(minute) / 60.0) / 24.0);
+            let computed = new_moon_jd_ut(k);
+            let off_minutes = (computed - published) * 24.0 * 60.0;
+            assert!(
+                off_minutes.abs() < TOLERANCE_MINUTES,
+                "第 {k} 个朔：算出 JD {computed:.5}，两源作 {y}-{m:02}-{d:02} {hour:02}:{minute:02} UT \
+                 (JD {published:.5})，差 {off_minutes:.2} 分钟"
+            );
+            worst = worst.max(off_minutes.abs());
+        }
+        // 真实误差应远小于容差；一旦逼近，说明模型已经变了而不只是抖动。
+        // 实测（2026-08-23）最大偏差 0.547 分钟。留出四倍余量，但远紧于模块自述的
+        // 「约数分钟」——文档那句是保守说法，实际吻合度高得多，容差按实测定。
+        assert!(worst < 2.0, "最大偏差 {worst:.3} 分钟，模型已经变了");
+    }
+
+    /// 下面五条是历法本身必须成立的东西，任何一条破了，上面所有吃农历的叶都跟着错，
+    /// 而错法多半是某个月的边界上少一天或多一天——按日期抽查恰好最难发现。
+    ///
+    /// 实测（2026-08-23）：73 414 天，日恒在 1..=30、完整月恒为 29 或 30 天、
+    /// 一农历年至多一个闰月、逐日无缝、201 个正月初一落在 1-21 至 2-20 之间。
+    #[test]
+    fn the_lunar_sequence_has_no_seams_across_two_centuries() {
+        use std::collections::{BTreeMap, BTreeSet};
+        let tz = 8.0;
+        let days_in = |y: i32, m: u32| -> u32 {
+            match m {
+                1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+                4 | 6 | 9 | 11 => 30,
+                _ => u32::from((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) + 28,
+            }
+        };
+
+        let mut prev: Option<(crate::LunarDate, i64)> = None;
+        let mut month_days: BTreeMap<(i32, u32, bool), u32> = BTreeMap::new();
+        let mut new_year_at: Vec<(u32, u32)> = Vec::new();
+        let mut n = 0u32;
+
+        for y in 1900..=2100 {
+            for m in 1..=12u32 {
+                for d in 1..=days_in(y, m) {
+                    let l = crate::solar_to_lunar(y, m, d, tz);
+                    let cdn = civil_day_number(y, m, d);
+                    n += 1;
+
+                    // ① 日恒在 1..=30
+                    assert!((1..=30).contains(&l.day), "{y}-{m:02}-{d:02} 得农历日 {}", l.day);
+                    // ② 月序恒在 1..=12
+                    assert!((1..=12).contains(&l.month), "{y}-{m:02}-{d:02} 得农历月 {}", l.month);
+                    *month_days.entry((l.year, l.month, l.leap)).or_insert(0) += 1;
+                    if l.month == 1 && l.day == 1 && !l.leap {
+                        new_year_at.push((m, d));
+                    }
+
+                    // ③ 逐日无缝：公历相邻两日，农历要么日 +1，要么翻月落初一
+                    if let Some((p, pc)) = prev
+                        && cdn == pc + 1
+                    {
+                        let same_month = l.month == p.month && l.leap == p.leap;
+                        let ok = if same_month {
+                            l.day == p.day + 1
+                        } else {
+                            l.day == 1 && (29..=30).contains(&p.day)
+                        };
+                        assert!(
+                            ok,
+                            "{y}-{m:02}-{d:02} 处农历断开：前一日 {}年{}{}月{}日，本日 {}年{}{}月{}日",
+                            p.year, if p.leap { "闰" } else { "" }, p.month, p.day,
+                            l.year, if l.leap { "闰" } else { "" }, l.month, l.day,
+                        );
+                    }
+                    prev = Some((l, cdn));
+                }
+            }
+        }
+        assert_eq!(n, 73_414, "扫描规模变了，下面几条实测结论要跟着重验");
+
+        // ④ 完整月只能是 29 或 30 天（首末两月被扫描区间截断，不计）
+        let full: BTreeSet<u32> = month_days.values().copied().filter(|&v| v >= 20).collect();
+        assert_eq!(full, BTreeSet::from([29, 30]), "完整农历月的天数集合应恰为 {{29,30}}，实得 {full:?}");
+
+        // ⑤ 一个农历年至多一个闰月
+        let mut leaps: BTreeMap<i32, u32> = BTreeMap::new();
+        for (yy, _, is_leap) in month_days.keys() {
+            if *is_leap {
+                *leaps.entry(*yy).or_insert(0) += 1;
+            }
+        }
+        assert!(
+            leaps.values().all(|&c| c == 1),
+            "有农历年出现不止一个闰月：{:?}",
+            leaps.iter().filter(|&(_, &c)| c != 1).collect::<Vec<_>>()
+        );
+
+        // ⑥ 正月初一恒落在 1-21 至 2-20 之间（201 年实测的真实区间）
+        assert_eq!(new_year_at.len(), 201, "1900–2100 应有 201 个正月初一");
+        let earliest = new_year_at.iter().min().expect("非空");
+        let latest = new_year_at.iter().max().expect("非空");
+        assert_eq!(*earliest, (1, 21), "最早的正月初一应是 1 月 21 日");
+        assert_eq!(*latest, (2, 20), "最晚的正月初一应是 2 月 20 日");
+    }
+
     proptest! {
         #[test]
         fn prop_sidereal_time_in_range(jd in 2_400_000.0f64..2_500_000.0) {

@@ -1,20 +1,28 @@
 [package]
 name = "mingli-ephemeris"
-description = "L1 物理石：行星星历——日月五星地心黄道经度(含光行时校正)。基于经审计的 vsop87 系数实现，开启 B 族(占星/七政四余/Jyotish)。"
+description = "Geocentric ecliptic longitudes for the Sun, Moon and planets, with light-time correction, from audited VSOP87 coefficients."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["ephemeris", "vsop87", "astronomy", "planets"]
+categories = ["science", "algorithms", "mathematics"]
 
 [dependencies]
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
 vsop87 = "3"
 # 月球地心位置：基于 Chapront ELP-2000/82 月理 + Meeus 章动，已对 Meeus 第 47 章
 # 教科书算例（1992-04-12.0 TD）独立校验（见本 crate 测试），与 vsop87 同属经审计的
 # Meeus 算法系列 Rust 实现。
 astro = "2"
 
+[features]
+default = ["serde"]
+# 结构体的 `Serialize`。关掉它，依赖链上不会出现 serde（连同 serde_derive / syn 两个 proc-macro）。
+serde = ["dep:serde"]
+
 [dev-dependencies]
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
 criterion = { version = "0.8", default-features = false }
 
 [lints]

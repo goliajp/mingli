@@ -1,14 +1,25 @@
 [package]
 name = "mingli-abjad"
-description = "L3 叶(D 族/确定性)：阿拉伯 abjad 数字(ḥisāb al-jummal)双序——28 字母按 Mashriqī(东方)序与 Maghribī(西方)序对照式取值 1..1000 求和。含常见 hamza/ta-marbuta/alef-maqsura 标准归一。"
+description = "Arabic abjad numerals, hisab al-jummal, in both the Mashriqi and Maghribi orders, with the usual hamza, ta marbuta and alef maqsura normalisations."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["abjad", "arabic", "numerology", "jummal"]
+categories = ["algorithms", "text-processing"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
-serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

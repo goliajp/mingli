@@ -1,25 +1,43 @@
 //! 编排层：把命理大树当作一张记忆化计算 DAG 来跑。
 //!
 //! - 共享层：一个输入 → 用 [`Moment`] 把公共天文/历法子计算**算一次**。
-//! - fan-out：注册表里每片叶（[`CastingEngine`]）在该共享上下文上排盘，**rayon 并行**。
+//! - fan-out：注册表里每片叶（[`CastingEngine`]）在该共享上下文上排盘。native 走 rayon 并行；
+//!   wasm32 串行，那里没有可用线程，把 rayon 链进去只是白付 37 KB。
 //! - 统一输出：各叶输出 `serde_json::Value`，便于跨叶对齐比较。
 //!
 //! 本层**不认识任何具体叶**——注册表由调用方注入（见 `mingli-registry`）。
 //! 加一片新叶不需要改动这里的任何一行。
 
-use mingli_contract::{effective_school_id, intents, CastingEngine, LeafOutput, Moment, Query, QueryKind};
+use mingli_contract::{effective_school_id, intents, CastingEngine, IntentSpec, LeafOutput, Moment, Query, QueryKind};
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-/// 注册表：一组待并行 fan-out 的叶。
+/// 注册表：一组待 fan-out 的叶。
 pub type Leaves = [Box<dyn CastingEngine>];
+
+/// 把每片叶映射成一个结果。native 上并行，wasm 上串行。
+///
+/// wasm32 没有可用线程，rayon 在那里只是把串行遍历绕过一层调度器，
+/// 并且**实测在排盘档里占 37 KB**——易经单叶档一共才 197 KB。
+/// native 那边它是真的：整棵树并行 445 µs，其中最慢的一片占 297 µs。
+#[cfg(not(target_arch = "wasm32"))]
+fn map_leaves<T: Send>(reg: &Leaves, f: impl Fn(&Box<dyn CastingEngine>) -> T + Send + Sync) -> Vec<T> {
+    reg.par_iter().map(f).collect()
+}
+
+/// 同上，wasm32 一侧：串行，不引 rayon。
+#[cfg(target_arch = "wasm32")]
+fn map_leaves<T>(reg: &Leaves, f: impl Fn(&Box<dyn CastingEngine>) -> T) -> Vec<T> {
+    reg.iter().map(f).collect()
+}
 
 /// 一个输入 → 共享层算一次 → **并行**排所有叶 → `id → 盘(JSON)`。
 #[must_use]
 pub fn cast_all(reg: &Leaves, q: &Query) -> BTreeMap<String, Value> {
     let m = shared_moment(q);
-    reg.par_iter().map(|e| (e.id().to_string(), e.cast(&m, q))).collect()
+    map_leaves(reg, |e| (e.id().to_string(), e.cast(&m, q))).into_iter().collect()
 }
 
 /// 只算**单片**叶（按 id）——共享层仍只算一次，但仅排该叶（释义/单叶请求用，省去其余叶）。
@@ -35,29 +53,35 @@ pub fn cast_one(reg: &Leaves, id: &str, q: &Query) -> Option<LeafOutput> {
 #[must_use]
 pub fn cast_all_detailed(reg: &Leaves, q: &Query) -> Vec<LeafOutput> {
     let m = shared_moment(q);
-    reg.par_iter().map(|e| leaf_output(e.as_ref(), &m, q)).collect()
+    map_leaves(reg, |e| leaf_output(e.as_ref(), &m, q))
 }
 
-/// 把一个问局意图路由到具体的叶 id 列表（过滤注册表里实际启用的叶）。
+/// 把一个问局意图路由到具体的叶 id 列表。
 ///
-/// `Natal` 走全注册表（顺序与注册表一致）；其余意图按 [`intents`] 的 `default_leaves`
-/// 与注册表取交集（feature flag 关掉的叶自动剔除）。
+/// 问的是每片叶自己：谁在 [`CastingEngine::answers`] 里认领了这一类，谁就入选。
+/// 从前这里读的是端口层写死的一张「意图 → 叶 id」表，那张表让端口层知道了树上有哪些叶，
+/// 也让「加一片叶只动装配根」在字符串层面不成立——漏改那张表，新叶不入任何路由且不报错。
 ///
-/// # Panics
-///
-/// 不会发生：[`QueryKind::id`] 的 8 个返回值与 [`intents`] 清单 8 项 id 一一对应，
-/// 测试 `intents_well_formed_and_aligned_with_querykind` 守卫此不变量。
+/// 次序即注册表次序。feature flag 关掉的叶不在注册表里，自然也不在结果里。
 #[must_use]
 pub fn route(reg: &Leaves, kind: &QueryKind) -> Vec<&'static str> {
-    if matches!(kind, QueryKind::Natal(_)) {
-        return reg.iter().map(|e| e.id()).collect();
-    }
-    let available: std::collections::HashSet<&'static str> = reg.iter().map(|e| e.id()).collect();
-    let spec = intents()
+    let want = kind.intent();
+    reg.iter().filter(|e| e.answers().contains(&want)).map(|e| e.id()).collect()
+}
+
+/// 意图清单与各意图当前实际路由到的叶。
+///
+/// [`intents`] 只说这一类问局是什么、要哪些输入原子；「谁来答」要问注册表里的叶。
+/// 两者在这里合成一份，供承接层直接展示。
+#[must_use]
+pub fn intent_catalog(reg: &Leaves) -> Vec<(&'static IntentSpec, Vec<&'static str>)> {
+    intents()
         .iter()
-        .find(|s| s.id == kind.id())
-        .expect("QueryKind::id 必须在 intents() 清单内");
-    spec.default_leaves.iter().copied().filter(|id| available.contains(id)).collect()
+        .map(|spec| {
+            let leaves = reg.iter().filter(|e| e.answers().contains(&spec.id)).map(|e| e.id()).collect();
+            (spec, leaves)
+        })
+        .collect()
 }
 
 /// 共享上下文：一次输入只构造一个 [`Moment`]，全叶复用（记忆化的落点）。

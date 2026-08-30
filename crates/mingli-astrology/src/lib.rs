@@ -19,9 +19,21 @@
 )]
 
 pub mod koch;
+pub mod progression;
+
+/// 推运时间序列覆盖到第几岁。取 100——与四柱大运的百年时间线同尺度，
+/// 前端的时间拨杆也是 0–100 岁。
+///
+/// **本命盘不带推运**：每一格都是一次完整星历求值，而本命盘的问法里没有人要一生的运。
+/// 曾经带过，代价是排一盘 35.6 ms、盘面 276 KB，而其余二十片叶合起来 0.5 ms、33 KB。
+/// 推运现由用例层的「运」那条路按需算（`mingli_app::bazi::fortune`），
+/// 与四柱逐年的供给时序、印度占星的 Vimshottari 同处一层。
+pub const PROGRESSION_MAX_AGE: u32 = 100;
 pub mod placidus;
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::AstrologyEngine;
 
 pub use mingli_ephemeris::{asc_mc, GeoLocation};
@@ -29,6 +41,7 @@ pub use mingli_ephemeris::{asc_mc, GeoLocation};
 use mingli_astro::Moment;
 use mingli_core::quantizer;
 use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 回归黄道十二星座（按 `floor(λ/30)` 索引，0=白羊）。
@@ -63,7 +76,8 @@ pub const DEFAULT_ORB: f64 = 6.0;
 
 
 /// 一颗星的位置。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct PlanetPos {
     /// 星名。
     pub name: String,
@@ -78,7 +92,8 @@ pub struct PlanetPos {
 }
 
 /// 本命盘四轴中的上升点 Asc 与中天 MC（需地理坐标）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Angles {
     /// 上升点黄经（度）。
     pub ascendant: f64,
@@ -95,7 +110,8 @@ pub struct Angles {
 }
 
 /// Whole Sign 整宫制下的一宫（整个星座为一宫，第一宫=上升星座）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct House {
     /// 宫位序号 1..=12。
     pub number: u8,
@@ -106,7 +122,8 @@ pub struct House {
 }
 
 /// 占星分宫制(house system)。同盘可切换；Placidus 为业界默认。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum HouseSystem {
     /// **Placidus**：半弧三分，移植 Swiss `swehouse.c`；极区失效。占星圈默认。
     Placidus,
@@ -157,7 +174,8 @@ impl HouseSystem {
 }
 
 /// 分宫制下的一宫（通用，按宫尖之间夹角分宫）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct CuspHouseEntry {
     /// 宫位序号 1..=12。
     pub number: u8,
@@ -172,7 +190,8 @@ pub struct CuspHouseEntry {
 }
 
 /// 一组相位。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Aspect {
     /// 星 A。
     pub a: String,
@@ -185,7 +204,8 @@ pub struct Aspect {
 }
 
 /// 一张本命盘（九星落座 + 相位；给定地理坐标时含 Asc/MC + 整宫制 + 所选分宫制十二宫）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NatalChart {
     /// 九星位置（日月+水金火木土天海）。
     pub planets: Vec<PlanetPos>,
@@ -201,11 +221,62 @@ pub struct NatalChart {
     pub cusp_houses: Option<Vec<CuspHouseEntry>>,
 }
 
+/// 某时刻太阳所在星座名——只算太阳，不排整盘。
+///
+/// 供 [`CastingEngine::principal`](mingli_contract::CastingEngine::principal) 用：
+/// 主判据要的是「先看哪一个量」，排整盘属于浪费，且本叶的整盘含百年推运，代价可观。
+#[must_use]
+pub fn sun_sign_at(jde: f64) -> &'static str {
+    let lon = geocentric_ecliptic_longitude(Body::Sun, jde);
+    SIGNS[quantizer::sector(lon, 12) as usize]
+}
+
 /// 两黄经的最短夹角（度，0..=180）。
 #[must_use]
 pub fn separation(a: f64, b: f64) -> f64 {
     let d = (a - b).rem_euclid(360.0);
     d.min(360.0 - d)
+}
+
+/// 两张盘之间的一个相位：甲盘某星与乙盘某星成角。
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+pub struct CrossAspect {
+    /// 甲盘的星名。
+    pub a: String,
+    /// 乙盘的星名。
+    pub b: String,
+    /// 相位名（合 / 六分 / 刑 / 拱 / 冲）。
+    pub kind: &'static str,
+    /// 实际夹角（度，取小于 180 的那一边）。
+    pub angle: f64,
+}
+
+/// 两张本命盘之间的全部相位。
+///
+/// 几何与盘内相位是同一件事——两个黄经的夹角落在某个相位角的容许度内。
+/// 不同的只是这次两个黄经来自两张盘，故 `a` 与 `b` 分属两人，且**不对称**：
+/// 「甲的太阳合乙的月亮」与「乙的太阳合甲的月亮」是两回事，两个方向都出。
+///
+/// 本函数**只出几何**。哪些相位算数、容许度取多少、哪些星入合盘，各家出入很大
+/// （有只取日月金火土的、有把外行星一律排除的、有按星体分别定容许度的），
+/// 那属取舍不属计算，交调用方或释义层，本层不代为选择。
+#[must_use]
+pub fn cross_aspects(a: &[PlanetPos], b: &[PlanetPos], orb: f64) -> Vec<CrossAspect> {
+    let mut out = Vec::new();
+    for pa in a {
+        for pb in b {
+            if let Some((kind, angle)) = classify_aspect(pa.longitude, pb.longitude, orb) {
+                out.push(CrossAspect {
+                    a: pa.name.clone(),
+                    b: pb.name.clone(),
+                    kind,
+                    angle,
+                });
+            }
+        }
+    }
+    out
 }
 
 /// 判定两黄经构成的相位（容许度 `orb` 内），无则 `None`。
@@ -373,141 +444,4 @@ pub fn compute(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sun_sign_is_verifiable() {
-        // 1990-06-15 太阳黄经 ~84° → 双子(sign 2)。太阳经度已校验 Meeus，故此可验证。
-        let chart = compute(1990, 6, 15, 14, 30, 8.0, None);
-        let sun = chart.planets.iter().find(|p| p.name == "太阳").unwrap();
-        assert_eq!(sun.sign, "双子", "实得 {} @ {:.2}°", sun.sign, sun.longitude);
-        assert!(sun.house.is_none() && chart.angles.is_none() && chart.houses.is_none());
-        // 2024-03-25 太阳在白羊
-        let c2 = compute(2024, 3, 25, 12, 0, 8.0, None);
-        assert_eq!(c2.planets[0].sign, "白羊");
-    }
-
-    #[test]
-    fn nine_planets_each_have_a_sign() {
-        let chart = compute(2000, 1, 1, 12, 0, 8.0, None);
-        assert_eq!(chart.planets.len(), 9);
-        for p in &chart.planets {
-            assert!(SIGNS.contains(&p.sign.as_str()));
-            assert!((0.0..30.0).contains(&p.degree));
-        }
-        // 月亮也在（校验已接入 ephemeris ELP）。
-        assert!(chart.planets.iter().any(|p| p.name == "月亮"));
-    }
-
-    #[test]
-    fn aspect_geometry() {
-        assert!((separation(10.0, 350.0) - 20.0).abs() < 1e-9); // 跨 0° 最短 20
-        assert_eq!(classify_aspect(0.0, 90.0, 6.0), Some(("刑", 90.0)));
-        assert_eq!(classify_aspect(0.0, 120.0, 6.0), Some(("拱", 120.0)));
-        assert_eq!(classify_aspect(0.0, 5.0, 6.0), Some(("合", 5.0)));
-        assert_eq!(classify_aspect(0.0, 45.0, 6.0), None); // 半刑不在五大相位
-    }
-
-    // —— 上升点/中天校验权威本命盘：Diana， Princess of Wales（Rodden AA）——
-    // 1961-07-01 19:45 GMT+1（=UT 18:45），Sandringham 52°50′N 0°30′E。
-    // astrotheme/astro.com(Placidus)：Asc=射手18°24′=258.40°、MC=天秤23°03′=203.05°、
-    // Sun=巨蟹9°40′=99.667°（Sun 经度由 VSOP87 独立给出，三方交叉验证整条管线）。
-    #[test]
-    fn ascendant_midheaven_matches_diana() {
-        let geo = GeoLocation { latitude: 52.833, longitude: 0.500 };
-        let chart = compute(1961, 7, 1, 19, 45, 1.0, Some(geo));
-        let a = chart.angles.as_ref().expect("有地理坐标应出 Asc/MC");
-        assert_eq!(a.asc_sign, "射手", "Asc 实得 {} @ {:.2}°", a.asc_sign, a.ascendant);
-        assert_eq!(a.mc_sign, "天秤", "MC 实得 {} @ {:.2}°", a.mc_sign, a.midheaven);
-        // 角分级容差（oracle 为 arcmin、本算用平恒星时/平交角，无章动）。
-        assert!((a.ascendant - 258.40).abs() < 0.5, "Asc={:.3}°，应 ≈258.40°", a.ascendant);
-        assert!((a.midheaven - 203.05).abs() < 0.5, "MC={:.3}°，应 ≈203.05°", a.midheaven);
-        // Sun 落座经度独立交叉验证（VSOP87）。
-        let sun = chart.planets.iter().find(|p| p.name == "太阳").unwrap();
-        assert!((sun.longitude - 99.667).abs() < 0.2, "Sun={:.3}°，应 ≈99.667°", sun.longitude);
-        // 月亮落座经度独立交叉验证（ELP-2000/82， ephemeris）。
-        // Astrodienst Placidus 给出 Moon @ Aquarius 25°02' ≈ 325.033°。
-        let moon = chart.planets.iter().find(|p| p.name == "月亮").unwrap();
-        assert_eq!(moon.sign, "水瓶", "Moon 实得 {} @ {:.2}°", moon.sign, moon.longitude);
-        assert!(
-            (moon.longitude - 325.033).abs() < 0.2,
-            "Moon={:.3}°，应 ≈325.033°（水瓶 25°02'）",
-            moon.longitude
-        );
-    }
-
-    // —— Whole Sign 整宫制结构 ——
-    #[test]
-    fn whole_sign_houses_structure() {
-        let geo = GeoLocation { latitude: 52.833, longitude: 0.500 };
-        let chart = compute(1961, 7, 1, 19, 45, 1.0, Some(geo));
-        let houses = chart.houses.as_ref().unwrap();
-        assert_eq!(houses.len(), 12);
-        // 第一宫=上升星座；逐宫推进一星座。
-        assert_eq!(houses[0].sign, "射手");
-        for k in 0..12 {
-            assert_eq!(houses[k].number, (k + 1) as u8);
-            let want = SIGNS[(8 + k) % 12]; // 射手=8
-            assert_eq!(houses[k].sign, want);
-        }
-        // 每颗星都被归入唯一一宫，且与其 house 字段一致。
-        for p in &chart.planets {
-            let h = p.house.expect("有坐标时星应有宫位");
-            assert!((1..=12).contains(&h));
-            assert!(houses[(h - 1) as usize].planets.contains(&p.name));
-        }
-    }
-
-    #[test]
-    fn house_system_id_name_roundtrip() {
-        let all = [
-            HouseSystem::Placidus,
-            HouseSystem::Koch,
-            HouseSystem::WholeSign,
-            HouseSystem::Equal,
-            HouseSystem::Porphyry,
-        ];
-        // id 与 from_id 互反；id/name 非空且唯一。
-        let mut ids = std::collections::HashSet::new();
-        let mut names = std::collections::HashSet::new();
-        for hs in all {
-            assert_eq!(HouseSystem::from_id(hs.id()), hs);
-            assert!(ids.insert(hs.id()));
-            assert!(names.insert(hs.name()));
-            assert!(!hs.name().is_empty());
-        }
-        // 未知 id 退到 Placidus。
-        assert_eq!(HouseSystem::from_id("nonexistent"), HouseSystem::Placidus);
-        assert_eq!(HouseSystem::from_id(""), HouseSystem::Placidus);
-    }
-
-    #[test]
-    fn koch_house_system_routes_to_koch_cusps() {
-        // 显式选 Koch → cusp_system == "koch"，cusp_houses Some。
-        let geo = GeoLocation { latitude: 52.833, longitude: 0.5 };
-        let m = Moment::new(1961, 7, 1, 19, 45, 1.0);
-        let chart = compute_at(&m, Some(geo), HouseSystem::Koch);
-        assert_eq!(chart.cusp_system.as_deref(), Some("koch"));
-        assert!(chart.cusp_houses.is_some());
-        // Whole Sign → 不出 cusp_houses。
-        let chart_w = compute_at(&m, Some(geo), HouseSystem::WholeSign);
-        assert_eq!(chart_w.cusp_system.as_deref(), Some("whole_sign"));
-        assert!(chart_w.cusp_houses.is_none());
-        // Equal / Porphyry 也走 cusp_houses。
-        for hs in [HouseSystem::Equal, HouseSystem::Porphyry] {
-            let c = compute_at(&m, Some(geo), hs);
-            assert_eq!(c.cusp_system.as_deref(), Some(hs.id()));
-            assert!(c.cusp_houses.is_some());
-        }
-    }
-
-    // —— Asc/MC 闭式：赤道(φ=0)上 MC 与 Asc 应正交于子午圈几何 ——
-    #[test]
-    fn asc_mc_closed_form_sanity() {
-        // RAMC=0（春分点上中天）、ε=23.44°、φ=0：MC=0°（白羊0°）、Asc=90°（巨蟹0°，东地平）。
-        let (asc, mc) = asc_mc(0.0, 23.44, 0.0);
-        assert!(mc.abs() < 1e-9 || (mc - 360.0).abs() < 1e-9, "MC={mc}");
-        assert!((asc - 90.0).abs() < 1e-9, "Asc={asc}");
-    }
-}
+mod tests;

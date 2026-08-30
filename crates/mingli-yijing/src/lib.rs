@@ -16,15 +16,19 @@
     reason = "卦的二进制位型（如 0b101010）连写比加分隔符更直观对应六爻，沿用 mingli-gua 约定"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::YijingEngine;
 
 use mingli_core::sampler::SplitMix64;
 use mingli_gua::{Hexagram, Trigram};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 起卦法（仅影响爻值的概率分布）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Method {
     /// 三钱法：6/7/8/9 ~ 1/8， 3/8， 3/8， 1/8。
     ThreeCoins,
@@ -33,7 +37,8 @@ pub enum Method {
 }
 
 /// 一爻：营数值（6/7/8/9）及由它定出的阴阳与是否变爻。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Line {
     /// 营数：6 老阴、7 少阳、8 少阴、9 老阳。
     pub value: u8,
@@ -56,7 +61,8 @@ impl Line {
 }
 
 /// 一次完整起卦的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 起卦法。
     pub method: Method,
@@ -198,7 +204,9 @@ mod tests {
 
     #[test]
     fn three_coins_distribution() {
-        // B(3，½)：6，7，8，9 ≈ 1/8，3/8，3/8，1/8。大样本统计落在容差内。
+        // 三钱法的爻值分布是 B(3, ½) 的直接推论：三枚各正反等概，背面记 3、正面记 2，
+        // 和为 6/7/8/9，概率 1/8、3/8、3/8、1/8。**这是可自行推导的，不依赖任何一家的说法**——
+        // 也正因如此，它与蓍草法的不同（下一条）才是体系差异而非误差。
         let mut cnt = [0u32; 4]; // 6,7,8,9
         let n = 60_000u32;
         let mut rng = SplitMix64::new(7);
@@ -214,7 +222,10 @@ mod tests {
 
     #[test]
     fn yarrow_distribution() {
-        // 1/16,5/16,7/16,3/16。
+        // 蓍草法的分布 1/16、5/16、7/16、3/16 由「四营十八变」的分策规则决定，
+        // 与三钱法明显不同：老阳 3/16 远高于三钱的 1/8，老阴 1/16 远低于 1/8，
+        // 故蓍草法的变爻更偏向老阳。这一组数是历代注家反复引用的定值，
+        // 也可由分策过程自行复算（每变去一、四揲、归奇），两条路殊途同归。
         let mut cnt = [0u32; 4];
         let n = 80_000u32;
         let mut rng = SplitMix64::new(13);
@@ -225,6 +236,99 @@ mod tests {
         for (i, w) in want.iter().enumerate() {
             let p = f64::from(cnt[i]) / f64::from(n);
             assert!((p - w).abs() < 0.01, "蓍草 {}={p:.3} 应≈{w:.3}", i + 6);
+        }
+    }
+
+    /// 按传统约定把六爻装成卦：初爻在下，下卦 = 初二三爻，上卦 = 四五上爻。
+    ///
+    /// 刻意与 `cast` 里那段位运算分开写：`cast` 只有一个 `prim |= 1 << i` 的循环，
+    /// 从不显式区分上下卦，也从不说哪一爻在下。这里把约定摊开写，才有东西可对。
+    fn assemble_bottom_up(lines: &[Line; 6]) -> (Hexagram, Trigram, Trigram) {
+        let bit = |i: usize| u8::from(lines[i].yang);
+        let lower = bit(0) | (bit(1) << 1) | (bit(2) << 2); // 初、二、三
+        let upper = bit(3) | (bit(4) << 1) | (bit(5) << 2); // 四、五、上
+        (Hexagram(lower | (upper << 3)), Trigram(lower), Trigram(upper))
+    }
+
+    /// 先把上面那个装配函数钉在通行本卦序上——否则它可能跟 `cast` 错得一模一样，
+    /// 两边一起颠倒还是对得上，等于什么也没验。
+    ///
+    /// 「自下而上、最下一爻称初」见朱熹《周易本义·筮仪》所述揲蓍成爻之序，
+    /// 以及《系辞上》大衍之数章；两处所指相同。卦序取通行本，与
+    /// `mingli_gua` 已三源校验的 `HEXAGRAM_NAMES` 一致。
+    #[test]
+    fn the_assembly_convention_lands_on_the_received_hexagram_order() {
+        let ln = Line::from_value;
+        // 初二三阳、四五上阴 → 下乾上坤 → 地天泰（卦名自上而下读，与爻序自下而上不同）
+        let (h, lower, upper) = assemble_bottom_up(&[ln(7), ln(7), ln(7), ln(8), ln(8), ln(8)]);
+        assert_eq!((lower.name(), upper.name()), ("乾", "坤"));
+        assert_eq!(h.full_name(), "地天泰");
+        assert_eq!(h.king_wen(), 11);
+
+        // 反过来：下坤上乾 → 天地否
+        let (h, lower, upper) = assemble_bottom_up(&[ln(8), ln(8), ln(8), ln(7), ln(7), ln(7)]);
+        assert_eq!((lower.name(), upper.name()), ("坤", "乾"));
+        assert_eq!(h.full_name(), "天地否");
+        assert_eq!(h.king_wen(), 12);
+
+        // 下震上坎 → 水雷屯：震为阳阴阴（自下而上）、坎为阴阳阴
+        let (h, lower, upper) = assemble_bottom_up(&[ln(7), ln(8), ln(8), ln(8), ln(7), ln(8)]);
+        assert_eq!((lower.name(), upper.name()), ("震", "坎"));
+        assert_eq!(h.full_name(), "水雷屯");
+        assert_eq!(h.king_wen(), 3);
+
+        // 六阳 / 六阴两端
+        let (h, ..) = assemble_bottom_up(&[ln(9); 6]);
+        assert_eq!((h.full_name(), h.king_wen()), ("乾为天", 1));
+        let (h, ..) = assemble_bottom_up(&[ln(6); 6]);
+        assert_eq!((h.full_name(), h.king_wen()), ("坤为地", 2));
+    }
+
+    /// 摇出来的六爻与对外报出的那一卦，是不是同一件事。
+    ///
+    /// 此前一处也没验过。原有的测试全都与爻序无关：两种起卦法的分布不看爻位，
+    /// `resulting_flips_only_changing_lines` 比的是 `primary` 与 `changing_mask`
+    /// 自己之间的关系，而 `resulting = primary.changed(mask)` 本来就保证这一点，
+    /// 它从没把 `mask` 跟 `lines[i].changing` 对上；卦名只验了「在八名之列」。
+    ///
+    /// 实测（2026-08-23）：把六爻上下颠倒、把上卦名接成下卦、把变爻掩码单独颠倒，
+    /// 三种改法各自跑全量套件，一条守卫都不红——每一卦都会变成另一卦，卦名、文王序、
+    /// 所指的爻辞全不同，而没有任何地方察觉。
+    #[test]
+    fn what_is_reported_is_the_hexagram_the_lines_actually_make() {
+        for method in [Method::ThreeCoins, Method::YarrowStalks] {
+            for seed in 0..300u64 {
+                let c = cast(method, seed);
+                let (primary, lower, upper) = assemble_bottom_up(&c.lines);
+                assert_eq!(c.primary, primary, "{method:?} 种子 {seed}：本卦与六爻不符");
+                assert_eq!(c.primary_lower, lower.name(), "{method:?} 种子 {seed}：本卦下卦");
+                assert_eq!(c.primary_upper, upper.name(), "{method:?} 种子 {seed}：本卦上卦");
+                assert_eq!(c.primary_name, primary.name());
+                assert_eq!(c.primary_full_name, primary.full_name());
+                assert_eq!(c.primary_king_wen, primary.king_wen());
+
+                // 变爻掩码必须逐位对上每一爻自己的 changing，而不只是与之卦自洽。
+                for (i, line) in c.lines.iter().enumerate() {
+                    assert_eq!(
+                        (c.changing_mask >> i) & 1 == 1,
+                        line.changing,
+                        "{method:?} 种子 {seed} 第 {} 爻：掩码与营数 {} 不符",
+                        i + 1,
+                        line.value
+                    );
+                }
+
+                // 之卦同样要从「翻过变爻之后的六爻」重新装一遍，而不是信 changed()。
+                let flipped: [Line; 6] = std::array::from_fn(|i| {
+                    let l = c.lines[i];
+                    Line { yang: l.yang != l.changing, ..l }
+                });
+                let (resulting, rlower, rupper) = assemble_bottom_up(&flipped);
+                assert_eq!(c.resulting, resulting, "{method:?} 种子 {seed}：之卦与六爻不符");
+                assert_eq!(c.resulting_lower, rlower.name());
+                assert_eq!(c.resulting_upper, rupper.name());
+                assert_eq!(c.resulting_king_wen, resulting.king_wen());
+            }
         }
     }
 

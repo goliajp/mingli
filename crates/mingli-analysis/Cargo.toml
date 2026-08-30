@@ -1,18 +1,19 @@
 [package]
 name = "mingli-analysis"
-description = "L3.5 跨叶分析：同输入分布下全叶的信息论统计（熵 / 互信息 / 归一化互信息 NMI）。实证『A 族同源相关、C 族经 PRNG 与时间去相关』等通行结论。建于 engine 的并行 fan-out 输出。"
+description = "Information-theoretic statistics across divination systems: entropy, mutual information and normalized mutual information over a shared input grid."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["information-theory", "entropy", "nmi", "statistics"]
+categories = ["algorithms", "mathematics", "science"]
 
 [dependencies]
 mingli-contract = { workspace = true }
-mingli-engine = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 
 [dev-dependencies]
-mingli-registry = { workspace = true }
+mingli-registry = { workspace = true, features = ["full"] }
 criterion = { version = "0.8", default-features = false }
 
 [lints]

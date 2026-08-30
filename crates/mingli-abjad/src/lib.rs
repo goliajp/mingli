@@ -22,13 +22,17 @@
 //! 诚实边界（🟡）：taa marbuta 归到 ه(5) 是常见约定，少数计法按发音作 ت(400)——本 crate
 //! 取 5 并在此标注。
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::AbjadEngine;
 
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 阿拉伯 abjad 字母序变体。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Order {
     /// Mashriqī（东方序，通行）：`س=60 ش=300 ص=90 ض=800 ظ=900 غ=1000`。
     Mashriqi,
@@ -113,7 +117,8 @@ pub fn abjad(word: &str) -> u64 {
 }
 
 /// 一次 abjad 换算结果（两序对照式并出）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// Mashriqī 序总值（东方/通行序）。
     pub mashriqi: u64,

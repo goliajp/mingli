@@ -10,6 +10,80 @@ fn natal_1987() -> BirthInput {
     BirthInput { year: 1987, month: 9, day: 17, hour: 15, minute: 0, tz: 8.0, gender: Some(Gender::Male) }
 }
 
+/// 春节换岁：一年只换一次，且换在正月初一那天。
+///
+/// 原先这一支由公历年加农历月日反推，在公历十一、十二月上会把年柱退回前一年——
+/// 2024-12-15 是农历十一月，而 2024 年正月初一（02-10）早已过去，年柱却算成癸卯。
+/// 而当时三条测试取的都是二月三月的日期，恰好落在那套判断对的区间里，
+/// 注释还写着「覆盖 L397」「fallback L402」——照着分支写的，不是照着规矩写的。
+///
+/// 这条改成查规矩本身：逐日扫过整年，年柱只准变一次，且变的那天农历必是正月初一。
+/// 不拿 `m.lunar.year` 对答案，那是实现现在直接返回的东西，比了等于没比。
+#[test]
+fn the_spring_festival_year_turns_once_a_year_on_the_first_of_the_first_month() {
+    use crate::{BaziSchool, YearBreakMethod, ZiHourMethod};
+    let school = BaziSchool {
+        zi_hour: ZiHourMethod::Late,
+        year_break: YearBreakMethod::SpringFestival,
+    };
+    let days_in = |y: i32, m: u32| -> u32 {
+        match m {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            _ => u32::from((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) + 28,
+        }
+    };
+    for year in 2020..=2030i32 {
+        let mut turns: Vec<(u32, u32)> = Vec::new();
+        let mut prev: Option<String> = None;
+        for month in 1..=12u32 {
+            for day in 1..=days_in(year, month) {
+                let m = Moment::new(year, month, day, 12, 0, 8.0);
+                let gz = compute_at_school(&m, None, school).year.ganzhi.clone();
+                if let Some(before) = &prev
+                    && *before != gz
+                {
+                    {
+                        turns.push((month, day));
+                        // 换岁那天，农历必是非闰的正月初一。
+                        assert_eq!(
+                            (m.lunar.month, m.lunar.day, m.lunar.leap),
+                            (1, 1, false),
+                            "{year}-{month:02}-{day:02} 年柱由 {before} 换成 {gz}，但农历不是正月初一"
+                        );
+                    }
+                }
+                prev = Some(gz);
+            }
+        }
+        assert_eq!(turns.len(), 1, "{year} 年该只换一次岁，实得 {turns:?}");
+    }
+}
+
+/// 立春派与春节派在公历下半年必须一致——两者只在年初那一段分歧。
+///
+/// 立春在公历二月初、正月初一在一月下旬到二月中，两个界都落在年初；
+/// 三月之后到年末，两派该给同一根年柱。原先那套反推在十一、十二月上会岔开，
+/// 这条正是那个岔口的守卫。
+#[test]
+fn the_two_year_break_schools_only_disagree_early_in_the_year() {
+    use crate::{BaziSchool, YearBreakMethod, ZiHourMethod};
+    let sf = BaziSchool { zi_hour: ZiHourMethod::Late, year_break: YearBreakMethod::SpringFestival };
+    for year in 2020..=2030i32 {
+        for month in 3..=12u32 {
+            for day in [1u32, 15, 28] {
+                let m = Moment::new(year, month, day, 12, 0, 8.0);
+                assert_eq!(
+                    compute_at_school(&m, None, sf).year.ganzhi,
+                    compute_at_school(&m, None, BaziSchool::default()).year.ganzhi,
+                    "{year}-{month:02}-{day:02} 两派年柱不该分歧"
+                );
+            }
+        }
+    }
+}
+
+
 #[test]
 fn fortune_at_aggregates_natal_and_t() {
     // 1987 长沙男（本命主用神=木官杀，忌火印+土比劫）；t=2026-06-16(age ~38.7)
@@ -214,6 +288,105 @@ fn sample_1990_06_15_male() {
     assert!(dy.forward); // 庚午阳年男 → 顺行
     assert_eq!(dy.pillars.len(), 10);
     assert_eq!(dy.pillars[0].ganzhi, "癸未"); // 月柱壬午顺行下一步
+}
+
+/// 起运岁数：从生日数到相邻那个「节」，天数除以三。
+///
+/// 此前一处也没验过。大运只验了顺逆、十步齐、首步干支，而起运岁数决定每一步
+/// 从几岁开始——它错了，整条运程全错位。变异测试在 `compute_dayun` 上留下
+/// 二十个活口，全落在「找相邻的节」与「天数折岁」这一段。
+///
+/// 规则两源相合：阳年男与阴年女从生日**顺**数到下一个节、阴年男与阳年女**逆**数
+/// 到上一个节，所数天数除以三；且推大运**用节不用气**，十二节为立春·惊蛰·清明·
+/// 立夏·芒种·小暑·立秋·白露·寒露·立冬·大雪·小寒。
+/// 见 <https://zhuanlan.zhihu.com/p/630204689> 与 <https://m.k366.com/bazi/199667.htm>，
+/// 两处所述一致。
+///
+/// 校验用另一条路走一遍。本函数的找法是：由出生时太阳黄经算出 `k`，再 ±30° 定目标。
+/// 这里换成：把十二个节的黄经在前中后三年里各求一次时刻，取紧邻生时的那个。
+/// 两种写法没有共用的算术，算出的却是同一个答案。
+#[test]
+fn the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three() {
+    // 十二节的黄经：立春 315 起，每 30° 一个，故恒 ≡ 15 (mod 30)。
+    const JIE_LONGITUDES: [f64; 12] =
+        [315.0, 345.0, 15.0, 45.0, 75.0, 105.0, 135.0, 165.0, 195.0, 225.0, 255.0, 285.0];
+    for lon in JIE_LONGITUDES {
+        assert!(
+            (lon.rem_euclid(30.0) - 15.0).abs() < 1e-9,
+            "{lon} 不是节的黄经——中气在 30 的整数倍上，推大运不用它"
+        );
+    }
+
+    for (year, month, day, hour, minute, gender) in [
+        (1990i32, 6u32, 15u32, 14u32, 30u32, Gender::Male),
+        (1990, 6, 15, 14, 30, Gender::Female),
+        (1987, 9, 17, 12, 0, Gender::Male),
+        (1987, 9, 17, 12, 0, Gender::Female),
+        (2000, 1, 1, 0, 0, Gender::Male),
+        (2024, 2, 20, 8, 0, Gender::Male),
+        (1975, 11, 3, 23, 50, Gender::Female),
+        (2010, 7, 7, 6, 0, Gender::Male),
+    ] {
+        let chart = compute(BirthInput { year, month, day, hour, minute, tz: 8.0, gender: Some(gender) });
+        let dayun = chart.dayun.as_ref().expect("给了性别就该有大运");
+
+        let jd = mingli_astro::jd_from_local(year, month, day, hour, minute, 0.0, 8.0);
+        let (mut nearest_after, mut nearest_before) = (f64::INFINITY, f64::NEG_INFINITY);
+        for target in JIE_LONGITUDES {
+            for probe_year in [year - 1, year, year + 1] {
+                let t = mingli_astro::solar_term_jd(probe_year, target);
+                if t > jd && t < nearest_after {
+                    nearest_after = t;
+                }
+                if t < jd && t > nearest_before {
+                    nearest_before = t;
+                }
+            }
+        }
+        let days = if dayun.forward { nearest_after - jd } else { jd - nearest_before };
+        assert!(
+            (0.0..32.0).contains(&days),
+            "{year}-{month:02}-{day:02}：离相邻的节 {days:.2} 天——一个月里必有一个节，不该这么远"
+        );
+        // `start_age_years` 对外保留两位小数，故容差取 0.005 年。
+        assert!(
+            (dayun.start_age_years - days / 3.0).abs() < 0.005,
+            "{year}-{month:02}-{day:02} {gender:?}：起运 {:.4} 岁，另一条路算得 {:.4} 岁",
+            dayun.start_age_years,
+            days / 3.0
+        );
+        // 十步各差十年，首步从起运整岁数上开始。
+        let first = dayun.start_age_years.round() as u32;
+        for (i, pillar) in dayun.pillars.iter().enumerate() {
+            assert_eq!(
+                pillar.start_age,
+                first + u32::try_from(i).expect("十步以内") * 10,
+                "{year}-{month:02}-{day:02}：第 {} 步的起始年龄", i + 1
+            );
+        }
+    }
+}
+
+/// 顺逆四种组合都走一遍：阳男顺、阴女顺、阴男逆、阳女逆。
+///
+/// 原有两条各验一个方向，四种组合里空着两种。
+#[test]
+fn the_direction_follows_the_year_stem_and_the_gender() {
+    for (year, month, day, expect_yang, ) in
+        [(1990i32, 6u32, 15u32, true), (1989, 6, 15, false), (2000, 6, 15, true), (2001, 6, 15, false)]
+    {
+        for (gender, forward) in
+            [(Gender::Male, expect_yang), (Gender::Female, !expect_yang)]
+        {
+            let chart = compute(BirthInput { year, month, day, hour: 12, minute: 0, tz: 8.0, gender: Some(gender) });
+            assert_eq!(
+                chart.dayun.as_ref().expect("有性别").forward,
+                forward,
+                "{year} 年（阳年 {expect_yang}）{gender:?} 应{}行",
+                if forward { "顺" } else { "逆" }
+            );
+        }
+    }
 }
 
 #[test]

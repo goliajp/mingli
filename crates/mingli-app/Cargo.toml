@@ -1,12 +1,17 @@
 [package]
 name = "mingli-app"
-description = "用例层：本命 / 岁运叠加 / 运势时序 / 团队合盘 / 字词 / 跨叶分析 / 释义这些「一次完整请求要做的事」。承接层只做协议转换，业务编排都在这里。"
+description = "The use cases: one per intent — natal, fortune, event, election, locative, synastry, mundane and word — and the input shapes every delivery path shares."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["divination", "use-cases", "orchestration", "intents"]
+categories = ["algorithms", "api-bindings"]
 
 [dependencies]
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
+# 支序 ↔ 支名：紫微的流年宫要支序，而盘上给的是支名
+mingli-ganzhi = { workspace = true, features = ["serde"] }
 mingli-luoshu = { workspace = true }
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
@@ -16,11 +21,23 @@ mingli-interpret = { workspace = true }
 mingli-bazi = { workspace = true }
 mingli-ziwei = { workspace = true }
 mingli-zeri = { workspace = true }
+mingli-taiyi = { workspace = true }
+mingli-jyotish = { workspace = true, optional = true }
+mingli-astrology = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+[features]
+default = ["astrology", "jyotish"]
+# 与 mingli-registry 的同名 feature 对齐：关掉即不连带 VSOP87 星历，用于轻量构建。
+# 用例层若无条件依赖这两片，registry 那边关了也白关——星历照样被拉进来。
+astrology = ["dep:mingli-astrology"]
+jyotish = ["dep:mingli-jyotish"]
+
 [dev-dependencies]
-mingli-registry = { workspace = true }
+mingli-registry = { workspace = true, features = ["full"] }
+# 测试里核对方位表归属；生产代码不依赖六壬。
+mingli-liuren = { workspace = true }
 
 [lints]
 workspace = true

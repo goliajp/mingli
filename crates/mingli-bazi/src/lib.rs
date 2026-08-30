@@ -16,7 +16,9 @@
     reason = "叶内各模块以 `use super::*` 共享 crate 顶层的领域 import——这是把一张大盘拆成多文件的常规手法"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::BaziEngine;
 
 use mingli_astro::{solar_term_jd, solar_term_time_near, Moment};
@@ -27,6 +29,7 @@ use mingli_ganzhi::{
     BRANCHES, STEMS, TWELVE_STAGES,
 };
 pub use mingli_ganzhi::parse_ganzhi;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 mod types;

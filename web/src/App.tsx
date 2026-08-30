@@ -1,8 +1,7 @@
 // 页面组装：表单 → 请求 → 各视图。计算与展示都在别处，这里只连线。
-import { useEffect, useMemo, useState } from 'react'
-import type { Analysis, BaziChart, CastLeaf, ChartRequest, FortuneResponse, IntentSpec, IntentsResponse, ZiweiChart } from './types'
-import { LeafChart } from './leaves'
-import { fetchAnalysis, fetchBazi, fetchCast, fetchFortune, fetchInterpretation, fetchZiwei } from './api/client'
+import { useState } from 'react'
+import type { BaziChart, ChartRequest } from './types'
+import { LeafChart } from './views/leaves'
 import { IntentBar, IntentPendingCard } from './components/IntentBar'
 import { ElectionView } from './views/ElectionView'
 import { EventView } from './views/EventView'
@@ -14,7 +13,8 @@ import { SummaryBar } from './components/SummaryBar'
 import { TimeScrubber } from './components/TimeScrubber'
 import { CITIES, REGIONS, coordStr } from './data/cities'
 import { colorOf, regionOf } from './data/leaf-regions'
-import { MS_PER_YEAR, reqAt } from './lib/ganzhi'
+import { useAnalysis, useInterpretations, useNatalCast } from './hooks/useCast'
+import { useFortune, useIntents, useLeavesAt, useTimeline } from './hooks/useTimeline'
 import { AnalysisView } from './views/AnalysisView'
 import { BaziNatalYun } from './views/BaziNatalYun'
 import { FortuneView } from './views/FortuneView'
@@ -30,95 +30,18 @@ export default function App() {
   const [tab, setTab] = useState<string>('bazi') // 当前叶 id
   // 问局意图（命/运/事/择/合/群/寻/号），默认 natal（本命盘）。
   const [intent, setIntent] = useState<string>('natal')
-  const [intentsList, setIntentsList] = useState<IntentSpec[] | null>(null)
-  useEffect(() => {
-    fetch('/api/intents').then((r) => r.json() as Promise<IntentsResponse>)
-      .then((r) => setIntentsList(r.intents)).catch(() => {})
-  }, [])
-  // Fortune：t 时刻运势切片 + 100 年用神供给时间序列。当 intent='fortune' 时按需 fetch。
-  const [fortune, setFortune] = useState<FortuneResponse | null>(null)
-  const [bazi, setBazi] = useState<BaziChart | null>(null)
-  const [ziwei, setZiwei] = useState<ZiweiChart | null>(null)
-  const [leaves, setLeaves] = useState<CastLeaf[] | null>(null)
-  const [leavesT, setLeavesT] = useState<CastLeaf[] | null>(null) // t 时刻全叶盘（随全局拨杆动）
-  const [playAge, setPlayAge] = useState<number | null>(null)      // 全局 playhead 年龄；null=跟随此刻
-  const [analysis, setAnalysis] = useState<Analysis | null>(null)
-  const [interp, setInterp] = useState<Record<string, { text: string; backend: string; loading?: boolean }>>({})
-  const [err, setErr] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [runId, setRunId] = useState(0) // 每次成功排盘 +1，驱动淡入动画
+  const intentsList = useIntents()
 
-  async function run() {
-    setLoading(true)
-    setErr(null)
-    try {
-      const [b, z, all] = await Promise.all([
-        fetchBazi(form),
-        fetchZiwei(form),
-        fetchCast(form),
-      ])
-      setBazi(b)
-      setZiwei(z)
-      setLeaves(all.leaves)
-      setRunId((n) => n + 1)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { void run() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 全局时间轴：本命(form)固定；playhead t 驱动「t 时刻全叶盘」leavesT —— 所有叶子跟着同一个时间动。
-  const birthMs = useMemo(() => new Date(form.year, form.month - 1, form.day, form.hour, form.minute).getTime(), [form])
-  const nowAge = Math.max(0, Math.min(100, (Date.now() - birthMs) / MS_PER_YEAR))
-  const age = playAge ?? nowAge
-  const playDate = useMemo(() => new Date(birthMs + age * MS_PER_YEAR), [birthMs, age])
-  useEffect(() => { setPlayAge(null) }, [birthMs]) // 换人重排→拨杆收回此刻
-  // Fortune 视图时，playhead 拨动 → 重新 fetch 运势切片 + 时序（后端缓存 timeline 可在 100 年内做但当前每次重算 — natal 不变时 timeline 实际相同）。
-  useEffect(() => {
-    if (intent !== 'fortune') return
-    let alive = true
-    const id = setTimeout(() => {
-      fetchFortune(form, {
-        year: playDate.getFullYear(), month: playDate.getMonth() + 1, day: playDate.getDate(),
-        hour: playDate.getHours(), minute: playDate.getMinutes(), tz: form.tz,
-      }).then((r) => { if (alive) { setFortune(r); setErr(null) } })
-        .catch((e) => { if (alive) setErr(e instanceof Error ? e.message : String(e)) })
-    }, 120)
-    return () => { alive = false; clearTimeout(id) }
-  }, [intent, form, age, playDate]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    let alive = true
-    const id = setTimeout(() => {
-      fetchCast(reqAt(playDate, form))
-        .then((r) => { if (alive) setLeavesT(r.leaves) })
-        .catch(() => {})
-    }, 90) // 拖动防抖
-    return () => { alive = false; clearTimeout(id) }
-  }, [age, form]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 跨叶相关分析：固定网格、结果确定，首次打开懒加载（后端缓存）。
-  useEffect(() => {
-    if (tab === 'analysis' && !analysis) {
-      fetchAnalysis().then(setAnalysis).catch(() => {})
-    }
-  }, [tab, analysis])
+  const { bazi, ziwei, leaves, err, setErr, loading, runId, run } = useNatalCast(form)
+  const { age, nowAge, setPlayAge, playDate } = useTimeline(form)
+  const leavesT = useLeavesAt(form, age, playDate)
+  const fortune = useFortune(form, age, playDate, intent === 'fortune', setErr)
+  const analysis = useAnalysis(tab === 'analysis')
+  const { interp, generate: genInterp } = useInterpretations(form)
 
   const set = (k: keyof ChartRequest) => (e: { target: { value: string } }) => {
     const v = e.target.value
     setForm((f) => ({ ...f, [k]: k === 'gender' || k === 'name' ? v : Number(v) }))
-  }
-
-  async function genInterp(leafId: string) {
-    setInterp((s) => ({ ...s, [leafId]: { text: '', backend: '', loading: true } }))
-    try {
-      const r = await fetchInterpretation(form, leafId)
-      setInterp((s) => ({ ...s, [leafId]: { text: r.text, backend: r.backend } }))
-    } catch {
-      setInterp((s) => ({ ...s, [leafId]: { text: '释义生成失败，请稍后再试', backend: 'error' } }))
-    }
   }
 
   return (
@@ -190,7 +113,7 @@ export default function App() {
         </button>
       </section>
 
-      {err && <div className="err">⚠ {err}（服务连接失败，请稍后重试）</div>}
+      {err && <div className="err">⚠ {err}</div>}
 
       {intent === 'fortune' && bazi && (
         <div className="result" key={`fortune-${runId}`}>

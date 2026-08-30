@@ -3,33 +3,66 @@
 //! 数字学是「符号 → 数值（查表 φ）→ 求和（幺半群同态）→ 数字根约化」的最纯范例，骨架全在
 //! [`mingli_core::ringhash`]。本 crate 提供两套字母表与四个常见数：
 //!
-//! - **字母表**：Pythagorean（A=1…I=9 循环，复用 [`mingli_core::ringhash::pythagorean`]）与
+//! - **字母表**：Pythagorean（A=1…I=9 循环，见 [`pythagorean`]）与
 //!   Chaldean（1..8，9 为神圣不配字母；按振动而非顺序，见 [`chaldean`]）。
 //! - **生命灵数（Life Path）**：出生年月日各自约化后求和再约化（保留主数 11/22/33）。
 //! - **生日数（Birthday）**：出生「日」约化。
 //! - **表达数 / 灵魂数 / 人格数**：姓名全字母 / 元音 / 辅音之和约化。
 //!
-//! 约化用 [`mingli_core::ringhash::reduce_with_master`]（遇 11/22/33 停）。
+//! 约化用 [`reduce_with_master`]（遇 11/22/33 停）——主数例外是数字学自家的教义，
+//! 不是通用数论，所以住在本 crate 而非 `mingli-core`。
 //!
 //! 语域注：数本身是确定计算；其「含义」属释义层，本 crate 不下断言。
 //! 🟡 欠定项：生命灵数有「分量约化」与「全数字相加」两法（本 crate 用分量约化，多数教材主数法）；
-//! 元音是否含 Y 随流派（本 crate 仅 AEIOU 为元音）。两者已文档化，不静默选边。
+//! Y 算元音还是辅音随流派，本 crate 三说并出，见 [`YRule`]。
 
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::NumerologyEngine;
 
 use mingli_astro::Moment;
-use mingli_core::ringhash::{pythagorean, reduce_with_master, string_sum};
+use mingli_core::ringhash::{string_sum, sum_digits};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 字母表系统。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum System {
     /// Pythagorean：A=1…I=9 循环。
     Pythagorean,
     /// Chaldean：1..8（9 不配字母）。
     Chaldean,
+}
+
+/// Pythagorean 字母值：A=1…I=9，J 起再循环（仅 A-Z / a-z，其余 `None`）。
+#[must_use]
+pub fn pythagorean(c: char) -> Option<u64> {
+    let u = c.to_ascii_uppercase();
+    if u.is_ascii_uppercase() {
+        Some(((u as u64 - 'A' as u64) % 9) + 1)
+    } else {
+        None
+    }
+}
+
+/// 带主数例外的数字根约化：反复取各位之和，遇 11 / 22 / 33 即停。
+///
+/// 主数（master numbers）不再约化是西洋数字学的通行教义，多源一致。
+#[must_use]
+pub fn reduce_with_master(n: u64) -> u64 {
+    let mut x = n;
+    loop {
+        if matches!(x, 11 | 22 | 33) {
+            return x;
+        }
+        if x < 10 {
+            return x;
+        }
+        x = sum_digits(x);
+    }
 }
 
 /// Chaldean 字母值（A..Z，索引 0..26）。1：AIJQY 2：BKR 3：CGLS 4：DMT 5：EHNX 6：UVW 7：OZ 8：FP。
@@ -57,14 +90,15 @@ pub fn letter_value(c: char, system: System) -> Option<u64> {
     }
 }
 
-/// 是否元音（仅 AEIOU；Y 不计，见 crate 文档 🟡）。
+/// 是否是无争议的元音（AEIOU）。Y 的归属看语境，见 [`YRule`] 与 [`vowel_flags`]。
 #[must_use]
 pub fn is_vowel(c: char) -> bool {
     matches!(c.to_ascii_uppercase(), 'A' | 'E' | 'I' | 'O' | 'U')
 }
 
 /// 生命灵数的约化方法（流派分歧）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum LifePathMethod {
     /// **Component（分量约化）**：y/m/d 各约化后求和，再约化（保留主数 11/22/33）。
     /// 当代 Pythagorean 学派多用此法，易识别中间主数。
@@ -124,56 +158,172 @@ pub fn expression(name: &str, system: System) -> u64 {
     reduce_with_master(string_sum(name, |c| letter_value(c, system)))
 }
 
+/// Y 归入元音还是辅音的约定。灵魂数与人格数按这条分岔，表达数不受影响。
+///
+/// 三说的来源强度差得很远，选项按强度排：
+///
+/// - [`Contextual`](YRule::Contextual)：**4 个独立源**（Hans Decoz / World Numerology、
+///   Token Rock、Felicia Bender、Crystal Logic）。Decoz 给了八条按位置的细则，
+///   Token Rock 一句话概括为「Y 恒为元音，除非它紧挨着另一个元音」——两者逐例一致，
+///   本 crate 实现的就是这一句，它能复现 Decoz 全部八条（含其两条 default）。
+/// - [`AfterVowel`](YRule::AfterVowel)：**2 个独立源**（Lyn's Numerology Charts、Astrala）
+///   明确主张「Y 跟在元音后面仍算元音」（Clayton / May / Taylor）。
+/// - [`Never`](YRule::Never)：**1 个二手转述**（Felicia Bender 引 Juno Jordan
+///   《Numerology: The Romance In Your Name》，未取得原书）。这是本 crate 从前的默认。
+///
+/// 🟡 未实现的部分：前两说都还带一条**按音节**的条款（「该音节里没有别的元音时 Y 算元音」，
+/// 如 Bryan 的 Y），要分音节才能判，本 crate 没有音节切分器，故不实现，也不假装实现。
+/// Y 恒为元音（Lynn Buess）同样只有一处二手转述，不入选项。
+/// W 在 Matthew / Drew / Owen 一类里算元音的说法有 2 源（其中一处只有立场没有规则），
+/// 强度不足，本 crate 一律把 W 当辅音。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+pub enum YRule {
+    /// Y 紧邻另一个元音（前或后）时作辅音，否则作元音。
+    Contextual,
+    /// 只有后接元音时 Y 才作辅音；跟在元音后面仍作元音。
+    AfterVowel,
+    /// Y 一律作辅音。
+    Never,
+}
+
+impl YRule {
+    /// 稳定标识（进 JSON）。
+    #[must_use]
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Contextual => "contextual",
+            Self::AfterVowel => "after_vowel",
+            Self::Never => "never",
+        }
+    }
+
+    /// 三种约定，按来源强度排。
+    #[must_use]
+    pub const fn all() -> [Self; 3] {
+        [Self::Contextual, Self::AfterVowel, Self::Never]
+    }
+}
+
+/// 逐字符判定「这个位置算不算元音」。返回长度 = `name.chars().count()`。
+///
+/// AEIOU 恒为元音；Y 按 `rule` 定；其余（含 W、非字母）为非元音。
+/// 判邻居时**不跨词**——空格、连字符一类非字母把词断开，所以「Mary Ann」里
+/// Mary 的 Y 后面没有字母，算元音。
+#[must_use]
+pub fn vowel_flags(name: &str, rule: YRule) -> Vec<bool> {
+    let chars: Vec<char> = name.chars().collect();
+    let mut out = vec![false; chars.len()];
+    for i in 0..chars.len() {
+        let c = chars[i];
+        if is_vowel(c) {
+            out[i] = true;
+            continue;
+        }
+        if !c.eq_ignore_ascii_case(&'y') {
+            continue;
+        }
+        let letter_at = |k: usize| chars.get(k).copied().filter(char::is_ascii_alphabetic);
+        let prev_is_vowel = i.checked_sub(1).and_then(letter_at).is_some_and(is_vowel);
+        let next_is_vowel = letter_at(i + 1).is_some_and(is_vowel);
+        out[i] = match rule {
+            YRule::Never => false,
+            YRule::Contextual => !prev_is_vowel && !next_is_vowel,
+            YRule::AfterVowel => !next_is_vowel,
+        };
+    }
+    out
+}
+
+fn sum_where(name: &str, system: System, keep: impl Fn(bool, char) -> bool, rule: YRule) -> u64 {
+    let flags = vowel_flags(name, rule);
+    let total: u64 = name
+        .chars()
+        .zip(flags)
+        .filter(|&(c, is_v)| keep(is_v, c))
+        .filter_map(|(c, _)| letter_value(c, system))
+        .sum();
+    reduce_with_master(total)
+}
+
+/// 灵魂数（Soul Urge）：姓名元音之和约化，Y 的归属按 `rule`。
+#[must_use]
+pub fn soul_urge_with(name: &str, system: System, rule: YRule) -> u64 {
+    sum_where(name, system, |is_v, _| is_v, rule)
+}
+
+/// 人格数（Personality）：姓名辅音之和约化，Y 的归属按 `rule`。
+#[must_use]
+pub fn personality_with(name: &str, system: System, rule: YRule) -> u64 {
+    sum_where(name, system, |is_v, c| !is_v && c.is_ascii_alphabetic(), rule)
+}
+
 /// 灵魂数（Soul Urge）：姓名元音之和约化。
+///
+/// Y 按来源最强的 [`YRule::Contextual`] 判；另两说的读数在
+/// [`NameNumbers::by_y_rule`] 里一并给出。
 #[must_use]
 pub fn soul_urge(name: &str, system: System) -> u64 {
-    reduce_with_master(string_sum(name, |c| {
-        if is_vowel(c) {
-            letter_value(c, system)
-        } else {
-            None
-        }
-    }))
+    soul_urge_with(name, system, YRule::Contextual)
 }
 
 /// 人格数（Personality）：姓名辅音之和约化。
+///
+/// Y 按来源最强的 [`YRule::Contextual`] 判；另两说的读数在
+/// [`NameNumbers::by_y_rule`] 里一并给出。
 #[must_use]
 pub fn personality(name: &str, system: System) -> u64 {
-    reduce_with_master(string_sum(name, |c| {
-        if c.is_ascii_alphabetic() && !is_vowel(c) {
-            letter_value(c, system)
-        } else {
-            None
-        }
-    }))
+    personality_with(name, system, YRule::Contextual)
+}
+
+/// 某一种 Y 归属约定下的灵魂数与人格数。
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+pub struct VowelReading {
+    /// 约定标识（`"contextual"` / `"after_vowel"` / `"never"`）。
+    pub y_rule: &'static str,
+    /// 该约定下的灵魂数。
+    pub soul_urge: u64,
+    /// 该约定下的人格数。
+    pub personality: u64,
 }
 
 /// 姓名数（某系统下的表达/灵魂/人格）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NameNumbers {
     /// 字母表系统。
     pub system: System,
-    /// 表达数。
+    /// 表达数（全字母之和，不受 Y 归属影响）。
     pub expression: u64,
-    /// 灵魂数。
+    /// 灵魂数（按 [`YRule::Contextual`]）。
     pub soul_urge: u64,
-    /// 人格数。
+    /// 人格数（按 [`YRule::Contextual`]）。
     pub personality: u64,
+    /// 三种 Y 归属约定下的读数并出，按来源强度排；不替调用方选边。
+    pub by_y_rule: [VowelReading; 3],
 }
 
 /// 由姓名与系统算姓名数。
 #[must_use]
 pub fn name_numbers(name: &str, system: System) -> NameNumbers {
+    let reading = |rule: YRule| VowelReading {
+        y_rule: rule.id(),
+        soul_urge: soul_urge_with(name, system, rule),
+        personality: personality_with(name, system, rule),
+    };
     NameNumbers {
         system,
         expression: expression(name, system),
         soul_urge: soul_urge(name, system),
         personality: personality(name, system),
+        by_y_rule: YRule::all().map(reading),
     }
 }
 
 /// 一次数字学换算的结果。日期数恒有；姓名数在给出姓名时附上（两套系统）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 生命灵数（按当前所选流派 `life_path_method`）。
     pub life_path: u64,
@@ -245,102 +395,4 @@ pub fn compute(year: i32, month: u32, day: u32, tz: f64) -> Cast {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn chaldean_table_groups() {
-        // 1：AIJQY 2：BKR 3：CGLS 4：DMT 5：EHNX 6：UVW 7：OZ 8：FP；无 9。
-        for c in ['A', 'I', 'J', 'Q', 'Y'] {
-            assert_eq!(chaldean(c), Some(1));
-        }
-        assert_eq!(chaldean('B'), Some(2));
-        assert_eq!(chaldean('F'), Some(8));
-        assert_eq!(chaldean('O'), Some(7));
-        assert_eq!(chaldean('Z'), Some(7));
-        assert_eq!(chaldean('5'), None);
-        assert_eq!(chaldean('a'), Some(1)); // 大小写一致
-        // Chaldean 永不产出 9。
-        assert!(('A'..='Z').all(|c| chaldean(c) != Some(9)));
-    }
-
-    #[test]
-    fn pythagorean_via_ringhash() {
-        assert_eq!(letter_value('A', System::Pythagorean), Some(1));
-        assert_eq!(letter_value('I', System::Pythagorean), Some(9));
-        assert_eq!(letter_value('J', System::Pythagorean), Some(1));
-        assert_eq!(letter_value('Z', System::Pythagorean), Some(8));
-    }
-
-    #[test]
-    fn life_path_worked_examples() {
-        // 1990-06-15：年 1990→1+9+9+0=19→10→1；月 6；日 15→6；1+6+6=13→4。
-        assert_eq!(life_path(1990, 6, 15), 4);
-        // 流派对比：1990-06-15 → component 法 4，whole_sum 法 1+9+9+0+6+1+5=31→4（同值）。
-        assert_eq!(life_path_with(1990, 6, 15, LifePathMethod::WholeSum), 4);
-        // 1989-12-26 区分两派：
-        //   Component: y=1+9+8+9=27→9, m=12→3, d=26→8 → 9+3+8=20→2
-        //   WholeSum：  1+9+8+9+1+2+2+6=38→11（保留主数）
-        assert_eq!(life_path_with(1989, 12, 26, LifePathMethod::Component), 2);
-        assert_eq!(life_path_with(1989, 12, 26, LifePathMethod::WholeSum), 11);
-        // 主数保留：某日期约化得 11 应停。2000-11-29：年2000→2，月11→11（停），日29→11（停）；2+11+11=24→6。
-        assert_eq!(life_path(2000, 11, 29), 6);
-        // 直接给出主数和示例：reduce_with_master 在求和处保留。
-        // 1998-08-13：年1998→1+9+9+8=27→9；月8；日13→4；9+8+4=21→3。
-        assert_eq!(life_path(1998, 8, 13), 3);
-        // 边界：年 0（数字和=0）不 panic：0+1+1=2。
-        assert_eq!(life_path(0, 1, 1), 2);
-    }
-
-    #[test]
-    fn birthday_number_reduces() {
-        assert_eq!(birthday_number(15), 6);
-        assert_eq!(birthday_number(29), 11); // 主数停
-        assert_eq!(birthday_number(4), 4);
-    }
-
-    #[test]
-    fn name_numbers_pythagorean() {
-        // "ABE" Pythagorean：A1 B2 E5 → 8（表达）。元音 A，E=1+5=6（灵魂）。辅音 B=2（人格）。
-        let n = name_numbers("ABE", System::Pythagorean);
-        assert_eq!(n.expression, 8);
-        assert_eq!(n.soul_urge, 6);
-        assert_eq!(n.personality, 2);
-        // 非字母被跳过。
-        assert_eq!(expression("A-B-E", System::Pythagorean), 8);
-    }
-
-    #[test]
-    fn name_numbers_chaldean_differs() {
-        // "FOX" Chaldean：F8 O7 X5 = 20 → 2。Pythagorean：F6 O6 X6=18→9。两系统不同。
-        assert_eq!(expression("FOX", System::Chaldean), 2);
-        assert_eq!(expression("FOX", System::Pythagorean), 9);
-    }
-
-    #[test]
-    fn vowels_and_master_preserved() {
-        assert!(is_vowel('a') && is_vowel('U'));
-        assert!(!is_vowel('Y') && !is_vowel('B'));
-        // 约化保留主数：构造和为 29 的名 → 表达数 11。
-        // "K" =2(P).. 取一个和=29 的串：用 "INNN"？ I9 N5 N5 N5=24. 用 "RRR..." 略，直接验 reduce。
-        assert_eq!(reduce_with_master(29), 11);
-    }
-
-    #[test]
-    fn compute_paths() {
-        let c = compute(1990, 6, 15, 8.0);
-        assert_eq!(c.life_path, 4);
-        assert!(c.pythagorean.is_none());
-        let m = Moment::new(1990, 6, 15, 12, 0, 8.0);
-        let cn = compute_named(&m, "Ada");
-        assert_eq!(cn.life_path, 4);
-        assert!(cn.pythagorean.is_some() && cn.chaldean.is_some());
-        // 两系统对同名给不同表达数（除非碰巧相等）。
-        let p = cn.pythagorean.unwrap();
-        let ch = cn.chaldean.unwrap();
-        assert_eq!(p.system, System::Pythagorean);
-        assert_eq!(ch.system, System::Chaldean);
-        // 确定性。
-        assert_eq!(expression("Ada", System::Pythagorean), p.expression);
-    }
-}
+mod tests;

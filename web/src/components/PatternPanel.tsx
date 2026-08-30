@@ -1,6 +1,6 @@
 // 命格面板。
 import type { Pattern } from '../types'
-import { WUXING_COLOR } from '../leaves'
+import { WUXING_COLOR } from '../lib/display'
 import { STEM_WX } from '../lib/ganzhi'
 
 // 命格：月令藏干透干 → 八正格 / 建禄月刃 / 暗格。是命主结构性属性，不随时间动。

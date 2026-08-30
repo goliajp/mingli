@@ -521,8 +521,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "mingli"
+version = "1.0.0"
+dependencies = [
+ "mingli-contract",
+ "mingli-engine",
+ "mingli-registry",
+]
+
+[[package]]
 name = "mingli-abjad"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -532,29 +541,30 @@ dependencies = [
 
 [[package]]
 name = "mingli-analysis"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
- "mingli-engine",
  "mingli-registry",
  "serde",
- "serde_json",
 ]
 
 [[package]]
 name = "mingli-api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "axum",
+ "http-body-util",
  "mingli-app",
  "mingli-contract",
  "mingli-engine",
  "mingli-interpret",
  "mingli-registry",
+ "mingli-wasm",
  "serde",
  "serde_json",
  "tokio",
+ "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
@@ -562,14 +572,22 @@ dependencies = [
 
 [[package]]
 name = "mingli-app"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mingli-analysis",
+ "mingli-astro",
+ "mingli-astrology",
  "mingli-bazi",
  "mingli-contract",
  "mingli-engine",
+ "mingli-ganzhi",
  "mingli-interpret",
+ "mingli-jyotish",
+ "mingli-liuren",
+ "mingli-luoshu",
  "mingli-registry",
+ "mingli-taiyi",
+ "mingli-zeri",
  "mingli-ziwei",
  "serde",
  "serde_json",
@@ -577,7 +595,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-astro"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mingli-core",
  "proptest",
@@ -586,7 +604,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-astrology"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -599,7 +617,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-bazi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -611,7 +629,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-cartomancy"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -622,16 +640,17 @@ dependencies = [
 
 [[package]]
 name = "mingli-contract"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mingli-astro",
+ "proptest",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "mingli-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -639,7 +658,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-engine"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mingli-contract",
  "rayon",
@@ -648,7 +667,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ephemeris"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "astro",
  "criterion",
@@ -659,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ganzhi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-core",
@@ -668,7 +687,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-gematria"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -678,7 +697,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-geomancy"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -689,7 +708,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-gua"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-core",
@@ -698,7 +717,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ifa"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -709,7 +728,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-interpret"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -721,7 +740,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-jyotish"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -733,7 +752,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-liuren"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -745,7 +764,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-luoshu"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-core",
@@ -753,7 +772,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-mahabote"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -764,7 +783,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-maya"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -776,7 +795,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-meihua"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -788,7 +807,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-numerology"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -800,7 +819,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-pawukon"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -812,7 +831,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-qimen"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -825,7 +844,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-qizhengsiyu"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -838,7 +857,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-registry"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-abjad",
@@ -873,7 +892,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-sikidy"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -884,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-taiyi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -896,7 +915,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-tibetan"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -907,7 +926,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-wasm"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mingli-app",
  "mingli-contract",
@@ -921,7 +940,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-wuge"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -932,7 +951,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-xiaoliuren"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -945,7 +964,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-yijing"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -957,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-zeri"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -970,7 +989,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ziwei"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "mingli-astro",

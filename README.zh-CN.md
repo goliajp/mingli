@@ -2,12 +2,14 @@
 
 [English](README.md)
 
+[![CI](https://github.com/goliajp/mingli/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/goliajp/mingli/actions/workflows/ci.yml)
+
 　　把全世界的术数当作**算法**来实现：确定性排盘引擎（Rust）+ axum 服务 + React 19 前端。
 
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 37 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，3 片字词叶走 `/api/word`）· 456 个测试全绿
+> 39 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 802 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -67,8 +69,8 @@ crates/
                mingli-zeri         择日学的循环要素
                mingli-xiaoliuren   小六壬（诸葛马前课）
   L3 叶（B 族 · 角度量化）
-               mingli-astrology    西洋占星本命盘（Placidus / Koch / WholeSign / Equal / Porphyry）
-               mingli-jyotish      印度占星（4 派 ayanamsa · 27 nakshatra · Vimshottari · D-9）
+               mingli-astrology    西洋占星本命盘（Placidus / Koch / WholeSign / Equal / Porphyry）· 两盘相位
+               mingli-jyotish      印度占星（4 派 ayanamsa · 27 nakshatra · Vimshottari · 十六分盘取十四）
                mingli-qizhengsiyu  七政四余——中国本土星占
   L3 叶（C 族 · 抽样 / 二进制）
                mingli-yijing       易经起卦
@@ -91,9 +93,9 @@ crates/
   L4 编排      mingli-engine       共享上下文记忆化 + 并行 fan-out；注册表由外部注入，本层不认识任何叶
                mingli-interpret    释义层——组装带护栏的提示词，与「算」严格分离
   L5 分析      mingli-analysis     跨叶信息论统计
-  L6 用例      mingli-app          本命 / 岁运叠加 / 运势 / 合盘 / 字词 / 释义的编排
+  L6 用例      mingli-app          八类问局各一个用例——命 · 运 · 事 · 择 · 寻 · 合 · 群国 · 号——以及两条交付路共用的入参形状
   L7 装配      mingli-registry     唯一知道「树上有哪些叶」的地方——加新叶在此登记一行
-  L8 交付      mingli-wasm         整库的 wasm 绑定
+  L8 交付      mingli-wasm         wasm 绑定——八类问局全接，入参与 HTTP 端点同形
 services/
   mingli-api/   axum 承接层，:6027
 web/            React 19 + Vite 前端，:6026（dev 期 /api 代理到 :6027）
@@ -115,18 +117,75 @@ cd web && bun install && bun run dev
 ## 看一眼
 
 ```bash
-cd web && bun run shots     # headless Chromium 走一遍界面，逐屏截图
+cd web && bun run shots     # 先对 CSS 变量，再用 headless Chromium 走一遍界面
 ```
 
-　　产物在 `web/e2e/shots/`，同时汇总 console 报错、页面异常与失败请求。类型检查证明代码编得过，这个证明画面还对。
+　　30 屏（21 片叶 + 横切页 + 各意图页）× 两个视口（1440 与 1024），产物在 `web/e2e/shots/<宽度>/`。
+除汇总 console 报错、页面异常与失败请求外，八屏带断言：九宫恰 9 格、分档标题自报的天数等于表里行数、
+罗盘 pin 数等于列表行数、某曜的三分盘落宫与本命宫只相隔 0 / 4 / 8 宫。收尾另有一条：无人操作的三秒里
+还在发请求，就是有东西在自循环。任一条不过即非零退出。跑之前先对一遍 CSS 变量——用到的有没有来源、
+定义的有没有人读。
+
+　　拍屏之前另有一遍：拿 `/api/cast` 的返回逐字段去核 `web/src` 下的全部源码——
+后端算出来而前端一处都没提过的字段，就是没人看得见的字段。这条检查立起来之前，已经这么漏过五个。
+
+　　类型检查证明代码编得过，这个证明画面还自洽。
+
+## 只取你要的那几片
+
+　　每套术数是一个独立 crate，装配根按叶 id 逐片开关。不必扛着二十四片。
+
+```bash
+cargo add mingli-bazi                     # 单 crate：serde + 三个共享层，不含星历
+cargo add mingli-registry --no-default-features --features bazi,yijing   # 两片，走统一端口
+```
+
+　　实测（release，wasm32）：
+
+| npm 包 | 装配 | 模块 | gzip 后 |
+|---|---|---:|---:|
+| `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
+| `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
+| `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
+| `mingli-wasm-chart` | 二十四片，只排盘 | 1236 KB | 711 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1441 KB | 788 KB |
+
+　　数字出自 `scripts/wasm-budget.txt`，那张表就是 CI 的体积闸对着比的那一张，
+也是 `npm-pack.sh` 发包前逐字节核对的那一张——三处同一个数，不是三次各量各的。
+管线固定四步：`cargo build` → `wasm-bindgen` → `wasm-opt -Oz` → `gzip`。
+　　排盘档只出 `cast` 与 `cast_one`；跨叶用例与释义层在 `usecases` 之后，那一层要 208 KB。
+三片带行星星历的叶共用同一份 VSOP87 表，约 780 KB——第一片装它要 800 KB，
+第二、三片各只再加 29 KB 与 16 KB。
+`feature-matrix.sh` 会把每片叶各单独装配一次——某片悄悄拖进另一片，会在那里红，而不是在你的产物里。
+它还会把 39 个 crate 各自单独跑一遍测试：`cargo test --workspace` 跑的是**合并后**的 feature 集，
+一个 crate 的测试依赖少写了 feature，整仓一起跑照样绿，单独跑才炸。
+
+　　排盘的成本集中在**要走行星星历的那三片**。本机实测：西洋占星约 300 µs、印度占星 250 µs、
+七政四余 220 µs；四柱 9 µs、紫微 7 µs；其余十六片各不足 5 µs。守卫验的是**形状**而非微秒数
+（后者只属于这台机器）：恰好这三片比中位数那片贵两个数量级——某片叶开始走星历会在这里现形，
+某片不再走了同样会。
+另有一条守卫：**任一片叶占全树排盘耗时或载荷超过 60% 即红**——它是因为真出过一次才立的。
+
+　　守卫自己也要被验。一条永远绿的守卫和一条真守着东西的守卫，在日常测试里长得一模一样；
+分辨它们只有一个办法——把它该拦的东西种回去，看它拦不拦。`guard-probe.sh` 把这件事从
+「我当时手工试过」变成一条能重跑的命令：种 113 个已知的错，逐条问该拦它的守卫红没红。
+它上一次就抓到一处名不副实——「装配根是唯一列叶的地方」那条，其实并不看释义层。
+
 
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 456 个测试
+cargo test --workspace     # 802 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
+./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
+./scripts/api-snapshot.sh check snap.txt   # 43 个请求逐字节
+./scripts/test-count.sh    # 本文自称的测试数，对回真跑一遍的结果
+./scripts/feature-matrix.sh  # 每片叶各单独装配、每个 crate 各单独跑一次测试 + wasm32 + 查依赖图
+./scripts/guard-probe.sh   # 种 113 个已知的错，看该拦它的那条守卫拦不拦
 ```
+
+　　以上连同截图断言，每次 push 都会跑一遍——见顶部徽章。
 
 　　引擎校验的权威参照值均经**多源交叉确认**，全部落在各 crate 的 `#[test]` 里，例如：
 
@@ -156,9 +215,14 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/team` · `/api/team/interpret` | 多主体（团队）盘 |
 | `GET  /api/analysis` | 跨叶信息论统计 |
 | `GET  /api/intents` · `POST /api/route` | 问局模型——按意图路由到叶 |
+| `POST /api/event` · `/api/event/interpret` | 占事——问事此刻 + 取机 |
+| `POST /api/election` · `/api/election/interpret` | 择吉——扫时窗、逐日分档 |
+| `POST /api/locative` · `/api/locative/interpret` | 寻方位 |
+| `POST /api/synastry` · `/api/synastry/interpret` | 合盘——两人各给对方什么 |
+| `POST /api/mundane` · `/api/mundane/interpret` | 国运——奠基时刻与年度盘 |
 | `POST /api/interpret` | 释义层（🔮 INT，非计算产物） |
 
-　　请求字段：`year month day hour`（必填）、`minute`（默认 0）、`tz`（默认 +8）、`gender`（`male` / `female`，缺省不算大运）。支持 1900–2100。
+　　请求字段：`year month day hour`（必填）、`minute`（默认 0）、`tz`（默认 +8）、`gender`（`male` / `female`，也收 `男` / `女`；缺省不算大运，写别的会被拒而不是默默忽略）。支持 1900–2100。
 端口可用 `MINGLI_API_BIND` 覆盖。
 
 ---

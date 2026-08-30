@@ -90,6 +90,17 @@ pub(crate) fn signed_diff_deg(a: f64, b: f64) -> f64 {
 ///
 /// `rectasc` = `RAMC + offset`（度，cusp 11/12/2/3 的 offset 为 30/60/120/150）；
 /// `pole_main` = 主 pole height `fh1` 或 `fh2`(degree)；`denom` = 3.0(cusp 11/3) 或 1.5(cusp 12/2)。
+/// 回代残差为什么不是那把钥匙（2026-08-28 试过并撤回）。
+///
+/// 公开实测盘只精确到角分，而这里收敛到百分之一角秒，凡位移不足一角分的改动都拦不住——
+/// 加第二张盘（爱因斯坦）只多杀三个变异体。顺理成章的下一步是拿解回代它所解的方程：
+/// 由黄经取赤纬正切，以 `asin(tanφ·tant)/n` 定极高，再由 `asc1` 从赤经读回黄经，
+/// 收敛意味着读回它自己。
+///
+/// 实测：多杀 1 个，却把 13 个原本被抓的变异体拖成超时，扫描时间也涨。原因是那个
+/// 「另写一遍」的映射里调用了 `asc1`／`asc2`，而多数存活变异体正住在那两个函数里——
+/// 两边一起被改，残差抵消。要成为真正的独立对照，得连 `asc1`/`asc2` 一并在测试里重写。
+/// 撤回了。剩下的存活多半仍是低于分辨率的那一类。
 fn solve_cusp(
     rectasc: f64,
     pole_main: f64,
@@ -204,6 +215,10 @@ pub fn cusps(ramc_deg: f64, obliquity_deg: f64, lat_deg: f64, asc: f64, mc: f64)
     if !a_aux.is_finite() {
         return None;
     }
+    // fh1 / fh2 只是喂给 `solve_cusp` 的**迭代初值**——它进去只算一个 `first_lambda`，
+    // 之后每一轮都从收敛中的 cusp 重算极高，收到 0.01 角秒为止。故这两行的算术
+    // 改动不改变答案，只改变迭代次数：变异测试会把它们报成「没被拦住」，那是等价变异。
+    // 这件事由 `the_iteration_forgets_the_pole_it_started_from` 钉住。
     let fh1 = ((a_aux / 3.0).sin() / tane).atan().to_degrees();
     let fh2 = (((a_aux * 2.0) / 3.0).sin() / tane).atan().to_degrees();
 
@@ -232,6 +247,87 @@ pub fn house_of(cusps: &PlacidusCusps, lambda: f64) -> u8 {
     12
 }
 
+/// 直接对着数值奇点做的单元测试。
+///
+/// Placidus 是从 `swehouse.c` 移植的迭代解，正常盘走的是主路径；这里几条分支只在
+/// 三角函数退化时才走到（`sin x = 0`、`ass = 0`、宫尖恰落 90° 倍数）。它们看不见摸不着，
+/// 却决定了极端时刻的盘面，所以按输入直接钉住。
+#[cfg(test)]
+mod singularities {
+    use super::*;
+
+    fn eps() -> (f64, f64) {
+        let e = 23.44_f64.to_radians();
+        (e.sin(), e.cos())
+    }
+
+    #[test]
+    fn asc2_handles_both_degenerate_directions() {
+        let (sine, cose) = eps();
+        // x = 0 → sin x = 0：结果吸到 ±VERY_SMALL（再由负值 +180° 归一）。
+        let at_zero = asc2(0.0, 10.0, sine, cose);
+        assert!(at_zero.abs() < 1e-9 || (at_zero - 180.0).abs() < 1e-9, "实得 {at_zero}");
+        // ass = 0 需要 tan f · sin ε = cos ε · cos x：取 x = 90° 使 cos x = 0，
+        // 再令 f = 0 使 tan f = 0，两边同为 0。此时 sin x = 1 > 0 → 90°。
+        assert!((asc2(90.0, 0.0, sine, cose) - 90.0).abs() < 1e-9);
+        // 对称一侧：x = 270°（sin x = −1）→ −90°，归一后 90°。
+        assert!((asc2(270.0, 0.0, sine, cose) - 90.0).abs() < 1e-9);
+        // ass < 0 的一侧：x = 180° 时 cos x = −1，两项同号相加为负。
+        let at_pi = asc2(180.0, 10.0, sine, cose);
+        assert!(at_pi.abs() < 1e-9 || (at_pi - 180.0).abs() < 1e-9, "实得 {at_pi}");
+        // 常规输入落在 [0,180)
+        for x in [10.0, 45.0, 123.0, 200.0, 355.0] {
+            let v = asc2(x, 12.0, sine, cose);
+            assert!((0.0..180.0).contains(&v), "asc2({x}) = {v} 出界");
+        }
+    }
+
+    #[test]
+    fn asc1_snaps_to_the_quadrant_boundaries() {
+        let (sine, cose) = eps();
+        // f 趋近 ±90°（极点）时有闭式出口，不进象限分发。
+        assert!((asc1(37.0, 90.0, sine, cose) - 180.0).abs() < 1e-12);
+        assert!(asc1(37.0, -90.0, sine, cose).abs() < 1e-12);
+        // 四个象限各取一点，结果都在 [0,360) 且随 x 单调推进。
+        let vs: Vec<f64> = [10.0, 100.0, 190.0, 280.0]
+            .iter()
+            .map(|&x| asc1(x, 20.0, sine, cose))
+            .collect();
+        for v in &vs {
+            assert!((0.0..360.0).contains(v), "asc1 出界 {v}");
+        }
+        assert!(vs.windows(2).all(|w| w[0] < w[1]), "四象限应递增：{vs:?}");
+        // 边界吸附：x1 使 ass 落在 90/180/270 的极小邻域内时吸到整值。
+        let boundary = asc1(90.0, 0.0, sine, cose);
+        assert!((boundary - 90.0).abs() < 1e-12, "实得 {boundary}");
+    }
+
+    /// `solve_cusp` 的两条早退：宫尖落在黄道交点上（tan t → 0，直接取赤经），
+    /// 以及高纬下 `asin` 的定义域越界（无解，交由上层回退）。
+    #[test]
+    fn solving_a_cusp_bails_out_on_a_flat_tangent_or_an_out_of_domain_arcsine() {
+        let (sine, cose) = eps();
+        // pole = 90° 让 asc1 走极点出口给出 180°，sin 180° = 0 → tan t = 0 → 原样返回赤经。
+        let flat = solve_cusp(37.0, 90.0, 3.0, 0.5, sine, cose);
+        assert_eq!(flat, Some(37.0), "tan t 为零时应原样返回赤经");
+        // φ = 80° 的 tan φ 乘上 tan t 越过 1，asin 无定义 → None。
+        let tanfi = 80.0_f64.to_radians().tan();
+        assert_eq!(solve_cusp(90.0, 0.0, 3.0, tanfi, sine, cose), None, "越界应返回 None");
+        // 中纬度正常解得出来。
+        let ok = solve_cusp(90.0, 0.0, 3.0, 45.0_f64.to_radians().tan(), sine, cose);
+        assert!(ok.is_some_and(|v| (0.0..360.0).contains(&v)), "中纬度应有解");
+    }
+
+    #[test]
+    fn the_polar_guard_fires_before_any_iteration() {
+        // |φ| ≥ 90° − ε ≈ 66.56°：绕极圈内 Placidus 无解，直接 None。
+        assert!(cusps(0.0, 23.44, 66.56, 90.0, 0.0).is_none(), "北极圈内应无解");
+        assert!(cusps(0.0, 23.44, -66.56, 90.0, 0.0).is_none(), "南极圈内应无解");
+        // 圈外一点点就该解得出来。
+        assert!(cusps(0.0, 23.44, 66.0, 90.0, 0.0).is_some());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +341,63 @@ mod tests {
     // 4/7/8/9 由对宫等同性派生。geocult.org 给出的 11=226.0594° / 12=243.2997° 与上一致。
     //
     // 验证容差：0.05°（角分级，匹配本算用平恒星时/平交角、ELP 截断的精度）。
+    /// 第二张实测盘，换一个纬度。
+    ///
+    /// 唯一的外部锚此前只有戴安娜一张——一个 RAMC、一个纬度（52°50′N）。宫尖是随
+    /// RAMC 与纬度两个参数变的曲面，一点定不住它：变异测试在 `cusps` / `solve_cusp` /
+    /// `asc1` 上留下的活口，多半只是「那一点上恰好没差别」。
+    ///
+    /// 爱因斯坦：1879-03-14 11:30 LMT，乌尔姆 48°24′N 10°00′E，纬度比戴安娜低四度半。
+    /// 升点与中天两源相合：
+    ///
+    /// 1. <https://www.astro.com/astro-databank/Einstein,_Albert> 一系的排盘细目，
+    ///    作升 11°39′ 巨蟹、中天 12°50′ 双鱼，并给出二宫 28°37′ 巨蟹、三宫 17°48′ 狮子、
+    ///    五宫 18°20′ 天秤、六宫 3°06′ 射手
+    /// 2. <https://www.astrotheme.com/astrology/Albert_Einstein> 作升 11°38′ 巨蟹、
+    ///    中天 12°50′ 双鱼（升点两源差一角分）
+    ///
+    /// 六个值本实现逐分复现。中间四个宫尖只有第一源给出，这一点写明——不假装两源。
+    ///
+    /// 另有一家（astro-charts）把时区记作 UTC+0:53 而非乌尔姆的 LMT+0:40，故整盘差
+    /// 三度余。按它自己的偏移重算，本实现给 8°56′ 而它写 8°43′，仍差十余角分，
+    /// 多半是 ΔT 或取整约定不同——不构成干净的旁证，故不取。
+    #[test]
+    fn einstein_placidus_cusps_at_another_latitude() {
+        // 乌尔姆 10°00′E 的地方平时 = 10/15 小时。
+        let m = mingli_astro::Moment::new(1879, 3, 14, 11, 30, 10.0 / 15.0);
+        let (lat, lon) = (48.4, 10.0);
+        let ramc = (m.sidereal_time + lon).rem_euclid(360.0);
+        let (asc, mc) = crate::asc_mc(ramc, m.obliquity, lat);
+        let cs = cusps(ramc, m.obliquity, lat, asc, mc).expect("乌尔姆非极区");
+
+        // (宫号, 公布度数)：巨蟹起 90°、狮子 120°、天秤 180°、射手 240°、双鱼 330°。
+        let expected: [(usize, f64); 6] = [
+            (1, 90.0 + 11.0 + 38.0 / 60.0),
+            (2, 90.0 + 28.0 + 37.0 / 60.0),
+            (3, 120.0 + 17.0 + 48.0 / 60.0),
+            (5, 180.0 + 18.0 + 20.0 / 60.0),
+            (6, 240.0 + 3.0 + 6.0 / 60.0),
+            (10, 330.0 + 12.0 + 50.0 / 60.0),
+        ];
+        for (k, want) in expected {
+            let got = cs.cusps[k];
+            let diff = signed_diff_deg(got, want).abs();
+            assert!(
+                diff < 1.0 / 60.0,
+                "第 {k} 宫：算出 {got:.4}°，公布 {want:.4}°，差 {:.2} 角分",
+                diff * 60.0
+            );
+        }
+        // 对宫等同性在这张盘上同样成立（与戴安娜那条是同一条规则的另一处取样）。
+        for k in 1..=6usize {
+            assert!(
+                signed_diff_deg(cs.cusps[k + 6], cs.cusps[k] + 180.0).abs() < 1e-9,
+                "第 {k} 宫与第 {} 宫应正对",
+                k + 6
+            );
+        }
+    }
+
     #[test]
     fn diana_placidus_cusps() {
         // Diana, Princess of Wales (Rodden AA): 1961-07-01 19:45 BST=UT 18:45,
@@ -282,6 +435,90 @@ mod tests {
         }
     }
 
+    /// 十二宫尖随 RAMC 走一圈：各自连续，且始终按序前进。
+    ///
+    /// 唯一的外部锚（Diana 那张盘）钉的是一个 RAMC、一个纬度上的十二个数。迭代解算
+    /// 里的算术改坏了，只要那一点仍在容差内，就没人察觉——变异测试在 `cusps` /
+    /// `solve_cusp` / `pack` 上留了三十来个活口。
+    ///
+    /// 这里不引新出处，用它必须具备的形状：宫尖是天球上连续移动的点，且十二宫首尾
+    /// 相接绕一圈，任意相邻两宫的前进量恒在 (0°,180°) 内。解算跑偏就会撕开或倒序。
+    ///
+    /// 实测（2026-08-25）：0.25° 的 RAMC 步长上，六个纬度最大跳变 0.27°–1.09°
+    /// （高纬宫尖走得快），顺序违反 0 次。测试取 0.5° 步长、阈值 3°。
+    #[test]
+    fn the_twelve_cusps_walk_the_circle_in_order_without_a_jump() {
+        const EPS: f64 = 23.44;
+        const STEP: f64 = 0.5;
+        let mut worst = 0.0f64;
+        for lat in [0.0f64, 40.0, 52.833, -35.0, 60.0] {
+            let mut prev: Option<[f64; 13]> = None;
+            let mut ramc = 0.0;
+            while ramc < 360.0 {
+                let (asc, mc) = crate::asc_mc(ramc, EPS, lat);
+                let cs = cusps(ramc, EPS, lat, asc, mc)
+                    .unwrap_or_else(|| panic!("纬度 {lat}° 不在极区，应有宫尖"));
+                // 首尾相接绕一圈：相邻两宫的前进量恒在 (0,180)。
+                for k in 1..=12usize {
+                    let next = if k == 12 { 1 } else { k + 1 };
+                    let ahead = (cs.cusps[next] - cs.cusps[k]).rem_euclid(360.0);
+                    assert!(
+                        ahead > 0.0 && ahead < 180.0,
+                        "纬度 {lat}° RAMC {ramc}°：{k} 宫 {:.4}° 到 {next} 宫 {:.4}° 前进 {ahead:.4}°，不成序",
+                        cs.cusps[k],
+                        cs.cusps[next]
+                    );
+                }
+                if let Some(before) = prev {
+                    for (k, (now, was)) in
+                        cs.cusps.iter().zip(before.iter()).enumerate().skip(1)
+                    {
+                        let moved = ((now - was + 180.0).rem_euclid(360.0) - 180.0).abs();
+                        assert!(
+                            moved < 3.0,
+                            "纬度 {lat}° RAMC {ramc}°：{k} 宫跳了 {moved:.4}°"
+                        );
+                        worst = worst.max(moved);
+                    }
+                }
+                prev = Some(cs.cusps);
+                ramc += STEP;
+            }
+        }
+        assert!(worst < 2.5, "最大跳变 {worst:.4}° 已逼近阈值，形状变了");
+    }
+
+    /// 半弧三分的那两个初值，进了迭代就被忘掉。
+    ///
+    /// 变异测试在 `cusps` 与 `solve_cusp` 上留下大批活口，追下去才发现相当一部分
+    /// 落在 `fh1` / `fh2` 上——它们只喂给 `solve_cusp` 算第一个 `first_lambda`，
+    /// 循环随后从收敛中的 cusp 自行重算极高。把 `fh2` 里的 `a_aux * 2.0` 改成
+    /// `a_aux / 2.0`，Diana 那张盘的十二个宫尖一个数都不动。
+    ///
+    /// 那不是缺口，是等价变异。这条测试把「不是缺口」变成一件被钉住的事：初值给得
+    /// 再离谱，收敛到的宫尖也一样。日后谁把初值改成承重的，这里会红。
+    #[test]
+    fn the_iteration_forgets_the_pole_it_started_from() {
+        let (sine, cose) = (23.44f64.to_radians().sin(), 23.44f64.to_radians().cos());
+        let tanfi = 52.833f64.to_radians().tan();
+        for rectasc in [30.0f64, 95.0, 187.5, 260.0, 349.0] {
+            for denom in [1.5f64, 3.0] {
+                let reference = solve_cusp(rectasc, 0.0, denom, tanfi, sine, cose);
+                for seed in [-45.0f64, -5.0, 12.5, 37.0, 60.0] {
+                    let got = solve_cusp(rectasc, seed, denom, tanfi, sine, cose);
+                    match (reference, got) {
+                        (Some(a), Some(b)) => assert!(
+                            signed_diff_deg(a, b).abs() < 1e-6,
+                            "赤经 {rectasc}° 分母 {denom}：初值 0° 收到 {a}°，初值 {seed}° 收到 {b}°"
+                        ),
+                        (None, None) => {}
+                        _ => panic!("赤经 {rectasc}° 分母 {denom}：初值 {seed}° 与初值 0° 一个有解一个无解"),
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn polar_region_returns_none() {
         // |φ| ≥ 90° − ε ≈ 66.56° → Placidus 失效
@@ -302,6 +539,39 @@ mod tests {
         }
     }
 
+    /// 迭代的收敛判据全靠它，而它此前没有一条自己的测试。
+    ///
+    /// 把整个函数换成常数 0 时，`solve_cusp` 的循环第一轮就认为已收敛，交出初值而非解，
+    /// 宫尖最多偏 598.87″（近 10 角分）——公开盘只精确到角分，取样点又都落在初值与解接近
+    /// 的位置，所以整套测试一条都不红。这里按定义直接钉住。
+    #[test]
+    fn signed_diff_deg_is_the_short_way_round_and_keeps_its_sign() {
+        // 跨 0° 时走短弧，且方向不同号相反。
+        assert!((signed_diff_deg(10.0, 350.0) - 20.0).abs() < 1e-12);
+        assert!((signed_diff_deg(350.0, 10.0) + 20.0).abs() < 1e-12);
+        // 半圈是闭端：值域 (-180， 180]，所以正对面取 +180 而不是 -180。
+        assert!((signed_diff_deg(180.0, 0.0) - 180.0).abs() < 1e-12);
+        assert!((signed_diff_deg(0.0, 180.0) - 180.0).abs() < 1e-12);
+        assert!(signed_diff_deg(42.0, 42.0).abs() < 1e-12);
+        // 绕多少圈都不改变答案，且与直接作差在短弧内一致。
+        for a in (0..360).step_by(11) {
+            for b in (0..360).step_by(7) {
+                let (a, b) = (f64::from(a), f64::from(b));
+                let d = signed_diff_deg(a, b);
+                assert!(d > -180.0 && d <= 180.0, "signed_diff_deg({a}， {b}) = {d} 出界");
+                assert!(
+                    (signed_diff_deg(a + 720.0, b - 360.0) - d).abs() < 1e-9,
+                    "整圈应无影响：{a}， {b}"
+                );
+                // 定义式：b 加上这个差就回到 a。
+                assert!(
+                    norm360(b + d) - norm360(a) < 1e-9 || (norm360(b + d) - norm360(a)).abs() > 359.9,
+                    "b + diff 应回到 a：{a}， {b}， {d}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn house_of_basic_assignment() {
         let m = mingli_astro::Moment::new(1961, 7, 1, 19, 45, 1.0);
@@ -316,16 +586,73 @@ mod tests {
         for k in 1..=12u8 {
             assert_eq!(house_of(&cs, cs.cusps[k as usize] + 1e-6), k);
         }
+        // 边界本身。上面那行加了 1e-6，正好跳过唯一有争议的那个点：宫尖属于它开启的那一宫，
+        // 还是属于它结束的那一宫。区间取半开 [lo， hi)，所以答案是前者，而这要求区间判定
+        // 用严格小于——写成 `<=` 时，落在 cusp k 上的黄经会被判给 k-1，全盘偏一宫。
+        for k in 1..=12u8 {
+            assert_eq!(
+                house_of(&cs, cs.cusps[k as usize]),
+                k,
+                "黄经恰在 cusp {k} 上，应归入第 {k} 宫"
+            );
+        }
     }
 
     #[test]
     fn asc2_quadrant_sanity() {
-        // ass=0 fast path:sin_x>0 → +90
-        let r = asc2(89.999_999_99, 89.999_999_99, 0.3977, 0.9175);
-        assert!(r.is_finite());
-        // x near 0：sin_x ≈ 0，走 sin_x==0 分支
-        let r2 = asc2(1e-12, 10.0, 0.3977, 0.9175);
-        assert!(r2.is_finite());
+        // 原先两条断言都是 `is_finite()`——几乎什么值都过，两条快路走到哪里都看不出来。
+        // 改成钉住文档里写明的取值。
+        let (sine, cose) = (0.3977, 0.9175);
+        // `ass` 被吸附到 0：出口按 sin_x 的正负取 ±90，负的那支再加 180，故两侧都是 90。
+        assert!((asc2(90.0, 0.0, sine, cose) - 90.0).abs() < 1e-9, "ass=0、sin_x>0");
+        assert!((asc2(270.0, 0.0, sine, cose) - 90.0).abs() < 1e-9, "ass=0、sin_x<0");
+        // `sin_x` 被吸附到 0：出口是 ±VERY_SMALL，负的那支加 180 落到 180 之下一丝。
+        assert!((asc2(1e-12, 10.0, sine, cose) - 1e-10).abs() < 1e-15, "sin_x=0、ass>0");
+        assert!((asc2(180.0, 10.0, sine, cose) - (180.0 - 1e-10)).abs() < 1e-9, "sin_x=0、ass<0");
+        // 值域恒在 [0,180)。
+        for x in (0..3600).map(|k| f64::from(k) / 10.0) {
+            let v = asc2(x, 30.0, sine, cose);
+            assert!((0.0..180.0).contains(&v), "asc2({x}) = {v} 越界");
+        }
+    }
+
+    /// `asc1` 四个象限之间接得上不接得上。
+    ///
+    /// 它把 `x1` 按象限分发给 `asc2`，二、三象限还要翻转极高 `f` 的符号——
+    /// 变异测试在这四支上留了二十来个活口，因为唯一的外部锚（Diana 那张盘）
+    /// 只走到其中一两个象限。
+    ///
+    /// 这里不引新的出处，改用它必须具备的形状：黄道与「极高线」的交点随赤经**连续**
+    /// 且**单调**地走一圈。象限接错就会在边界上撕开一道口子。
+    ///
+    /// 实测（2026-08-25）：干净时 0.05° 的步长上最大跳变 0.127°、六组极高全单调；
+    /// 把第三象限的 `-f` 写成 `f`，跳变涨到 8°–55°，六组里四组单调性也破。
+    /// 阈值取 1°，最弱的一组仍有八倍余量。
+    #[test]
+    fn the_four_quadrants_of_asc1_join_up_without_a_seam() {
+        const STEP: f64 = 0.05;
+        let (sine, cose) = (23.44f64.to_radians().sin(), 23.44f64.to_radians().cos());
+        let mut worst = 0.0f64;
+        for pole in [0.0f64, 10.0, -10.0, 30.0, -30.0, 45.0, 52.833, 60.0, -60.0] {
+            let mut prev = asc1(0.0, pole, sine, cose);
+            let mut x = STEP;
+            while x < 360.0 {
+                let cur = asc1(x, pole, sine, cose);
+                let step = (cur - prev + 360.0).rem_euclid(360.0);
+                assert!(
+                    step < 180.0,
+                    "极高 {pole}° 在 x={x}° 处倒退了：{prev}° → {cur}°"
+                );
+                assert!(
+                    step < 1.0,
+                    "极高 {pole}° 在 x={x}° 处跳了 {step}°——象限没接上"
+                );
+                worst = worst.max(step);
+                prev = cur;
+                x += STEP;
+            }
+        }
+        assert!(worst < 0.5, "最大跳变 {worst}° 已逼近阈值，形状变了");
     }
 
     #[test]
@@ -411,6 +738,41 @@ mod tests {
         let two_third = 2.0 * arc / 3.0;
         assert!((((cs.cusps[11] - mc).rem_euclid(360.0)) - one_third).abs() < 1e-9);
         assert!((((cs.cusps[12] - mc).rem_euclid(360.0)) - two_third).abs() < 1e-9);
+    }
+
+    /// 下半弧的三分，扫一圈而不是钉一个点。
+    ///
+    /// 上面两条只验 11/12，它们由 MC 直接派生；2/3 由 IC 派生，而 IC 是这个函数里唯一
+    /// 一处独立算出来的量。它此前完全没有被检查：唯一碰到 2/3 的测试取 MC=180°，
+    /// 而 180+180 与 180×180 在模 360 下同为 0——那一个取样点上，正确的 IC 与一个
+    /// 彻底错误的 IC 恰好重合。换任何别的 MC 都不会重合，所以这里扫一圈。
+    #[test]
+    fn porphyry_lower_arc_trisects_from_the_ic() {
+        let mut checked = 0;
+        for mc in (0..360).step_by(7) {
+            for delta in (10..350).step_by(23) {
+                let mc = f64::from(mc);
+                let asc = norm360(mc + f64::from(delta));
+                let cs = porphyry_cusps(asc, mc);
+                let ic = norm360(mc + 180.0);
+                assert!(
+                    signed_diff_deg(cs.cusps[4], ic).abs() < 1e-9,
+                    "第 4 宫尖应正是 IC：MC={mc} Asc={asc}"
+                );
+                // IC→DC 弧与 MC→Asc 弧等长，2/3 在其上三分。
+                let arc = norm360(asc - mc);
+                for (k, part) in [(2usize, arc / 3.0), (3, 2.0 * arc / 3.0)] {
+                    let want = norm360(ic + part);
+                    assert!(
+                        signed_diff_deg(cs.cusps[k], want).abs() < 1e-9,
+                        "第 {k} 宫尖偏了：MC={mc} Asc={asc} 得 {} 期望 {want}",
+                        cs.cusps[k]
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 500, "只验了 {checked} 个宫尖，取样太少");
     }
 
     #[test]
