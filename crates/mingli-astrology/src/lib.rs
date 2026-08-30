@@ -40,7 +40,7 @@ pub use mingli_ephemeris::{asc_mc, GeoLocation};
 
 use mingli_astro::Moment;
 use mingli_core::quantizer;
-use mingli_ephemeris::{geocentric_ecliptic_longitude, Body};
+use mingli_ephemeris::{geocentric_ecliptic_longitude, geocentric_ecliptic_longitudes, Body};
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
@@ -311,9 +311,9 @@ pub const BODY_NAMES: [&str; 9] = [
 #[must_use]
 pub fn longitudes_at(m: &Moment) -> [f64; 9] {
     let mut out = [0.0_f64; 9];
-    for (slot, &(body, _)) in out.iter_mut().zip(BODIES.iter()) {
-        *slot = geocentric_ecliptic_longitude(body, m.jde);
-    }
+    // 走批量出口：地球那条级数只求一次，而不是每颗星求一遍。
+    let bodies: [Body; 9] = BODIES.map(|(b, _)| b);
+    geocentric_ecliptic_longitudes(&bodies, m.jde, &mut out);
     out
 }
 
