@@ -397,12 +397,16 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
     let layers = layers();
     let root = workspace_root();
     let mut violations = Vec::new();
+    // 数一下真扫了多少个文件。「没有违规」对一个空集合永远成立——路径改了、
+    // 层表读不出来、glob 匹配不上，这条检查都会安静地通过而不再看任何东西。
+    let mut scanned = 0_usize;
     for (name, manifest) in manifests() {
         if !matches!(layers.get(name.as_str()), Some(0..=5)) {
             continue;
         }
         let src_dir = manifest.parent().expect("manifest 应有目录").join("src");
         for file in rust_files(&src_dir) {
+            scanned += 1;
             let text = std::fs::read_to_string(&file).expect("源文件应可读");
             let rel = file.strip_prefix(&root).unwrap_or(&file).to_string_lossy().replace('\\', "/");
             for (line_no, line) in text.lines().enumerate() {
@@ -418,6 +422,7 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
             }
         }
     }
+    assert!(scanned > 60, "只扫了 {scanned} 个源文件，扫描面怕是失效了");
     assert!(
         violations.is_empty(),
         "内层的说明不该引用交付层——这一层单独拿出去用时，那些话指向不存在的东西：\n  {}",
