@@ -26,6 +26,10 @@ default = ["port", "ephemeris"]
 port = ["dep:mingli-contract", "dep:serde_json", "serde", "ephemeris"]
 # 盘面结构体的 `Serialize`。
 ephemeris = ["mingli-ephemeris/vsop87"]
+# 本地星历的轻量档：同一份系数丢掉振幅低于 1e-6 的项。
+# 实测（wasm32 -Oz）810,521 → 89,595 字节，少 89%；代价是地心黄经最多差 4.28 角秒，
+# 而公开盘只精确到角分（60″）。残差由 mingli-ephemeris 的测试对着全量钉住。
+ephemeris-lite = ["ephemeris", "mingli-ephemeris/eph-lite"]
 serde = ["dep:serde", "mingli-astro/serde", "mingli-ephemeris/serde"]
 
 [dev-dependencies]

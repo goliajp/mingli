@@ -144,12 +144,13 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 
 | npm 包 | 装配 | 模块 | gzip 后 |
 |---|---|---:|---:|
+| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 140 KB | 65 KB |
 | `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
 | `mingli-wasm-astrology-lite` | 占星排盘，位置你给 | 162 KB | 73 KB |
 | `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
 | `mingli-wasm-chart` | 二十四片，只排盘 | 1237 KB | 712 KB |
-| `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 789 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1443 KB | 789 KB |
 
 
 ### 自带星历
@@ -188,7 +189,7 @@ Rust 那边对应 `mingli_astrology::compute_at_with`，把叶的 `ephemeris` fe
 
 　　守卫自己也要被验。一条永远绿的守卫和一条真守着东西的守卫，在日常测试里长得一模一样；
 分辨它们只有一个办法——把它该拦的东西种回去，看它拦不拦。`guard-probe.sh` 把这件事从
-「我当时手工试过」变成一条能重跑的命令：种 116 个已知的错，逐条问该拦它的守卫红没红。
+「我当时手工试过」变成一条能重跑的命令：种 117 个已知的错，逐条问该拦它的守卫红没红。
 它上一次就抓到一处名不副实——「装配根是唯一列叶的地方」那条，其实并不看释义层。
 
 
@@ -202,7 +203,7 @@ cargo doc --workspace      # 全文档
 ./scripts/api-snapshot.sh check snap.txt   # 43 个请求逐字节
 ./scripts/test-count.sh    # 本文自称的测试数，对回真跑一遍的结果
 ./scripts/feature-matrix.sh  # 每片叶各单独装配、每个 crate 各单独跑一次测试 + wasm32 + 查依赖图
-./scripts/guard-probe.sh   # 种 116 个已知的错，看该拦它的那条守卫拦不拦
+./scripts/guard-probe.sh   # 种 117 个已知的错，看该拦它的那条守卫拦不拦
 ```
 
 　　以上连同截图断言，每次 push 都会跑一遍——见顶部徽章。

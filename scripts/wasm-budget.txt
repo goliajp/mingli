@@ -3,6 +3,7 @@
 chart-solo-bazi 198777 91166
 chart-solo-yijing 159557 73226
 astrology-lite 165487 74498
+astrology-thin 143274 66804
 chart-chinese 348981 146443
-chart-all 1267178 728900
-full 1478302 808382
+chart-all 1266881 728842
+full 1478025 808062

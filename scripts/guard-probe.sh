@@ -502,6 +502,14 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+# 用 probe_script 而不是 probe：那条测试在 `eph-lite` feature 之后，
+# 而 `probe` 按缺省 feature 跑——那次构建里测试根本不存在，于是「种了错没人拦」，
+# 而真正的原因是没人跑过它。第一版就是这么假报了一次。
+probe_script "星历：截断表偏得比记录多" \
+  "cargo test -q -p mingli-ephemeris --features eph-lite the_truncated_series_stays_within_this_much" \
+  crates/mingli-ephemeris/src/lite/mod.rs \
+  's@            s += t\[0\] \* (t\[1\] + t\[2\] \* tau).cos();@            s += t[0] * 1.000_1 * (t[1] + t[2] * tau).cos();@'
+
 probe "星历：黄经整体偏了半角秒" mingli-ephemeris our_longitudes_track_an_independent_series_across_two_centuries \
   crates/mingli-ephemeris/src/lib.rs \
   's@        lambda = dy.atan2(dx).to_degrees().rem_euclid(360.0);@        lambda = (dy.atan2(dx).to_degrees() + 0.000_139).rem_euclid(360.0);@'
