@@ -97,8 +97,10 @@ fi
 # 整仓一起跑照样绿，单独跑才炸。`mingli-app` 就这么坏过一次——它的 dev-dependency
 # 停在旧的三个叶名上，占卜那几片压根不在注册表里，八条测试全挂，而日常一次都没红过。
 printf '\n=== 每个 crate 单独跑（feature 合并掩盖不了）\n'
+# 门面 crate 叫 `mingli`，没有连字符——从前这里写死了 `mingli-` 前缀，
+# 于是它一个人被漏在这条检查之外，而输出照样是「都跑过」。
 members=$(cargo metadata --no-deps --format-version 1 \
-  | tr ',' '\n' | grep -o '"name":"mingli-[a-z0-9-]*"' | cut -d'"' -f4 | sort -u)
+  | tr ',' '\n' | grep -oE '"name":"mingli(-[a-z0-9-]+)?"' | cut -d'"' -f4 | sort -u)
 n=0
 for m in $members; do
   n=$((n+1))
@@ -107,60 +109,42 @@ for m in $members; do
     fail=1
   fi
 done
-printf '  ✓ %d 个 crate 各自单独跑过\n' "$n"
+# 下限：少数了一个不会有任何报错，只会让那个 crate 从此不被单独跑。
+if [ "$n" -lt 35 ]; then
+  printf '  ✗ 只跑到 %d 个 crate，枚举方式怕是失效了\n' "$n"; fail=1
+else
+  printf '  ✓ %d 个 crate 各自单独跑过\n' "$n"
+fi
 
 
-# README 那张 wasm 体积表，逐格重量一遍。
+# README 那张 wasm 体积表，核对它与预算表逐格一致。
 #
 # 「关掉即裁掉」上面已经验过（依赖图里没有 vsop87），但**裁掉多少**是 README 对外给的数字，
-# 而那种数字没人验就会慢慢失真：一片叶悄悄拖进星历，体积翻倍，表里还写着 0.57。
+# 而那种数字没人验就会慢慢失真：一片叶悄悄拖进星历，体积翻倍，表里还写着旧值。
 #
-# 读数只认 **cargo 自己汇报的产物路径**（`--message-format=json`）。别用「删掉 .wasm 再 build」
-# 那一招：cargo 的指纹不看产物在不在，删了照样判定 up-to-date，于是一个也不重新链接——
-# 写这段时先踩了这个坑，五种配置量出三种一模一样的数，看上去像「feature 没起作用」。
-printf '\n=== README 的 wasm 体积表\n'
-if rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown; then
-  wasm_size() {
-    cargo build -p mingli-wasm --release --target wasm32-unknown-unknown "$@" --message-format=json 2>/dev/null \
-      | python3 -c "
-import sys, json, os
-p = None
-for line in sys.stdin:
-    try: m = json.loads(line)
-    except Exception: continue
-    if m.get('reason') == 'compiler-artifact' and m.get('target', {}).get('name') == 'mingli_wasm':
-        for f in m.get('filenames', []):
-            if f.endswith('.wasm'):
-                p = f
-print(os.path.getsize(p) if p and os.path.exists(p) else 0)"
-  }
-  # 行名（README 两份都认这一列）· 期望 MB · feature 组合
-  while IFS='|' read -r label want flags; do
-    [ -n "$label" ] || continue
-    # shellcheck disable=SC2086
-    got=$(wasm_size $flags)
-    if [ "$got" -eq 0 ]; then
-      printf '  ✗ %s：cargo 没报告 .wasm 产物\n' "$label"; fail=1; continue
-    fi
-    if ! python3 - "$label" "$want" "$got" <<'PYEOF'
-import sys
-label, want, got = sys.argv[1], float(sys.argv[2]), int(sys.argv[3])
-mb = got / 1048576
-if abs(mb - want) > 0.03:
-    print(f"  ✗ {label}：README 写 {want:.2f} MB，实测 {mb:.2f} MB（{got} 字节）")
-    sys.exit(1)
-print(f"  ✓ {label} {mb:.2f} MB")
-PYEOF
-    then fail=1; fi
-  done <<'ROWS'
-只骨架|0.53|--no-default-features
-只四柱|0.57|--no-default-features --features bazi
-四柱+紫微|0.60|--no-default-features --features bazi,ziwei
-只西洋占星|1.32|--no-default-features --features astrology
-全部二十四片|1.83|
-ROWS
+printf '\n=== README 的 wasm 体积表与预算表一致\n'
+# 这里**不再自己量一遍**。曾经量过：用 cargo 直出的裸 .wasm，既没过 wasm-bindgen
+# 也没过 wasm-opt，于是同一个包在这里是 1.86 MB、在体积闸里是 1.48 MB，
+# 两个数都对、说的却不是同一件事，而 README 只能照着其中一个写。
+# 现在只有 scripts/wasm-budget.txt 一个数源：体积闸对着它比，npm-pack 发包前对着它核，
+# 这里核 README 是否照它写。三处同一个数。
+if [ ! -f scripts/wasm-budget.txt ]; then
+  printf '  ✗ 没有 scripts/wasm-budget.txt——先跑 ./scripts/wasm-size.sh --record\n'; fail=1
 else
-  printf '  没装 wasm32-unknown-unknown，跳过\n'
+  n_row=0
+  while read -r name raw gz; do
+    case "$name" in ''|'#'*) continue;; esac
+    n_row=$((n_row+1))
+    kb_raw=$(python3 -c "print(f'{$raw/1024:.0f} KB')")
+    kb_gz=$(python3 -c "print(f'{$gz/1024:.0f} KB')")
+    for md in README.md README.zh-CN.md; do
+      if ! grep -q "| $kb_raw | $kb_gz |" "$md"; then
+        printf '  ✗ %s 少了 %s 那一行（应是 %s / %s）\n' "$md" "$name" "$kb_raw" "$kb_gz"; fail=1
+      fi
+    done
+  done < scripts/wasm-budget.txt
+  [ "$n_row" -ge 5 ] || { printf '  ✗ 预算表只有 %s 行，读法怕是失效了\n' "$n_row"; fail=1; }
+  [ "$fail" -ne 0 ] || printf '  ✓ %s 档都与预算表对上\n' "$n_row"
 fi
 
 if [ "$fail" -ne 0 ]; then
