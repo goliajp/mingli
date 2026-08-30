@@ -523,7 +523,7 @@ probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_le
 probe_script "发版：内部依赖的版本对不上" \
   "bash scripts/publish-rehearsal.sh" \
   Cargo.toml \
-  's@^mingli-core = { version = "1.0.0", path = "crates/mingli-core" }$@mingli-core = { version = "1.1.0", path = "crates/mingli-core" }@'
+  's@^mingli-core = { version = "1.0.1", path = "crates/mingli-core" }$@mingli-core = { version = "1.1.0", path = "crates/mingli-core" }@'
 
 probe_script "装配：类型化出口又拖上了 serde" \
   "bash scripts/leaf-deps.sh yijing" \
