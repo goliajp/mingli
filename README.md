@@ -158,6 +158,29 @@ Measured, release wasm32:
 | `mingli-wasm-chart` | All twenty-four, charts only | 1237 KB | 712 KB |
 | `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 790 KB |
 
+
+### Bring your own ephemeris
+
+VSOP87D's constant tables are about 780 KB of a browser bundle that computes
+planetary positions — around ninety percent of it — and evaluating the series is
+97% of the time it takes to build a chart. If the host already has an ephemeris
+(a browser has a fifty-kilobyte JavaScript one, thirty times faster than ours),
+hand over the nine longitudes instead:
+
+```js
+import init, { astrology_with } from 'mingli-wasm-astrology-lite';
+await init();
+// Order: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune
+const lons = [83.91, 342.30, 65.30, 48.51, 10.88, 105.84, 294.05, 277.32, 283.61];
+const chart = JSON.parse(astrology_with(JSON.stringify(birth), JSON.stringify(lons)));
+```
+
+Ascendant, midheaven, houses, the chosen cusp system, aspects and sign
+placements are still computed here; only where the numbers came from moves out.
+In Rust it is `mingli_astrology::compute_at_with`, with the leaf's `ephemeris`
+feature off. Same code path measured both ways: 857,633 bytes computing
+locally, 79,863 taking them from the caller.
+
 A system costs about 0.05 MB on top of the skeleton; the three that carry planetary
 ephemerides cost 0.87 MB between them. `feature-matrix.sh` builds every leaf on its
 own, so a system that quietly drags in another fails there rather than in your bundle.

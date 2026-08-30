@@ -151,6 +151,25 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 | `mingli-wasm-chart` | 二十四片，只排盘 | 1237 KB | 712 KB |
 | `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 790 KB |
 
+
+### 自带星历
+
+　　行星位置那份 VSOP87D 常量表在浏览器产物里约 780 KB，占一个带星历档位的九成——
+而算完那些级数是排一张盘里九成七的时间。宿主若已经有星历（浏览器里有几十 KB 的 JS 实现，
+且比我们快三十倍），把九个黄经递进来即可：
+
+```js
+import init, { astrology_with } from 'mingli-wasm-astrology-lite';
+await init();
+// 次序：太阳 月亮 水星 金星 火星 木星 土星 天王 海王
+const lons = [83.91, 342.30, 65.30, 48.51, 10.88, 105.84, 294.05, 277.32, 283.61];
+const chart = JSON.parse(astrology_with(JSON.stringify(birth), JSON.stringify(lons)));
+```
+
+　　上升点、中天、整宫、所选分宫制、相位、落座仍在这里算——搬出去的只有「位置从哪来」。
+Rust 那边对应 `mingli_astrology::compute_at_with`，把叶的 `ephemeris` feature 关掉即可。
+实测同一段排盘代码：位置本地算 857,633 字节，位置由调用方给 79,863 字节。
+
 　　数字出自 `scripts/wasm-budget.txt`，那张表就是 CI 的体积闸对着比的那一张，
 也是 `npm-pack.sh` 发包前逐字节核对的那一张——三处同一个数，不是三次各量各的。
 管线固定四步：`cargo build` → `wasm-bindgen` → `wasm-opt -Oz` → `gzip`。
