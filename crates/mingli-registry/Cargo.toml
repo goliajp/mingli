@@ -76,7 +76,14 @@ default = [
 ]
 bazi = ["dep:mingli-bazi"]
 ziwei = ["dep:mingli-ziwei"]
-astrology = ["dep:mingli-astrology"]
+# 整片叶（含本地 VSOP87 星历）。
+astrology = ["dep:mingli-astrology", "mingli-astrology/port"]
+# 只要它的排盘部分，不含本地星历——行星位置由调用方给。
+#
+# 实测（wasm32，-Oz）：同一段排盘代码，位置本地算 857,633 字节，位置由调用方给
+# 79,863 字节，差 777,770（90.7%）。差的那一份是 VSOP87D 的常量表。
+# 宿主已经有星历时（浏览器里有几十 KB 的 JS 实现），这一档省下的是整整一份表。
+astrology-lite = ["dep:mingli-astrology", "mingli-astrology/serde"]
 jyotish = ["dep:mingli-jyotish"]
 qizhengsiyu = ["dep:mingli-qizhengsiyu"]
 yijing = ["dep:mingli-yijing"]

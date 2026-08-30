@@ -13,10 +13,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # 叶名取自注册表的 [features]，而不是另抄一份：抄漏一片就少查一片，且不会有人发现。
-LEAVES=$(
-  sed -n '/^\[features\]/,$p' crates/mingli-registry/Cargo.toml |
-  grep -E "^[a-z][a-z0-9_]* = \[\"dep:mingli-" | cut -d' ' -f1 | sort -u
-)
+# 叶名取自装配根 `full` 那张表——它就是「我全都要」的定义，且已被
+# crates/mingli/tests/facade.rs 守着。不要去认 `= ["dep:mingli-` 那种形状：
+# 一片叶的 feature 值一旦多写一项（`astrology` 就是），那种认法立刻少认一片。
+LEAVES=$(sed -n '/^full = \[/,/^\]/p' crates/mingli-registry/Cargo.toml |
+         grep -oE '"[a-z][a-z0-9_]*"' | tr -d '"' | sort -u)
 n_leaves=$(printf '%s\n' "$LEAVES" | grep -c .)
 if [ "$n_leaves" -lt 20 ]; then
   echo "只解析出 $n_leaves 片叶，解析方式怕是失效了" >&2; exit 1

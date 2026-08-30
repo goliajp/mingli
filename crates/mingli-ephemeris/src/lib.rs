@@ -19,8 +19,10 @@
 mod geometry;
 pub use geometry::{asc_mc, GeoLocation};
 
+#[cfg(feature = "vsop87")]
 use vsop87::vsop87d;
 
+#[cfg(feature = "vsop87")]
 /// 光行时常数：每天文单位约 0.005 775 518 3 天。
 const LIGHT_TIME_PER_AU: f64 = 0.005_775_518_3;
 
@@ -58,12 +60,14 @@ pub struct MoonPosition {
     pub distance_km: f64,
 }
 
+#[cfg(feature = "vsop87")]
 struct Rect {
     x: f64,
     y: f64,
     z: f64,
 }
 
+#[cfg(feature = "vsop87")]
 /// 日心球面 （L，B，R 弧度/AU） → 日心直角坐标。
 fn to_rect(s: vsop87::SphericalCoordinates) -> Rect {
     let (l, b, r) = (s.longitude(), s.latitude(), s.distance());
@@ -74,6 +78,7 @@ fn to_rect(s: vsop87::SphericalCoordinates) -> Rect {
     }
 }
 
+#[cfg(feature = "vsop87")]
 /// 天体的日心球面坐标（7 颗行星各取自家 VSOP87D 级数；太阳取地球，月亮不走此路）。
 fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
     match body {
@@ -152,6 +157,7 @@ pub fn mean_lunar_apogee(jde: f64) -> f64 {
     (mean_lunar_perigee(jde) + 180.0).rem_euclid(360.0)
 }
 
+#[cfg(feature = "vsop87")]
 /// 天体在 `jde`（力学时儒略日）的地心黄道经度（度，`[0,360)`，当日平分点）。
 ///
 /// 月亮返回 apparent 经度（含章动）；太阳/行星返回 mean（VSOP87 当日平分点）。差异 ~17″。
@@ -164,6 +170,7 @@ pub fn geocentric_ecliptic_longitude(body: Body, jde: f64) -> f64 {
     }
 }
 
+#[cfg(feature = "vsop87")]
 /// 一次算多颗星的地心黄经，地球的日心位置只求一次。
 ///
 /// 逐颗调用 [`geocentric_ecliptic_longitude`] 会把地球那条 VSOP87D 级数重算一遍，
@@ -187,11 +194,13 @@ pub fn geocentric_ecliptic_longitudes(bodies: &[Body], jde: f64, out: &mut [f64]
     }
 }
 
+#[cfg(feature = "vsop87")]
 /// 地心太阳 = 地球日心 + 180°。
 fn sun_from(earth: &vsop87::SphericalCoordinates) -> f64 {
     (earth.longitude().to_degrees() + 180.0).rem_euclid(360.0)
 }
 
+#[cfg(feature = "vsop87")]
 /// 每颗行星的光行时迭代轮数。
 ///
 /// 三轮不是随手取的数，也不该随手改——每一轮都要把该行星的整条 VSOP87D 级数
@@ -215,6 +224,7 @@ fn sun_from(earth: &vsop87::SphericalCoordinates) -> f64 {
 /// 钉住的那个数，再决定这笔交易划不划算。
 const LIGHT_TIME_PASSES: usize = 3;
 
+#[cfg(feature = "vsop87")]
 /// 一颗行星在给定地球位置下的地心黄经。
 fn planet_from(body: Body, jde: f64, earth: &Rect) -> f64 {
     let mut tau = 0.0;

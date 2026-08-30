@@ -12,7 +12,10 @@ categories = ["science", "algorithms"]
 serde_json = { workspace = true, optional = true }
 mingli-contract = { workspace = true, optional = true }
 mingli-astro = { workspace = true }
-mingli-ephemeris = { workspace = true }
+# 这片叶自己算行星位置，所以显式要那份级数表。
+# 根 manifest 缺省关着它——整仓一起构建时会被别的 crate 的 feature 合并掩盖，
+# 单独构建才炸，而 scripts/leaf-deps.sh 正是单独构建的。
+mingli-ephemeris = { workspace = true, features = ["vsop87"] }
 serde = { workspace = true, optional = true }
 
 [features]

@@ -10,16 +10,20 @@ categories = ["science", "algorithms", "mathematics"]
 
 [dependencies]
 serde = { workspace = true, optional = true }
-vsop87 = "3"
+vsop87 = { version = "3", optional = true }
 # 月球地心位置：基于 Chapront ELP-2000/82 月理 + Meeus 章动，已对 Meeus 第 47 章
 # 教科书算例（1992-04-12.0 TD）独立校验（见本 crate 测试），与 vsop87 同属经审计的
 # Meeus 算法系列 Rust 实现。
 astro = "2"
 
 [features]
-default = ["serde"]
+default = ["serde", "vsop87"]
 # 结构体的 `Serialize`。关掉它，依赖链上不会出现 serde（连同 serde_derive / syn 两个 proc-macro）。
 serde = ["dep:serde"]
+# 行星位置那一段。关掉它，VSOP87D 的常量表整份不进产物——实测浏览器里那份表约 780 KB，
+# 占一个带星历的档位五成以上。关掉之后行星位置由调用方供给（浏览器里可以交给
+# 一个几十 KB 的 JS 星历），而月亮、上升点、中天、分宫这些仍在本地算。
+vsop87 = ["dep:vsop87"]
 
 [dev-dependencies]
 mingli-astro = { workspace = true, features = ["serde"] }

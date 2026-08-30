@@ -24,6 +24,7 @@ mingli-wasm-chart|chart-all|$LEAVES|divination,astrology,horoscope,almanac,wasm|
 mingli-wasm-chinese|chart-chinese|bazi,ziwei,qimen,liuren,meihua,yijing,xiaoliuren,zeri,taiyi,tibetan|bazi,ziwei,qimen,yijing,wasm|The ten Chinese systems, charts only.
 mingli-wasm-bazi|chart-solo-bazi|bazi|bazi,four-pillars,chinese,astrology,wasm|Four Pillars of Destiny alone.
 mingli-wasm-yijing|chart-solo-yijing|yijing|yijing,iching,hexagram,divination,wasm|Yi Jing casting alone. The smallest build there is.
+mingli-wasm-astrology-lite|astrology-lite|astrology-lite|astrology,horoscope,natal,ephemeris,wasm|Natal charts from planetary longitudes you supply: houses, cusps, aspects and signs, without the ephemeris. 90% smaller than carrying VSOP87D.
 "
 
 for tool in wasm-bindgen wasm-opt npm; do

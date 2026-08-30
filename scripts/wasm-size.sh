@@ -29,6 +29,7 @@ LEAVES="bazi,ziwei,astrology,jyotish,qizhengsiyu,yijing,geomancy,sikidy,ifa,cart
 PROFILES="
 chart-solo-bazi|--no-default-features --features bazi
 chart-solo-yijing|--no-default-features --features yijing
+astrology-lite|--no-default-features --features astrology-lite
 chart-chinese|--no-default-features --features bazi,ziwei,qimen,liuren,meihua,yijing,xiaoliuren,zeri,taiyi,tibetan
 chart-all|--no-default-features --features $LEAVES
 full|--no-default-features --features usecases,$LEAVES
