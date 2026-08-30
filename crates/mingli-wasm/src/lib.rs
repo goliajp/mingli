@@ -47,7 +47,7 @@ fn word_json(system: &str, q: &WordQuery) -> String {
         .map_or_else(|_| "null".to_string(), |v| to_json(&v))
 }
 
-#[cfg(feature = "usecases")]
+#[cfg(any(feature = "usecases", feature = "astrology-lite"))]
 fn parse<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, JsValue> {
     serde_json::from_str(s).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -65,6 +65,55 @@ fn out<T: serde::Serialize>(r: Result<T, String>) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn cast(query_json: &str) -> Result<String, JsValue> {
     Ok(to_json(&mingli_engine::cast_all_detailed(&registry(), &parse_query(query_json)?)))
+}
+
+/// 由**调用方供给**的九个黄经排本命盘。位置的次序同 `mingli_astrology::BODY_NAMES`。
+///
+/// 这一档存在的理由是一个实测数字：同一段排盘代码，位置本地算的产物 857,633 字节，
+/// 位置由调用方给的 79,863 字节，差 777,770（90.7%）——差的那份是 VSOP87D 的常量表。
+/// 浏览器里已经有几十 KB 的 JS 星历，把九个数递进来就省掉整整一份表；
+/// 顺带也省掉算它的时间，那是排一张盘里的九成七。
+///
+/// 上升点、中天、整宫、分宫、相位、落座仍在这里算——省掉的只有「位置从哪来」。
+///
+/// # Errors
+/// 两个 JSON 任一解析失败，或位置不是九个数时返回错误。
+#[cfg(feature = "astrology-lite")]
+#[wasm_bindgen]
+pub fn astrology_with(query_json: &str, longitudes_json: &str) -> Result<String, JsValue> {
+    let q = parse_query(query_json)?;
+    let lons: Vec<f64> = parse(longitudes_json)?;
+    let lons: [f64; 9] = lons
+        .try_into()
+        .map_err(|v: Vec<f64>| JsValue::from_str(&format!("要九个黄经，给了 {}", v.len())))?;
+    let m = mingli_contract::Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+    let geo = q.latitude.zip(q.longitude).map(|(latitude, longitude)| {
+        mingli_registry::leaves::astrology::GeoLocation { latitude, longitude }
+    });
+    let chart = mingli_registry::leaves::astrology::compute_at_with(
+        &m,
+        geo,
+        mingli_registry::leaves::astrology::HouseSystem::Placidus,
+        &lons,
+    );
+    Ok(to_json(&chart))
+}
+
+/// 九星的地心黄经（度），JSON 数组，次序同 `mingli_astrology::BODY_NAMES`。
+///
+/// 排一张本命盘里九成七的时间花在这九个数上（实测整盘 286.7 µs、只算位置 278.1 µs），
+/// 所以只要位置的调用方不该被迫排一张盘——也只有这样，跟别家星历比才是同一件活。
+///
+/// # Errors
+/// query JSON 解析或校验失败时返回错误。
+#[cfg(feature = "astrology")]
+#[wasm_bindgen]
+pub fn longitudes(query_json: &str) -> Result<String, JsValue> {
+    let q = parse_query(query_json)?;
+    let m = mingli_contract::Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+    // 经装配根转发，而不是在本 crate 的清单里写上那片叶——
+    // 承接层直连叶正是架构测试要禁的事。
+    Ok(to_json(&mingli_registry::leaves::astrology::longitudes_at(&m)))
 }
 
 /// 只排单片叶（按 id），省去其余叶（非占星叶还省掉 VSOP87）。未知 id 返回 `"null"`。

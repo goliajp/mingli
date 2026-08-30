@@ -29,6 +29,7 @@ LEAVES="bazi,ziwei,astrology,jyotish,qizhengsiyu,yijing,geomancy,sikidy,ifa,cart
 PROFILES="
 chart-solo-bazi|--no-default-features --features bazi
 chart-solo-yijing|--no-default-features --features yijing
+astrology-lite|--no-default-features --features astrology-lite
 chart-chinese|--no-default-features --features bazi,ziwei,qimen,liuren,meihua,yijing,xiaoliuren,zeri,taiyi,tibetan
 chart-all|--no-default-features --features $LEAVES
 full|--no-default-features --features usecases,$LEAVES
@@ -78,7 +79,7 @@ if [ "$record" = "--record" ]; then
   echo; echo "已写入 $BUDGET"; exit 0
 fi
 
-[ -f "$BUDGET" ] || { echo "没有预算表 $BUDGET——先跑一次 --record" >&2; exit 1; }
+[ -f "$BUDGET" ] || { echo "没有预算表 ${BUDGET}——先跑一次 --record" >&2; exit 1; }
 
 echo; over=0; seen=0
 while read -r name raw gz; do
