@@ -144,43 +144,35 @@ fn the_number_of_planted_faults_is_what_the_script_plants() {
 /// 少了这条，改 README 的人不会知道脚本还按旧数在验，改脚本的人也不会想起 README——
 /// 于是「实测」二字慢慢变成两份互不相干的旧账。
 #[test]
-fn the_wasm_size_table_and_the_script_agree() {
-    let script = read("scripts/feature-matrix.sh");
-    // 脚本里的行长这样：`只四柱|0.57|--no-default-features --features bazi`
-    let rows: Vec<(String, String)> = script
+fn the_wasm_size_table_and_the_budget_agree() {
+    // 数源只有一个：scripts/wasm-budget.txt。体积闸对着它比，npm-pack 发包前对着它核，
+    // feature-matrix 核 README 是否照它写，本测试核同一件事。
+    // 从前这里核的是 feature-matrix 脚本里另写的一张期望表，于是同一个包有两个数。
+    let budget = read("scripts/wasm-budget.txt");
+    let rows: Vec<(String, String)> = budget
         .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
         .filter_map(|l| {
-            let mut it = l.splitn(3, '|');
-            let (label, mb) = (it.next()?, it.next()?);
-            it.next()?;
-            let mb: f64 = mb.trim().parse().ok()?;
-            Some((label.trim().to_string(), format!("{mb:.2}")))
+            let mut it = l.split_whitespace();
+            let (_name, raw, gz) = (it.next()?, it.next()?, it.next()?);
+            // 整数算，不经浮点：四舍五入到 KB 就是 (b + 512) / 1024。
+            let kb = |b: &str| -> Option<String> {
+                Some(format!("{} KB", (b.parse::<u64>().ok()? + 512) / 1024))
+            };
+            Some((kb(raw)?, kb(gz)?))
         })
         .collect();
-    assert_eq!(rows.len(), 5, "脚本里只解析出 {} 行体积期望，解析方式怕是失效了", rows.len());
+    assert_eq!(rows.len(), 5, "预算表只解析出 {} 行，解析方式怕是失效了", rows.len());
 
     for (name, text) in readmes() {
-        let listed: Vec<String> = text
-            .lines()
-            .filter(|l| l.starts_with('|') && l.contains(" MB |"))
-            .filter_map(|l| l.split('|').nth(2).map(|c| c.trim().trim_end_matches(" MB").to_string()))
-            .collect();
-        assert_eq!(
-            listed.len(),
-            rows.len(),
-            "{name} 的体积表有 {} 行，脚本里有 {} 行——两边的行数就该一样",
-            listed.len(),
-            rows.len()
-        );
-        for (i, (label, want)) in rows.iter().enumerate() {
-            assert_eq!(
-                &listed[i], want,
-                "{name} 体积表第 {} 行写的是 {} MB，而脚本按 {} MB 在验（那一行是 `{label}`）",
-                i + 1,
-                listed[i],
-                want
+        for (raw, gz) in &rows {
+            assert!(
+                text.contains(&format!("| {raw} | {gz} |")),
+                "{name} 的体积表里没有 `{raw} / {gz}` 这一行——预算表变了就要跟着改"
             );
         }
+        let listed = text.lines().filter(|l| l.starts_with("| `mingli-wasm")).count();
+        assert_eq!(listed, rows.len(), "{name} 列了 {listed} 个档位，预算表有 {}", rows.len());
     }
 }
 

@@ -291,6 +291,32 @@ pub fn classify_aspect(a: f64, b: f64, orb: f64) -> Option<(&'static str, f64)> 
 
 
 /// 计算九星落座（与可选宫位）。
+/// 九星的星名，与 [`longitudes_at`] 的次序一一对应。
+pub const BODY_NAMES: [&str; 9] = [
+    "太阳", "月亮", "水星", "金星", "火星", "木星", "土星", "天王", "海王",
+];
+
+/// 九星的地心黄经（度），只此一项。
+///
+/// [`compute_at`] 在这之上还要排相位、定星座、分宫与落宫，每颗星要两个 `String`；
+/// 只要位置的调用方不必为那些付钱。本函数不分配任何东西，次序同 [`BODY_NAMES`]。
+///
+/// ```
+/// use mingli_astrology::{longitudes_at, BODY_NAMES};
+/// let m = mingli_astro::Moment::new(1990, 6, 15, 14, 30, 8.0);
+/// let lon = longitudes_at(&m);
+/// assert_eq!(lon.len(), BODY_NAMES.len());
+/// assert!((0.0..360.0).contains(&lon[0]));
+/// ```
+#[must_use]
+pub fn longitudes_at(m: &Moment) -> [f64; 9] {
+    let mut out = [0.0_f64; 9];
+    for (slot, &(body, _)) in out.iter_mut().zip(BODIES.iter()) {
+        *slot = geocentric_ecliptic_longitude(body, m.jde);
+    }
+    out
+}
+
 fn compute_planets(jde: f64, asc_sign_idx: Option<usize>) -> Vec<PlanetPos> {
     BODIES
         .iter()

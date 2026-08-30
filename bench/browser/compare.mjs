@@ -100,13 +100,14 @@ if (process.argv.includes('--record')) {
   }
   if (!fail) console.log(`  ✓ 七个天体与记录相符（最大 ${Math.max(...worst.values()).toFixed(1)}″）`);
 }
-// 下面这一组**不设闸**，因为两边算的不是同一件活：我们出的是整张本命盘
-// （行星 + 宫位 + 相位 + JSON 往返），对手只出七个黄经。数字照报，
-// 但在把行星位置单独拆出一个出口之前，它不能当作「谁快」的结论。
-const ephOurs = (q) => ch.cast_one('astrology', JSON.stringify(q));
+// 同口径：两边都只出黄经。曾经这里比的是「我们的整张盘」对「对手的七个黄经」，
+// 我把差别归给了「不是同一件活」——消融量下来那是错的：整盘 286.7 µs、
+// 只算位置 278.1 µs，星历占九成七，相位宫位落座合计才 9 µs。
+// 现在两边都走位置那一条，剩下的差就真的是星历本身的差。
+const ephOurs = (q) => ch.longitudes(JSON.stringify(q));
 const ephTheirs = (q) => { const d = new Date(Date.UTC(q.year, q.month - 1, q.day, q.hour, q.minute, 0));
   for (const [, en] of BODIES) A.Ecliptic(A.GeoVector(en, d, true)); };
-console.log('\n  （下面这组不设闸：我们算整张盘，对手只算七个黄经，不是同一件活）');
+console.log('\n  （同口径：两边都只出黄经。我们九星、对手七星，仍不设闸，但差别只剩这一处）');
 race('astro-eng', ephOurs, ephTheirs, qs.slice(0, 300), 5);
 
 process.exit(fail);

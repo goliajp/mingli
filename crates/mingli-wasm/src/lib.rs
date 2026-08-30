@@ -67,6 +67,23 @@ pub fn cast(query_json: &str) -> Result<String, JsValue> {
     Ok(to_json(&mingli_engine::cast_all_detailed(&registry(), &parse_query(query_json)?)))
 }
 
+/// 九星的地心黄经（度），JSON 数组，次序同 `mingli_astrology::BODY_NAMES`。
+///
+/// 排一张本命盘里九成七的时间花在这九个数上（实测整盘 286.7 µs、只算位置 278.1 µs），
+/// 所以只要位置的调用方不该被迫排一张盘——也只有这样，跟别家星历比才是同一件活。
+///
+/// # Errors
+/// query JSON 解析或校验失败时返回错误。
+#[cfg(feature = "astrology")]
+#[wasm_bindgen]
+pub fn longitudes(query_json: &str) -> Result<String, JsValue> {
+    let q = parse_query(query_json)?;
+    let m = mingli_contract::Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
+    // 经装配根转发，而不是在本 crate 的清单里写上那片叶——
+    // 承接层直连叶正是架构测试要禁的事。
+    Ok(to_json(&mingli_registry::leaves::astrology::longitudes_at(&m)))
+}
+
 /// 只排单片叶（按 id），省去其余叶（非占星叶还省掉 VSOP87）。未知 id 返回 `"null"`。
 ///
 /// # Errors
