@@ -306,3 +306,34 @@ fn secondary_progression_moves_the_sun_a_degree_and_the_moon_thirteen_per_year()
         );
     }
 }
+
+/// 批量口与逐颗口必须逐位相同。
+///
+/// 批量口的全部理由是「地球那条级数只求一次」——省的是重复计算，不是精度。
+/// 只要有一位不同，那就不是同一个函数的两种写法，而是两个函数，
+/// 而 `longitudes_at` 与 `compute_at` 会因此给出两套盘。
+#[test]
+fn the_batch_path_and_the_single_path_agree_bit_for_bit() {
+    use mingli_ephemeris::{geocentric_ecliptic_longitude, geocentric_ecliptic_longitudes};
+    let bodies: [mingli_ephemeris::Body; 9] = BODIES.map(|(b, _)| b);
+    let mut checked = 0;
+    for year in (1900..=2100).step_by(7) {
+        for month in [1_u32, 4, 7, 10] {
+            let m = mingli_astro::Moment::new(year, month, 15, 12, 0, 0.0);
+            let mut batch = [0.0_f64; 9];
+            geocentric_ecliptic_longitudes(&bodies, m.jde, &mut batch);
+            for (i, &body) in bodies.iter().enumerate() {
+                let one = geocentric_ecliptic_longitude(body, m.jde);
+                assert_eq!(
+                    batch[i].to_bits(),
+                    one.to_bits(),
+                    "{year}-{month} 第 {i} 颗：批量 {} 逐颗 {}",
+                    batch[i],
+                    one
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert!(checked > 900, "只比了 {checked} 个值，取样太少");
+}
