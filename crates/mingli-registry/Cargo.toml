@@ -84,6 +84,8 @@ astrology = ["dep:mingli-astrology", "mingli-astrology/port"]
 # 79,863 字节，差 777,770（90.7%）。差的那一份是 VSOP87D 的常量表。
 # 宿主已经有星历时（浏览器里有几十 KB 的 JS 实现），这一档省下的是整整一份表。
 astrology-lite = ["dep:mingli-astrology", "mingli-astrology/serde"]
+# 整片叶，但本地星历走截断表。体积比整片叶小约 720 KB，精度让 4.28 角秒。
+astrology-thin = ["dep:mingli-astrology", "mingli-astrology/port", "mingli-astrology/ephemeris-lite"]
 jyotish = ["dep:mingli-jyotish"]
 qizhengsiyu = ["dep:mingli-qizhengsiyu"]
 yijing = ["dep:mingli-yijing"]

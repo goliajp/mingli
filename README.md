@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 806 tests green
+> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 807 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -151,12 +151,13 @@ Measured, release wasm32:
 
 | npm package | Build | Module | gzipped |
 |---|---|---:|---:|
+| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 140 KB | 65 KB |
 | `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
 | `mingli-wasm-astrology-lite` | Natal charts, you supply the positions | 162 KB | 73 KB |
 | `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
 | `mingli-wasm-chart` | All twenty-four, charts only | 1237 KB | 712 KB |
-| `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 789 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1443 KB | 789 KB |
 
 
 ### Bring your own ephemeris
@@ -201,7 +202,7 @@ or payload -- it exists because one did, once.
 Guards need guarding too. A test that can never fail and a test that is really holding
 something up look identical on a green run; the only way to tell them apart is to put the
 fault back and see whether it gets caught. `guard-probe.sh` turns that from something
-someone once did by hand into a command anyone can re-run: it plants 115 known faults
+someone once did by hand into a command anyone can re-run: it plants 117 known faults
 and asks, for each, whether the guard that should catch it goes red. It has already found
 one guard that did not do what its name said -- "the composition root is the only place
 that lists leaves" never looked at the interpretation layer at all.
@@ -210,14 +211,14 @@ that lists leaves" never looked at the interpretation layer at all.
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 806 tests
+cargo test --workspace     # 807 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
 ./scripts/api-snapshot.sh check snap.txt   # 43 requests, byte for byte
 ./scripts/test-count.sh    # the count in this README, against a real run
 ./scripts/feature-matrix.sh  # every leaf built alone, every crate tested alone, wasm32, one dependency-graph check
-./scripts/guard-probe.sh   # plants 115 known faults, checks the guard that should catch each one does
+./scripts/guard-probe.sh   # plants 117 known faults, checks the guard that should catch each one does
 ```
 
 All of the above, plus the screenshot pass, run on every push — see the badge at the top.

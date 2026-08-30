@@ -502,6 +502,18 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+# 用 probe_script 而不是 probe：那条测试在 `eph-lite` feature 之后，
+# 而 `probe` 按缺省 feature 跑——那次构建里测试根本不存在，于是「种了错没人拦」，
+# 而真正的原因是没人跑过它。第一版就是这么假报了一次。
+probe_script "星历：截断表偏得比记录多" \
+  "cargo test -q -p mingli-ephemeris --features eph-lite the_truncated_series_stays_within_this_much" \
+  crates/mingli-ephemeris/src/lite/mod.rs \
+  's@            s += t\[0\] \* (t\[1\] + t\[2\] \* tau).cos();@            s += t[0] * 1.000_1 * (t[1] + t[2] * tau).cos();@'
+
+probe "星历：黄经整体偏了半角秒" mingli-ephemeris our_longitudes_track_an_independent_series_across_two_centuries \
+  crates/mingli-ephemeris/src/lib.rs \
+  's@        lambda = dy.atan2(dx).to_degrees().rem_euclid(360.0);@        lambda = (dy.atan2(dx).to_degrees() + 0.000_139).rem_euclid(360.0);@'
+
 probe "星历：光行时收敛变慢了" mingli-ephemeris the_third_light_time_pass_is_worth_this_much \
   crates/mingli-ephemeris/src/lib.rs \
   's@^const LIGHT_TIME_PER_AU: f64 = 0.005_775_518_3;$@const LIGHT_TIME_PER_AU: f64 = 0.05_775_518_3;@'
@@ -520,10 +532,12 @@ probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_le
   crates/mingli/Cargo.toml \
   's@^yijing = \["mingli-registry/yijing"\]$@yijing = []@'
 
+# 匹配任意版本号再改成一个不可能对的值。写死版本号不行：下次升版本时匹配串与替换串
+# 会被一起改成同一个数，那条 sed 就成了空操作，探针从此什么也不验——它上一次正是这么被跳过的。
 probe_script "发版：内部依赖的版本对不上" \
   "bash scripts/publish-rehearsal.sh" \
   Cargo.toml \
-  's@^mingli-core = { version = "1.0.1", path = "crates/mingli-core" }$@mingli-core = { version = "1.1.0", path = "crates/mingli-core" }@'
+  's@^mingli-core = { version = "[0-9][0-9.]*"@mingli-core = { version = "9.9.9"@'
 
 probe_script "装配：类型化出口又拖上了 serde" \
   "bash scripts/leaf-deps.sh yijing" \
