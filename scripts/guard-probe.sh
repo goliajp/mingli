@@ -331,9 +331,9 @@ probe "自陈：认领了「字」却不在字词注册表里" mingli-app every_
   crates/mingli-numerology/src/engine.rs \
   '/impl WordEngine/,/^}/s|^        "numerology"$|        "numerology-name"|'
 
-probe "自陈：README 的体积表与脚本对不上" mingli-registry the_wasm_size_table_and_the_script_agree \
+probe "自陈：README 的体积表与预算表对不上" mingli-registry the_wasm_size_table_and_the_budget_agree \
   README.md \
-  's:| Four Pillars only | 0.57 MB |:| Four Pillars only | 0.77 MB |:'
+  's:| `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |:| `mingli-wasm-bazi` | Four Pillars only | 777 KB | 89 KB |:'
 
 probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain \
   crates/mingli-analysis/src/lib.rs \
