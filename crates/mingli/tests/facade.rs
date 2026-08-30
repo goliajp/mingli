@@ -29,7 +29,22 @@ fn the_facade_forwards_exactly_the_leaves_the_composition_root_registers() {
     let reg = fs::read_to_string(root.join("crates/mingli-registry/Cargo.toml")).unwrap();
     let facade = fs::read_to_string(root.join("crates/mingli/Cargo.toml")).unwrap();
 
-    let mut want = features(&reg, |rest| rest.contains("dep:mingli-"));
+    // 叶名取自装配根的 `full`——它就是「我全都要」的定义。不要去认
+    // `= ["dep:mingli-` 那种形状：一片叶的 feature 值多写一项（`astrology`
+    // 为了区分带不带本地星历就多写了一项），那种认法立刻少认一片。
+    let mut want: Vec<String> = reg
+        .split("full = [")
+        .nth(1)
+        .expect("装配根应有 full")
+        .split(']')
+        .next()
+        .expect("full 应是一个数组")
+        .split(',')
+        .filter_map(|s| {
+            let s = s.trim().trim_matches('"');
+            (!s.is_empty()).then(|| s.to_string())
+        })
+        .collect();
     let mut got = features(&facade, |rest| rest.contains("mingli-registry/"));
     want.sort();
     got.sort();

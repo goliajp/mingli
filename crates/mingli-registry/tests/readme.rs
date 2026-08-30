@@ -162,7 +162,8 @@ fn the_wasm_size_table_and_the_budget_agree() {
             Some((kb(raw)?, kb(gz)?))
         })
         .collect();
-    assert_eq!(rows.len(), 5, "预算表只解析出 {} 行，解析方式怕是失效了", rows.len());
+    // 下限而不是定数：加一个发布档位是常事，而「一行也没解析出来」要红。
+    assert!(rows.len() >= 5, "预算表只解析出 {} 行，解析方式怕是失效了", rows.len());
 
     for (name, text) in readmes() {
         for (raw, gz) in &rows {

@@ -152,10 +152,11 @@ Measured, release wasm32:
 | npm package | Build | Module | gzipped |
 |---|---|---:|---:|
 | `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
+| `mingli-wasm-astrology-lite` | Natal charts, you supply the positions | 162 KB | 73 KB |
 | `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
 | `mingli-wasm-chart` | All twenty-four, charts only | 1237 KB | 712 KB |
-| `mingli-wasm` | All twenty-four plus use cases | 1442 KB | 789 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 790 KB |
 
 A system costs about 0.05 MB on top of the skeleton; the three that carry planetary
 ephemerides cost 0.87 MB between them. `feature-matrix.sh` builds every leaf on its

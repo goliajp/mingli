@@ -145,10 +145,11 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 | npm 包 | 装配 | 模块 | gzip 后 |
 |---|---|---:|---:|
 | `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
+| `mingli-wasm-astrology-lite` | 占星排盘，位置你给 | 162 KB | 73 KB |
 | `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
 | `mingli-wasm-chart` | 二十四片，只排盘 | 1237 KB | 712 KB |
-| `mingli-wasm` | 二十四片 + 跨叶用例 | 1442 KB | 789 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 790 KB |
 
 　　数字出自 `scripts/wasm-budget.txt`，那张表就是 CI 的体积闸对着比的那一张，
 也是 `npm-pack.sh` 发包前逐字节核对的那一张——三处同一个数，不是三次各量各的。
