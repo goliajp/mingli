@@ -539,4 +539,48 @@ mod tests {
             "第三轮值 {third:.6}″，记录是 0.0037″——变大了就要重新算这笔账"
         );
     }
+
+    /// 与另一套算法逐年对照，而不是只在几个点上对权威值。
+    ///
+    /// 上面两条 oracle 是稀疏点检：IMCCE 对一个时刻、JPL 对一世纪里的若干点。
+    /// 它们能证明我们没系统性跑偏，却证明不了「某几年、某颗星」上没有局部错——
+    /// 那种错正好躲在取样点之间。
+    ///
+    /// 这一条换个方向：拿 `astro` crate（Meeus《Astronomical Algorithms》附录 III 的
+    /// 删节 VSOP87，本 crate 算月亮已在用，且已对 Meeus 自己的教科书算例验过）
+    /// 在 1900–2100 上每两年比一次，七颗行星，约七百个点。两套级数、两个来源、
+    /// 两份实现，只有黄经这一个共同答案。
+    ///
+    /// 0.004″ 是实测记录，不是挑出来能过的容差：它涨了说明有一侧变了，
+    /// 而答案不是放宽这个数。
+    #[test]
+    fn our_longitudes_track_an_independent_series_across_two_centuries() {
+        use astro::planet::Planet as P;
+        const PAIRS: [(Body, P); 7] = [
+            (Body::Mercury, P::Mercury),
+            (Body::Venus, P::Venus),
+            (Body::Mars, P::Mars),
+            (Body::Jupiter, P::Jupiter),
+            (Body::Saturn, P::Saturn),
+            (Body::Uranus, P::Uranus),
+            (Body::Neptune, P::Neptune),
+        ];
+        let (mut worst, mut n) = (0.0_f64, 0u32);
+        let mut jde = 2_415_020.0_f64; // 1900-01-01
+        while jde < 2_488_070.0 {
+            // 到 2100
+            for (ours, theirs) in PAIRS {
+                let a = geocentric_ecliptic_longitude(ours, jde);
+                let (p, _) = astro::planet::geocent_apprnt_ecl_coords(&theirs, jde);
+                worst = worst.max(arcsec_apart(a, p.long.to_degrees()).abs());
+                n += 1;
+            }
+            jde += 733.0;
+        }
+        assert!(n > 600, "只比了 {n} 个点，取样太少");
+        assert!(
+            worst < 0.02,
+            "与删节级数最大差 {worst:.4}″，记录是 0.004″——变大了说明有一侧动了"
+        );
+    }
 }
