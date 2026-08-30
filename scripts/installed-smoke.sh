@@ -19,7 +19,7 @@ MAJOR=${VER%%.*}
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 fail=0
 
-echo "从 registry 装 $VER（按 \"^$MAJOR\" 解析）"
+echo "从 registry 装 ${VER}（按 \"^$MAJOR\" 解析）"
 echo
 echo "一 · Rust：mingli-bazi，关掉缺省 feature"
 mkdir -p "$work/rs/src"

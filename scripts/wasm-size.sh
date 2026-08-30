@@ -79,7 +79,7 @@ if [ "$record" = "--record" ]; then
   echo; echo "已写入 $BUDGET"; exit 0
 fi
 
-[ -f "$BUDGET" ] || { echo "没有预算表 $BUDGET——先跑一次 --record" >&2; exit 1; }
+[ -f "$BUDGET" ] || { echo "没有预算表 ${BUDGET}——先跑一次 --record" >&2; exit 1; }
 
 echo; over=0; seen=0
 while read -r name raw gz; do
