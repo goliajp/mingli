@@ -337,3 +337,37 @@ fn the_batch_path_and_the_single_path_agree_bit_for_bit() {
     }
     assert!(checked > 900, "只比了 {checked} 个值，取样太少");
 }
+
+/// 把本地算出的位置递给 `compute_at_with`，必须得到与 `compute_at` 一模一样的盘。
+///
+/// 拆开「找位置」与「读位置」的全部前提就是这件事：自带星历的调用方拿到的不是
+/// 一张近似的盘，而是同一张盘。差一个字段就说明拆错了地方。
+#[cfg(feature = "ephemeris")]
+#[test]
+fn supplying_the_positions_we_would_have_computed_gives_the_identical_chart() {
+    let geo = Some(GeoLocation { latitude: 52.833, longitude: 0.5 });
+    let mut checked = 0;
+    for year in (1900..=2100).step_by(11) {
+        for &g in &[None, geo] {
+            for &hs in &[
+                HouseSystem::WholeSign,
+                HouseSystem::Equal,
+                HouseSystem::Porphyry,
+                HouseSystem::Placidus,
+                HouseSystem::Koch,
+            ] {
+                let m = mingli_astro::Moment::new(year, 6, 15, 14, 30, 8.0);
+                let a = compute_at(&m, g, hs);
+                let b = compute_at_with(&m, g, hs, &longitudes_at(&m));
+                assert_eq!(
+                    serde_json::to_string(&a).unwrap(),
+                    serde_json::to_string(&b).unwrap(),
+                    "{year} 年、{hs:?}、geo={}：两条路给出不同的盘",
+                    g.is_some()
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert!(checked > 150, "只比了 {checked} 张盘，取样太少");
+}
