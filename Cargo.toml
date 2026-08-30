@@ -44,57 +44,57 @@ members = [
 
 [workspace.package]
 edition = "2024"
-version = "1.0.1"
+version = "1.1.0"
 license = "MIT"
 repository = "https://github.com/goliajp/mingli"
 rust-version = "1.97"
 
 [workspace.dependencies]
-mingli = { version = "1.0.1", path = "crates/mingli" }
-mingli-core = { version = "1.0.1", path = "crates/mingli-core" }
-mingli-contract = { version = "1.0.1", path = "crates/mingli-contract" }
+mingli = { version = "1.1.0", path = "crates/mingli" }
+mingli-core = { version = "1.1.0", path = "crates/mingli-core" }
+mingli-contract = { version = "1.1.0", path = "crates/mingli-contract" }
 # 缺省不带 serde：只想拿类型化结果的叶不该被迫链上 serde_derive 与 syn。
 # 需要序列化的消费者显式 `features = ["serde"]`。
-mingli-astro = { version = "1.0.1", path = "crates/mingli-astro", default-features = false }
-mingli-ephemeris = { version = "1.0.1", path = "crates/mingli-ephemeris", default-features = false }
-mingli-ganzhi = { version = "1.0.1", path = "crates/mingli-ganzhi", default-features = false }
-mingli-gua = { version = "1.0.1", path = "crates/mingli-gua", default-features = false }
-mingli-luoshu = { version = "1.0.1", path = "crates/mingli-luoshu" }
+mingli-astro = { version = "1.1.0", path = "crates/mingli-astro", default-features = false }
+mingli-ephemeris = { version = "1.1.0", path = "crates/mingli-ephemeris", default-features = false }
+mingli-ganzhi = { version = "1.1.0", path = "crates/mingli-ganzhi", default-features = false }
+mingli-gua = { version = "1.1.0", path = "crates/mingli-gua", default-features = false }
+mingli-luoshu = { version = "1.1.0", path = "crates/mingli-luoshu" }
 # 缺省不带本地星历：装配根按档位（`astrology` / `astrology-lite`）自己补，
 # 用例层要强类型推运，显式补 `port`。
-mingli-astrology = { version = "1.0.1", path = "crates/mingli-astrology", default-features = false }
-mingli-jyotish = { version = "1.0.1", path = "crates/mingli-jyotish" }
-mingli-qizhengsiyu = { version = "1.0.1", path = "crates/mingli-qizhengsiyu" }
-mingli-engine = { version = "1.0.1", path = "crates/mingli-engine" }
+mingli-astrology = { version = "1.1.0", path = "crates/mingli-astrology", default-features = false }
+mingli-jyotish = { version = "1.1.0", path = "crates/mingli-jyotish" }
+mingli-qizhengsiyu = { version = "1.1.0", path = "crates/mingli-qizhengsiyu" }
+mingli-engine = { version = "1.1.0", path = "crates/mingli-engine" }
 # registry 与 app 的星历叶按 feature 可裁，故在此设为 opt-in：
 # 各消费者显式声明它要哪几片。若在这里留默认全开，下游写 `default-features = false`
 # 会被 Cargo 拒（继承来的依赖不许覆盖它），于是「轻量构建」这句话就永远不成立。
-mingli-registry = { version = "1.0.1", path = "crates/mingli-registry", default-features = false }
-mingli-app = { version = "1.0.1", path = "crates/mingli-app", default-features = false }
-mingli-analysis = { version = "1.0.1", path = "crates/mingli-analysis" }
-mingli-interpret = { version = "1.0.1", path = "crates/mingli-interpret" }
-mingli-wasm = { version = "1.0.1", path = "crates/mingli-wasm" }
-mingli-bazi = { version = "1.0.1", path = "crates/mingli-bazi" }
-mingli-ziwei = { version = "1.0.1", path = "crates/mingli-ziwei" }
-mingli-yijing = { version = "1.0.1", path = "crates/mingli-yijing" }
-mingli-geomancy = { version = "1.0.1", path = "crates/mingli-geomancy" }
-mingli-sikidy = { version = "1.0.1", path = "crates/mingli-sikidy" }
-mingli-ifa = { version = "1.0.1", path = "crates/mingli-ifa" }
-mingli-cartomancy = { version = "1.0.1", path = "crates/mingli-cartomancy" }
-mingli-meihua = { version = "1.0.1", path = "crates/mingli-meihua" }
-mingli-xiaoliuren = { version = "1.0.1", path = "crates/mingli-xiaoliuren" }
-mingli-zeri = { version = "1.0.1", path = "crates/mingli-zeri" }
-mingli-maya = { version = "1.0.1", path = "crates/mingli-maya" }
-mingli-pawukon = { version = "1.0.1", path = "crates/mingli-pawukon" }
-mingli-mahabote = { version = "1.0.1", path = "crates/mingli-mahabote" }
-mingli-tibetan = { version = "1.0.1", path = "crates/mingli-tibetan" }
-mingli-liuren = { version = "1.0.1", path = "crates/mingli-liuren" }
-mingli-qimen = { version = "1.0.1", path = "crates/mingli-qimen" }
-mingli-taiyi = { version = "1.0.1", path = "crates/mingli-taiyi" }
-mingli-numerology = { version = "1.0.1", path = "crates/mingli-numerology" }
-mingli-gematria = { version = "1.0.1", path = "crates/mingli-gematria" }
-mingli-abjad = { version = "1.0.1", path = "crates/mingli-abjad" }
-mingli-wuge = { version = "1.0.1", path = "crates/mingli-wuge" }
+mingli-registry = { version = "1.1.0", path = "crates/mingli-registry", default-features = false }
+mingli-app = { version = "1.1.0", path = "crates/mingli-app", default-features = false }
+mingli-analysis = { version = "1.1.0", path = "crates/mingli-analysis" }
+mingli-interpret = { version = "1.1.0", path = "crates/mingli-interpret" }
+mingli-wasm = { version = "1.1.0", path = "crates/mingli-wasm" }
+mingli-bazi = { version = "1.1.0", path = "crates/mingli-bazi" }
+mingli-ziwei = { version = "1.1.0", path = "crates/mingli-ziwei" }
+mingli-yijing = { version = "1.1.0", path = "crates/mingli-yijing" }
+mingli-geomancy = { version = "1.1.0", path = "crates/mingli-geomancy" }
+mingli-sikidy = { version = "1.1.0", path = "crates/mingli-sikidy" }
+mingli-ifa = { version = "1.1.0", path = "crates/mingli-ifa" }
+mingli-cartomancy = { version = "1.1.0", path = "crates/mingli-cartomancy" }
+mingli-meihua = { version = "1.1.0", path = "crates/mingli-meihua" }
+mingli-xiaoliuren = { version = "1.1.0", path = "crates/mingli-xiaoliuren" }
+mingli-zeri = { version = "1.1.0", path = "crates/mingli-zeri" }
+mingli-maya = { version = "1.1.0", path = "crates/mingli-maya" }
+mingli-pawukon = { version = "1.1.0", path = "crates/mingli-pawukon" }
+mingli-mahabote = { version = "1.1.0", path = "crates/mingli-mahabote" }
+mingli-tibetan = { version = "1.1.0", path = "crates/mingli-tibetan" }
+mingli-liuren = { version = "1.1.0", path = "crates/mingli-liuren" }
+mingli-qimen = { version = "1.1.0", path = "crates/mingli-qimen" }
+mingli-taiyi = { version = "1.1.0", path = "crates/mingli-taiyi" }
+mingli-numerology = { version = "1.1.0", path = "crates/mingli-numerology" }
+mingli-gematria = { version = "1.1.0", path = "crates/mingli-gematria" }
+mingli-abjad = { version = "1.1.0", path = "crates/mingli-abjad" }
+mingli-wuge = { version = "1.1.0", path = "crates/mingli-wuge" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
