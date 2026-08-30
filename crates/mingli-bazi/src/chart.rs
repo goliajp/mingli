@@ -57,7 +57,8 @@ pub fn compute(input: BirthInput) -> BaziChart {
 }
 
 /// 子时归属流派（影响 23：00–23：59 出生的日柱）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum ZiHourMethod {
     /// **晚子（Late，主流）**：子时整体属次日，23-24 点 → 次日日柱。
     Late,
@@ -66,7 +67,8 @@ pub enum ZiHourMethod {
 }
 
 /// 年柱换岁流派（影响立春前/正月初一前出生的年柱）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum YearBreakMethod {
     /// **立春换年（主流）**：节气立春（太阳黄经 315°）为新年界。子平命理主流。
     LiChun,
@@ -75,7 +77,8 @@ pub enum YearBreakMethod {
 }
 
 /// 八字流派全集。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct BaziSchool {
     /// 子时归属流派。
     pub zi_hour: ZiHourMethod,
@@ -117,20 +120,13 @@ pub(crate) fn compute_at_impl(m: &Moment, gender: Option<Gender>, school: BaziSc
             let lichun = solar_term_jd(m.year, 315.0);
             if jd < lichun { m.year - 1 } else { m.year }
         }
-        YearBreakMethod::SpringFestival => {
-            // 农历正月初一（非闰）之前归前一年；之后（含）归本年。
-            // m.lunar.month=1 且 m.lunar.day>=1 且 leap=false → 已到正月，本公历年成立。
-            // 若 m.lunar.month=12 或 （month=1 day>=1 但 leap=true 跨闰），则尚未到正月初一，归前一年。
-            let l = &m.lunar;
-            if l.month == 1 && !l.leap && l.day >= 1 {
-                m.year
-            } else if l.month >= 11 || (l.month == 12) || (l.month == 1 && l.leap) {
-                // 公历 1 月 1 日到农历正月初一之间（必落在公历 1-2 月）
-                m.year - 1
-            } else {
-                m.year
-            }
-        }
+        // 春节换岁要的就是农历年号本身——[`mingli_astro::LunarDate::year`] 的定义
+        // 正是「以正月初一为界；十一、十二月归本岁起始年」，与本流派一字不差。
+        //
+        // 此处原先由公历年加农历月日反推，那套判断在公历十一、十二月上会把年柱退回前一年
+        // （如 2024-12-15 农历十一月，2024 年正月初一早已过，却算成癸卯）。
+        // 原有三条测试取的都是二月三月的日期，恰好落在那套判断对的区间里。
+        YearBreakMethod::SpringFestival => m.lunar.year,
     };
     let year_gz = year_ganzhi(solar_year);
 

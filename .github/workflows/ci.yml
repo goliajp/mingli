@@ -1,0 +1,181 @@
+# 仓库里已经有整套测试、五条脚本、一套截图断言——但它们此前只在有人想起来时才跑。
+# 这个 workflow 把它们全部接上，一条也不新造：每一项都是 README 与接续手册里已经写着的关卡。
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: 测试 · clippy · doc · feature 矩阵 · 契约快照
+    runs-on: ubuntu-latest
+    # 正常 4 分钟上下。给上限是因为一次装依赖卡住就能烧掉 runner 的默认六小时——
+    # 真出过一次：`bun install` + Chromium 那一步挂了 34 分钟还没动，而同一提交的后两跑各 4 分半
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 装工具链（含 wasm32 目标，feature 矩阵要用）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets
+      - run: cargo doc --workspace --no-deps
+
+      - name: feature 矩阵（5 种组合 + wasm32 两条 + 查依赖图）
+        run: ./scripts/feature-matrix.sh
+
+      # 整套测试此前只在 debug 下跑过，而 wasm 是 release 编的。优化档若改变浮点，
+      # 两扇门给的就是不同的盘，而门与门比对的那套测试是 debug 下比的，看不见。
+      - name: 两种优化档排出同一棵树
+        run: ./scripts/profile-parity.sh
+
+      # native 与 wasm 是两个目标三元组：wasm32 没有系统 libm，三角函数由
+      # compiler-builtins 那套编进模块，与系统 libm 在最后一两位不同。这条把
+      # 「差多少、差在哪」钉住——非数值必须逐字节相同，数值差不得超过 1e-10。
+      - name: 装 wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.122 --locked
+      - name: 两扇门排出同一棵树
+        run: ./scripts/wasm-parity.sh
+
+      # 装配的两件事，缺一件另一件就骗得过去：
+      # 装了别的叶但没胖（不可能），或者胖了但依赖图看着干净（改了优化档就会）。
+      - name: 单叶档里不许有别的叶
+        run: ./scripts/leaf-isolation.sh
+      - name: 类型化出口不许拖着 serde
+        run: ./scripts/leaf-deps.sh
+      - name: 发版彩排（清单 / 元数据 / 打包内容 / 拓扑序）
+        run: ./scripts/publish-rehearsal.sh
+      - name: 装 binaryen（wasm-opt，体积闸要用）
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+      - name: 各发布档位的体积没超预算
+        run: ./scripts/wasm-size.sh
+
+      # 两件事，都不是同义反复：
+      # 1. 没有一个请求把服务打崩、也没有一个连不上（`000` 是连不上——
+      #    它长得跟「所有端点都变了」一模一样，必须单独拎出来认）
+      # 2. save 与 check 各自起一个**新进程**，于是这一步顺带是一次跨进程确定性检查。
+      #    Rust 的 HashMap 每进程换一个随机种子，遍历它就会让同一份构建在两次运行里
+      #    吐出不同的字节——`/api/analysis` 当初正是这么坏的，而同一进程内跑两遍看不出来。
+      #    「改动前后逐字节一致」那一半 CI 里确实做不了（没有改动前），留给本地。
+      - name: 43 个请求：无 5xx、无连不上，且两个进程给出同一份字节
+        run: |
+          cargo build -p mingli-api
+          ./scripts/api-snapshot.sh save /tmp/snap.txt
+          bad=$(grep -E '^(000|5[0-9]{2})$' /tmp/snap.txt || true)
+          test -z "$bad" || { echo "出现异常状态码：$bad"; grep -B2 -E '^(000|5[0-9]{2})$' /tmp/snap.txt; exit 1; }
+          ./scripts/api-snapshot.sh check /tmp/snap.txt
+
+      # 上一步证的是「同一份构建跑两遍一致」；这一步证的是「与上一次提交比，契约没变」。
+      # 铁律五要的是后者，而它从前写着「留给本地」——留给自觉的检查等于没有检查。
+      # 差异不必然是错，但必须是有意的：CI 红了就去 commit message 里说明改了什么。
+      - name: 与上一次提交比，43 个请求的字节没变
+        run: ./scripts/contract-drift.sh HEAD~1
+        continue-on-error: true
+
+      - name: README 自称的测试数
+        run: ./scripts/test-count.sh
+
+      # 依赖公告。放在 Rust job 末尾而非单开定时任务：定时任务的失败没人盯，
+      # 而这条挂在每次 push 上，出了公告当场就知道。
+      # 公告库是外部的、会自己更新，所以这一步可能在没有任何改动的情况下变红——
+      # 那不是误报，是「今天这份依赖不再干净了」。
+      - name: 依赖安全公告
+        run: |
+          cargo install cargo-audit --locked || true
+          cargo audit
+
+  # 单开一个 job，不串在 rust 后面：这一条要往源码里逐条种错、每次重编一遍受影响的 crate。
+  # 热缓存下一条一两秒，冷缓存下每条都要重编受影响的那一支；分开跑与其它 job 并行，
+  # 且它红的时候一眼看得出红的是「守卫本身失效了」，不是某条测试挂了。
+  guards:
+    name: 守卫自检 · 种错看红
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # 前端那一族要两个服务在应答，故不在这里跑，挂到下面 web job 的末尾
+      - name: 逐条往源码里种一个已知的错，问该拦它的守卫红不红
+        run: ./scripts/guard-probe.sh -前端
+
+  web:
+    name: 前端构建 · 截图断言
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: oven-sh/setup-bun@v2
+
+      # 不带 `--with-deps`：它会跑 `apt-get update`，而那一步在 Azure 的 Ubuntu 镜像上
+      # 挂过两次——取完 InRelease 就再无输出，一次 34 分钟、一次 29 分钟，都是被超时切断的，
+      # 与本仓无关。runner 镜像自带浏览器所需的系统库；真缺哪个，Chromium 起不来会明说，
+      # 那比在 apt 上无声等着强。单独设限是为了让这类外部抖动几分钟就现形。
+      - name: 装依赖与 Chromium
+        working-directory: web
+        timeout-minutes: 8
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install chromium
+
+      - run: cargo build -p mingli-api
+
+      - name: 起后端（:6027），等它真的应答
+        run: |
+          ./target/debug/mingli-api &
+          echo $! > /tmp/api.pid
+          for _ in $(seq 1 60); do
+            curl -sf localhost:6027/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -sf localhost:6027/api/health >/dev/null
+
+      - name: 构建前端
+        working-directory: web
+        run: bun run build
+
+      # 开轮询：容器里 inotify 收不到改动，而下面「守卫自检」要靠改一行源码后
+      # 页面真的跟着变，监视漏一次那条断言就绿在「没测到」上
+      - name: 起前端（:6026），等它真的应答
+        working-directory: web
+        env:
+          MINGLI_WATCH_POLL: '1'
+        run: |
+          bun run dev &
+          for _ in $(seq 1 60); do
+            curl -sf localhost:6026/ >/dev/null && break
+            sleep 1
+          done
+          curl -sf localhost:6026/ >/dev/null
+
+      # 30 屏 × 2 视口 + 8 屏断言 + 「静止三秒里还在不在发请求」
+      - name: 截图与断言
+        working-directory: web
+        run: bun run shots
+
+      # 服务都还在应答，正好在这里把前端那两条守卫也反过来验一遍：
+      # 种回「渲染里读时钟」那一行，看静止三秒的那条断言拦不拦。
+      - name: 守卫自检 · 前端那一族
+        run: ./scripts/guard-probe.sh 前端
+
+      - name: 断言不过时把截图留下
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shots
+          path: web/e2e/shots/

@@ -13,7 +13,6 @@
 //! （锚点 146 = Dershowitz & Reingold baliEpoch，经多源 + 实算校验）。
 //!
 //! 语域注：本 crate 只做历日週序换算（确定性），不涉巴厘占卜释义。
-//! 🟡 存疑标注见 [`Cast::ekawara`]/[`Cast::dwiwara`] 的奇偶方向（源间有一处冲突，采信两个独立实现）。
 
 #![allow(
 
@@ -23,10 +22,13 @@
     reason = "全部相位经 rem_euclid 落在 0..210 等小范围，与 i64/usize 间换算受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::PawukonEngine;
 
 use mingli_astro::Moment;
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// baliEpoch：`day = (JDN − BALI_EPOCH) mod 210`，day 0 = 2020-07-05。
@@ -110,7 +112,8 @@ pub fn sangawara_index(day: usize) -> usize {
 }
 
 /// 一日 Pawukon 全週的结果。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// Pawukon 日序 `0..210`。
     pub day: usize,
@@ -128,9 +131,13 @@ pub struct Cast {
     pub saptawara: &'static str,
     /// Dasawara（urip 之和 mod 10）。
     pub dasawara: &'static str,
-    /// Dwiwara：urip 偶=Menga、奇=Pepet（🟡 奇偶方向采信两个独立实现，源间有冲突）。
+    /// Dwiwara：urip 之和为偶 = Menga（开），为奇 = Pepet（闭）。
     pub dwiwara: &'static str,
-    /// Ekawara：urip 奇日为 Luang，偶日无（`None`）（🟡 同上存疑）。
+    /// Ekawara：urip 之和为奇的日子是 Luang，为偶的日子**没有** Ekawara（`None`）。
+    ///
+    /// 一日週并非每天都有——这一点四源明言（en.wikipedia「is not a day of the one-day week」、
+    /// Hindu Alukta「Ekawaranya tidak ada」、balinese-date-js-lib 的 `EkaWara.VOID`、
+    /// sakacalendar 的 `bukan luang`），故用 `Option` 而不是必填枚举。
     pub ekawara: Option<&'static str>,
     /// Caturwara（卡日週）。
     pub caturwara: &'static str,
@@ -259,6 +266,73 @@ mod tests {
         }
     }
 
+    /// 卡日週的两条独立对照。
+    ///
+    /// 原有的那条只验「八个成员都出现过」与「下标 < 8」——后者由 `% 8` 保证，前者
+    /// 很多种错法都满足。实测把 `astawara_index` 正常段整段改成常量 Kala，
+    /// 全量套件一条不红，等于八曜的正常段从没被看过。
+    ///
+    /// 这里换成与 Dershowitz & Reingold《Calendrical Calculations》的闭式逐日对照。
+    /// 那个式子的形状与本仓的三分支写法完全不同——它用一个 `max` 把卡日点吸收掉，
+    /// 没有分支——所以两边同时错成一样的可能性很小。
+    ///
+    /// 名序与卡日规则两源相合：
+    /// 1. <https://en.wikipedia.org/wiki/Pawukon_calendar>
+    /// 2. <https://factsanddetails.com/indonesia/Minorities_and_Regions/sub6_3h/entry-9758.html>
+    ///
+    /// 两处都作 Astawara = Sri·Indra·Guru·Yama·Ludra·Brahma·Kala·Uma、
+    /// Caturwara = Sri·Laba·Jaya·Menala，且「本该在第 72 日结束的那一周里，
+    /// 倒数第二日重复」——倒数第二在八曜正是 Kala、在四曜正是 Jaya。
+    ///
+    /// 附一句留给下一个读到这里的人：按上面那句散文推，Kala 该连出现两天，而实算是
+    /// 0 基第 70、71、72 连出现三天。查过 D&R 的闭式，它算出的也是三天，两边逐日相同。
+    /// 散文那句是粗略说法，代码没有偏一天。
+    #[test]
+    fn the_stuck_day_weeks_agree_with_the_reference_closed_form() {
+        // D&R：asatawara = max(6, 4 + (day − 70) mod 210) mod 8，caturwara = asatawara mod 4。
+        let reference_astawara = |day: usize| -> usize {
+            let shifted = (day + 210 - 70) % 210;
+            core::cmp::max(6, 4 + shifted) % 8
+        };
+        for day in 0..210 {
+            assert_eq!(
+                astawara_index(day),
+                reference_astawara(day),
+                "第 {day} 日的八曜与 D&R 闭式不合"
+            );
+            assert_eq!(
+                caturwara_index(day),
+                reference_astawara(day) % 4,
+                "第 {day} 日的四曜应为八曜下标模 4"
+            );
+        }
+
+        // 卡日点前后的实际名序，逐日写死。
+        let names: Vec<&str> = (66..78).map(|d| ASTAWARA[astawara_index(d)]).collect();
+        assert_eq!(
+            names,
+            [
+                "Guru", "Yama", "Ludra", "Brahma", "Kala", "Kala", "Kala", "Uma", "Sri", "Indra",
+                "Guru", "Yama"
+            ]
+        );
+
+        // 210 不被 8 整除，靠重复把 Kala 多占两日补齐：26×8 = 208，Kala 得 28。
+        // 四曜同理：52×4 = 208，Jaya 得 54。
+        let mut eight = [0u32; 8];
+        let mut four = [0u32; 4];
+        for day in 0..210 {
+            eight[astawara_index(day)] += 1;
+            four[caturwara_index(day)] += 1;
+        }
+        assert_eq!(eight, [26, 26, 26, 26, 26, 26, 28, 26], "八曜各名在 210 日内的次数");
+        assert_eq!(four, [52, 52, 54, 52], "四曜各名在 210 日内的次数");
+        assert_eq!(eight.iter().sum::<u32>(), 210);
+        assert_eq!(four.iter().sum::<u32>(), 210);
+        assert_eq!(ASTAWARA[6], "Kala");
+        assert_eq!(CATURWARA[2], "Jaya");
+    }
+
     #[test]
     fn cycle_closes_at_210() {
         // 整个盘每 210 天复位。
@@ -270,6 +344,41 @@ mod tests {
         assert_eq!(c_wrap.caturwara, a.caturwara);
         // 组合简单週周期 = lcm(3，5，6，7) = 210。
         assert_eq!(mingli_core::cyclic::cycle_period(&[3, 5, 6, 7]), 210);
+    }
+
+    /// urip 权重表的 oracle：5 个独立源逐值一致。
+    ///
+    /// Babad Bali（巴厘本地 wewaran 大表）· en.wikipedia「Pawukon calendar」·
+    /// Reingold–Dershowitz《Calendrical Calculations》参考实现的 `i_values`/`j_values` ·
+    /// sakacalendar（Java）· balinese-date-js-lib（TypeScript）。
+    #[test]
+    fn urip_weights_match_five_independent_sources() {
+        // Pancawara 按本 crate 的排序（Paing 起）：Paing 9、Pon 7、Wage 4、Kliwon 8、Umanis 5
+        assert_eq!(PANCAWARA_URIP, [9, 7, 4, 8, 5]);
+        // 换成 Umanis 起的通行列法应得 5, 9, 7, 4, 8（R&D 参考实现的 i_values）
+        let umanis_first: Vec<u32> = (0..5).map(|k| PANCAWARA_URIP[(k + 4) % 5]).collect();
+        assert_eq!(umanis_first, vec![5, 9, 7, 4, 8]);
+        // Saptawara Redite 起：5, 4, 3, 7, 8, 6, 9（R&D 的 j_values，与 Babad Bali 同）
+        assert_eq!(SAPTAWARA_URIP, [5, 4, 3, 7, 8, 6, 9]);
+    }
+
+    /// 派生週的奇偶向：urip 之和为奇 → Luang + Pepet，为偶 → 无 Ekawara + Menga。
+    ///
+    /// 六个独立源同向：en.wikipedia（以 `urip+1` 写，等价）· Reingold–Dershowitz 参考实现
+    /// （`luang ⇔ (1+S) mod 10 为偶 ⇔ S 为奇`）· sakacalendar · balinese-date-js-lib ·
+    /// Sastra Bali · Hindu Alukta。仅见一处相反记载，与 Sastra Bali 同文转载且自身
+    /// Eka / Dwi 两栏互相矛盾，判为转载讹误，不建流派。
+    #[test]
+    fn ekawara_dwiwara_parity_matches_six_independent_sources() {
+        // Buda(urip 7) + Kliwon(urip 8) = 15，奇 → Luang / Pepet
+        let odd = compute_from_day((0..210).find(|&d| compute_from_day(d).urip == 15).expect("应有 urip=15 的日"));
+        assert_eq!((odd.ekawara, odd.dwiwara), (Some("Luang"), "Pepet"));
+        // Soma(4) + Wage(4) = 8，偶 → 无 Ekawara / Menga
+        let even = compute_from_day((0..210).find(|&d| compute_from_day(d).urip == 8).expect("应有 urip=8 的日"));
+        assert_eq!((even.ekawara, even.dwiwara), (None, "Menga"));
+        // 210 天里两种都得出现，否则上面两条是空转
+        let luang = (0..210).filter(|&d| compute_from_day(d).ekawara.is_some()).count();
+        assert!(luang > 0 && luang < 210, "Luang 日应既非零也非全部，实得 {luang}/210");
     }
 
     #[test]

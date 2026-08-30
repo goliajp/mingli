@@ -1,0 +1,528 @@
+//! 干支各层的校验：六十甲子的对角子群结构、口诀多源对照、性质测试。
+
+use super::*;
+
+#[test]
+fn hidden_stems_benqi_matches_branch_element() {
+// 性质校验：每支「本气」藏干五行必须 = 地支本气五行；录入放错支会被抓。
+for b in 0..12u8 {
+    assert_eq!(stem_element(hidden_stems(b)[0]), branch_element(b), "支 {b} 本气不符");
+}
+let total: usize = (0..12u8).map(|b| hidden_stems(b).len()).sum();
+assert_eq!(total, 28); // 藏干总数
+}
+
+#[test]
+fn twelve_stage_lin_guan_equals_lu() {
+// 强自校验：各天干「临官」(stage 3)必须落在其禄位（禄位独立 oracle，极标准），
+// 10 干全验 = 把长生起点表完整交叉验证；再验长生位 stage=0。
+let lu = [2u8, 3, 5, 6, 5, 6, 8, 9, 11, 0]; // 甲寅乙卯丙巳丁午戊巳己午庚申辛酉壬亥癸子
+for s in 0..10u8 {
+    assert_eq!(twelve_stage(s, lu[s as usize]), 3, "干{s}临官应在禄位");
+    assert_eq!(twelve_stage(s, CHANGSHENG_START[s as usize]), 0, "干{s}长生位");
+}
+}
+
+#[test]
+fn cycle_matches_core() {
+// 周期 60 = lcm(10，12)；且干支是对角子群（异阴阳组合不可达）。
+assert_eq!(i64::from(CYCLE), mingli_core::cyclic::cycle_period(&[10, 12]));
+assert!(mingli_core::cyclic::crt_combine(&[(0, 10), (1, 12)]).is_none()); // 甲+丑 异阴阳
+assert_eq!(mingli_core::cyclic::crt_combine(&[(0, 10), (0, 12)]), Some(0)); // 甲子
+}
+
+#[test]
+fn index_roundtrip() {
+for n in 0..60u8 {
+    assert_eq!(GanZhi::from_index(n).index(), n);
+}
+}
+
+/// 日柱锚点。**这是全树放大半径最大的一个常数**——四柱、择日、大六壬、奇门、
+/// 七政四余的日柱全从它推，错一天就整片错，且错得很像对的。
+///
+/// 三源交叉确认，且第三源不是同类互抄：
+///
+/// 1. 万年历 <https://wannianrili.bmcx.com/2024-01-01__wannianrili/>：
+///    「癸卯年 甲子月 **甲子日**」，农历十一月二十
+/// 2. 不亦居老黄历 <https://www.buyiju.com/lhl/2024-1-1.html>：同日同作甲子
+/// 3. **另一条路**：Yuk Tung Liu《Sexagenary Cycle》给的算法
+///    <https://ytliu0.github.io/ChineseCalendar/sexagenary.html> 作
+///    `S = 1 + mod(JDnoon − 11, 60)`，甲子为 `S = 1`，其自身锚在
+///    **2019-01-27（JD 2458511）**——与本仓库的锚点是不同的一天。
+///    代入 `JDN 2460311` 得 `S = 1 + (2460300 mod 60) = 1` → 甲子，与前两源相合。
+///
+/// JDN 本身也自核过：Fliegel–Van Flandern 式算 2024-01-01 得 2460311。
+#[test]
+fn day_pillar_anchors() {
+assert_eq!(day_ganzhi(DAY_ANCHOR_JDN).to_string(), "甲子"); // 2024-01-01
+assert_eq!(day_ganzhi_index(DAY_ANCHOR_JDN + 1), 1); // 乙丑
+assert_eq!(day_ganzhi_index(2_451_545), 54); // 2000-01-01 = 戊午#54
+
+// 把第三源的公式原样跑一遍：它与本仓库各自独立地由自己的锚点推出同一个答案。
+// 只要两边的推法有一处系统性偏差，这里就会分道扬镳。
+for jdn in [DAY_ANCHOR_JDN, 2_451_545, 2_458_511, 2_460_311 + 12_345, 2_400_000] {
+    let s = 1 + (jdn - 11).rem_euclid(60); // ytliu：甲子 = 1
+    assert_eq!(
+        day_ganzhi_index(jdn),
+        u8::try_from(s - 1).expect("S∈1..=60"),
+        "JDN {jdn}：本仓库与 ytliu 的公式给出不同的干支序",
+    );
+}
+}
+
+#[test]
+fn year_pillar() {
+assert_eq!(year_ganzhi(1984).to_string(), "甲子");
+assert_eq!(year_ganzhi(1990).to_string(), "庚午");
+assert_eq!(year_ganzhi(2024).to_string(), "甲辰");
+}
+
+/// 五虎遁：十个年干各起一个正月天干，然后逐月顺行。
+///
+/// 原先只验了庚年一个年干。年干进公式先过 `year_stem % 5`——庚(6) 恰好是唯一一个
+/// 把 `% 5` 换成 `/ 5`、把 `+ 2` 换成 `* 2` 都算出同一个答案的取值，所以那三条断言
+/// 对这两处写错完全无感。这里把十个年干的起点全钉住。
+///
+/// 口诀两源相合：《渊海子平·五虎遁月诀》与《三命通会·卷一》同作
+/// 「甲己之年丙作首，乙庚之岁戊为头，丙辛必定寻庚起，丁壬壬位顺行流，
+/// 若言戊癸何方发，甲寅之上好追求」。
+#[test]
+fn wuhu_dun() {
+    // 年干 0..9 → 寅月天干：甲己丙、乙庚戊、丙辛庚、丁壬壬、戊癸甲
+    const FIRST_MONTH_STEM: [u8; 10] = [2, 4, 6, 8, 0, 2, 4, 6, 8, 0];
+    for year_stem in 0..10u8 {
+        assert_eq!(
+            month_pillar_stem(year_stem, 2),
+            FIRST_MONTH_STEM[year_stem as usize],
+            "年干{year_stem} 的寅月天干"
+        );
+        // 寅起顺行：往后每一支进一个天干，走满十二支回到起点的下两位。
+        for step in 0..12u8 {
+            let branch = (2 + step) % 12;
+            assert_eq!(
+                month_pillar_stem(year_stem, branch),
+                (FIRST_MONTH_STEM[year_stem as usize] + step) % 10,
+                "年干{year_stem} 支{branch}"
+            );
+        }
+    }
+    assert_eq!(month_pillar_stem(6, 2), 4); // 庚年 寅=戊
+    assert_eq!(month_pillar_stem(6, 6), 8); // 午=壬
+    assert_eq!(month_pillar_stem(6, 11), 3); // 亥=丁
+}
+
+#[test]
+fn hour_branches() {
+assert_eq!(hour_branch(14, 30), 7); // 未
+assert_eq!(hour_branch(23, 30), 0); // 子
+assert_eq!(hour_branch(0, 30), 0); // 子
+assert_eq!(hour_branch(1, 0), 1); // 丑
+}
+
+/// 纳音：六十条**逐条**对表，不是抽查几个点。
+///
+/// `nayin_element` 是个公式（天干分组 + 地支分组求和）而不是查表——公式在几个点上对，
+/// 不蕴含另外几十个点也对。原先只验了 5 条，等于 55 条没人看过。
+/// 紫微的五行局由命宫纳音得，所以这张表同时喂着两片叶，错一条就错两处。
+///
+/// 参照《六十甲子纳音歌》通行三十组，两处取源相合：
+/// 前二十四组见 <https://baike.baidu.com/item/六十甲子纳音表/3410318> 一系的通行表述，
+/// 后六组另有《三命通会》分卷可对（<https://www.zggdwx.com/sanming/19.html> 壬子癸丑桑柘木、
+/// <https://www.zggdwx.com/sanming/36.html> 壬戌癸亥大海水）。
+#[test]
+fn nayin_matches_all_sixty_of_the_classical_table() {
+// 三十组，自甲子起，每组统辖相邻两个干支
+const TABLE: [(&str, Element); 30] = [
+    ("海中金", Element::Metal), ("炉中火", Element::Fire),  ("大林木", Element::Wood),
+    ("路旁土", Element::Earth), ("剑锋金", Element::Metal), ("山头火", Element::Fire),
+    ("涧下水", Element::Water), ("城头土", Element::Earth), ("白蜡金", Element::Metal),
+    ("杨柳木", Element::Wood),  ("泉中水", Element::Water), ("屋上土", Element::Earth),
+    ("霹雳火", Element::Fire),  ("松柏木", Element::Wood),  ("长流水", Element::Water),
+    ("沙中金", Element::Metal), ("山下火", Element::Fire),  ("平地木", Element::Wood),
+    ("壁上土", Element::Earth), ("金箔金", Element::Metal), ("覆灯火", Element::Fire),
+    ("天河水", Element::Water), ("大驿土", Element::Earth), ("钗钏金", Element::Metal),
+    ("桑柘木", Element::Wood),  ("大溪水", Element::Water), ("沙中土", Element::Earth),
+    ("天上火", Element::Fire),  ("石榴木", Element::Wood),  ("大海水", Element::Water),
+];
+for i in 0..60u8 {
+    let gz = GanZhi::from_index(i);
+    let (name, want) = TABLE[(i / 2) as usize];
+    assert_eq!(
+        nayin_element(gz),
+        want,
+        "{gz} 属第 {} 组「{name}」，应为 {}，实得 {}",
+        i / 2 + 1,
+        want.name(),
+        nayin_element(gz).name(),
+    );
+}
+// 每组的两条必须同纳音——这是「两干支共一纳音」这条结构本身
+for i in (0..60u8).step_by(2) {
+    assert_eq!(
+        nayin_element(GanZhi::from_index(i)),
+        nayin_element(GanZhi::from_index(i + 1)),
+        "第 {} 组的两个干支纳音不同",
+        i / 2 + 1,
+    );
+}
+// 五行各占六组，无一偏多偏少
+for e in [Element::Wood, Element::Fire, Element::Earth, Element::Metal, Element::Water] {
+    let n = TABLE.iter().filter(|(_, x)| *x == e).count();
+    assert_eq!(n, 6, "{} 在三十组里应占 6 组，实为 {n}", e.name());
+}
+}
+
+#[test]
+fn elements_and_cycles() {
+assert_eq!(stem_element(0), Element::Wood); // 甲
+assert_eq!(stem_element(7), Element::Metal); // 辛
+assert_eq!(branch_element(0), Element::Water); // 子
+assert_eq!(branch_element(2), Element::Wood); // 寅
+assert_eq!(branch_element(5), Element::Fire); // 巳
+assert_eq!(Element::Wood.name(), "木");
+assert_eq!(Element::Fire.name(), "火");
+assert_eq!(Element::Earth.name(), "土");
+assert_eq!(Element::Metal.name(), "金");
+assert_eq!(Element::Water.name(), "水");
+assert_eq!(Element::Wood.generates(), Element::Fire);
+assert_eq!(Element::Wood.controls(), Element::Earth);
+// 五行各自生克闭环
+for e in [
+    Element::Wood,
+    Element::Fire,
+    Element::Earth,
+    Element::Metal,
+    Element::Water,
+] {
+    assert_ne!(e.generates(), e);
+    assert_ne!(e.controls(), e);
+}
+}
+
+/// 神煞 mapping 性质校验：与十二长生的派生关系。
+/// 禄=临官、文昌=食神临官、学堂=日干长生、词馆 ≈ 食神临官（一致与文昌）。
+#[test]
+fn shensha_derivation_properties() {
+for s in 0..10u8 {
+    // 禄 = 十二长生临官位 (stage 3)
+    assert_eq!(twelve_stage(s, LU[s as usize]), 3, "禄=临官 干{s}");
+    // 学堂 = 日干长生(stage 0)— 与 CHANGSHENG_START 一致
+    assert_eq!(twelve_stage(s, XUETANG[s as usize]), 0, "学堂=长生 干{s}");
+    // 阳干羊刃在帝旺(stage 4)，阴干为 12 sentinel
+    if s.is_multiple_of(2) {
+        assert_eq!(twelve_stage(s, YANGREN[s as usize]), 4, "羊刃=帝旺 阳干{s}");
+    } else {
+        assert_eq!(YANGREN[s as usize], 12, "阴干无羊刃 干{s}");
+    }
+    // 词馆地支 ≈ 禄之地支（只看支位 — 词馆严格用法需配干，见 doc）
+    // 实际不少干位词馆与禄同 — 这是巧合，非严格相等；仅校验 ∈ 12 范围
+    assert!(CIGUAN[s as usize] < 12);
+    assert!(WENCHANG[s as usize] < 12);
+    assert!(HONGYAN[s as usize] < 12);
+}
+}
+
+/// 三合神煞 mapping：寅午戌组 (group 0) 的桃花=卯/驿马=申/华盖=戌/将星=午。
+#[test]
+fn sanhe_shensha_oracle() {
+// 寅午戌组 → 0
+for b in [2u8, 6, 10] { assert_eq!(sanhe_group_index(b), 0); }
+for b in [8u8, 0, 4] { assert_eq!(sanhe_group_index(b), 1); }
+for b in [5u8, 9, 1] { assert_eq!(sanhe_group_index(b), 2); }
+for b in [11u8, 3, 7] { assert_eq!(sanhe_group_index(b), 3); }
+
+// 桃花 = 沐浴（三合长生顺数 1 步）
+assert_eq!(TAOHUA[0], 3);  // 寅午戌见卯
+assert_eq!(TAOHUA[1], 9);  // 申子辰见酉
+assert_eq!(TAOHUA[2], 6);  // 巳酉丑见午
+assert_eq!(TAOHUA[3], 0);  // 亥卯未见子
+
+// 驿马 = 三合首字对冲(+6 mod 12)
+for i in 0..4 {
+    let first = [2u8, 8, 5, 11][i];
+    assert_eq!(YIMA[i], (first + 6) % 12, "驿马 = 三合首字对冲");
+}
+
+// 华盖 = 三合末字（三合首+8 = 库）
+for i in 0..4 {
+    let first = [2u8, 8, 5, 11][i];
+    assert_eq!(HUAGAI[i], (first + 8) % 12, "华盖 = 三合末字");
+}
+
+// 将星 = 三合中字（三合首+4 = 帝旺）
+for i in 0..4 {
+    let first = [2u8, 8, 5, 11][i];
+    assert_eq!(JIANGXING[i], (first + 4) % 12, "将星 = 三合中字");
+}
+}
+
+/// 魁罡四日柱固定。
+#[test]
+fn kuigang_four_days_oracle() {
+// 庚辰(6，4) / 庚戌(6，10) / 壬辰(8，4) / 戊戌(4，10)
+assert!(is_kuigang_day(GanZhi { stem: 6, branch: 4 }));
+assert!(is_kuigang_day(GanZhi { stem: 6, branch: 10 }));
+assert!(is_kuigang_day(GanZhi { stem: 8, branch: 4 }));
+assert!(is_kuigang_day(GanZhi { stem: 4, branch: 10 }));
+// 非魁罡示例
+assert!(!is_kuigang_day(GanZhi { stem: 0, branch: 0 })); // 甲子
+assert!(!is_kuigang_day(GanZhi { stem: 6, branch: 0 })); // 庚子（辰戌之外）
+// 落在辰戌上但天干不对——严格派的四日之外一律不入格。只举支不对的反例，
+// 等于没验天干那一半：把干的比较写反了，甲子庚子照样判 false。
+assert!(!is_kuigang_day(GanZhi { stem: 0, branch: 4 })); // 甲辰
+assert!(!is_kuigang_day(GanZhi { stem: 2, branch: 10 })); // 丙戌
+assert!(!is_kuigang_day(GanZhi { stem: 8, branch: 10 })); // 壬戌
+assert!(!is_kuigang_day(GanZhi { stem: 4, branch: 4 })); // 戊辰
+}
+
+/// 1987-09-17 男 → 日柱 己巳(stem=5)、日支 巳(5)、年支 卯(3)。
+/// 神煞 oracle：日干己土锚 → 月支酉 = 学堂（己长生在酉）+ 词馆/禄（均午，不在酉）；
+/// 时支申 = 红艳（癸申？不是，己干红艳=辰）；看几柱地支落点。
+#[test]
+fn shensha_lookup_1987_oracle() {
+// 日主 己(5)
+// 学堂（己）= 酉(9) ← XUETANG[5] = 9
+assert_eq!(XUETANG[5], 9);
+// 禄（己）= 午(6)
+assert_eq!(LU[5], 6);
+// 文昌（己）= 酉(9)
+assert_eq!(WENCHANG[5], 9);
+// 红艳（己）= 辰(4)
+assert_eq!(HONGYAN[5], 4);
+
+// 月支酉(9) + 日干己 → 命中 学堂 + 文昌（同位 9）
+let v = shensha_by_day_stem(5, 9);
+assert!(v.contains(&"学堂"));
+assert!(v.contains(&"文昌"));
+assert!(!v.contains(&"禄"));
+
+// 年支卯(3) anchor → 亥卯未组 → 桃花=子(0)、驿马=巳(5)、华盖=未(7)、将星=卯(3)
+// 日支巳(5) 对年支卯(3) anchor → 命中 驿马！
+let v2 = shensha_by_branch_anchor(3, 5);
+assert!(v2.contains(&"驿马"));
+assert!(!v2.contains(&"桃花"));
+}
+
+/// 神煞查得对不对，`contains` 只答了一半：命中的名字在不在。另一半是没命中的名字
+/// 确实不在——一个把每个地支都判成命中、十一个神煞全报的查表，能通过原先每一条断言。
+/// 这里既钉死整张返回列表，也让每个日干在十二支上走一圈，数每个神煞落了几次。
+#[test]
+fn a_day_stem_shensha_lookup_names_only_the_ones_that_hit() {
+    use std::collections::BTreeMap;
+
+    // 己(5)：文昌与学堂同在酉，禄与词馆同在午，红艳在辰，阴干无羊刃。
+    assert_eq!(shensha_by_day_stem(5, 9), ["文昌", "学堂"]);
+    assert_eq!(shensha_by_day_stem(5, 6), ["禄", "词馆"]);
+    assert_eq!(shensha_by_day_stem(5, 4), ["红艳"]);
+    assert!(shensha_by_day_stem(5, 0).is_empty(), "己干在子上一个不落");
+    // 甲(0)：卯是羊刃（帝旺），寅是禄与词馆。
+    assert_eq!(shensha_by_day_stem(0, 3), ["羊刃"]);
+    assert_eq!(shensha_by_day_stem(0, 2), ["禄", "词馆"]);
+
+    for stem in 0..10u8 {
+        let mut tally: BTreeMap<&str, u32> = BTreeMap::new();
+        for branch in 0..12u8 {
+            for name in shensha_by_day_stem(stem, branch) {
+                *tally.entry(name).or_default() += 1;
+            }
+        }
+        for name in ["禄", "文昌", "红艳", "学堂", "词馆"] {
+            assert_eq!(
+                tally.get(name).copied().unwrap_or(0),
+                1,
+                "干{stem} 的{name}在十二支上应恰落一次"
+            );
+        }
+        // 羊刃只在五阳干立，阴干一次也不落。
+        assert_eq!(
+            tally.get("羊刃").copied().unwrap_or(0),
+            u32::from(stem.is_multiple_of(2)),
+            "干{stem} 的羊刃"
+        );
+    }
+}
+
+/// 支锚神煞的同一件事：四个神煞在十二支上各落一次，不是各落十一次。
+#[test]
+fn a_branch_anchored_shensha_lookup_names_only_the_ones_that_hit() {
+    use std::collections::BTreeMap;
+
+    // 亥卯未组（anchor 卯）：桃花子、驿马巳、华盖未、将星卯。
+    assert_eq!(shensha_by_branch_anchor(3, 0), ["桃花"]);
+    assert_eq!(shensha_by_branch_anchor(3, 5), ["驿马"]);
+    assert_eq!(shensha_by_branch_anchor(3, 7), ["华盖"]);
+    assert_eq!(shensha_by_branch_anchor(3, 3), ["将星"]);
+    assert!(shensha_by_branch_anchor(3, 1).is_empty(), "丑不在亥卯未组的四个落点上");
+
+    for anchor in 0..12u8 {
+        let mut tally: BTreeMap<&str, u32> = BTreeMap::new();
+        for branch in 0..12u8 {
+            for name in shensha_by_branch_anchor(anchor, branch) {
+                *tally.entry(name).or_default() += 1;
+            }
+        }
+        for name in ["桃花", "驿马", "华盖", "将星"] {
+            assert_eq!(
+                tally.get(name).copied().unwrap_or(0),
+                1,
+                "锚支{anchor} 的{name}在十二支上应恰落一次"
+            );
+        }
+    }
+}
+
+#[test]
+fn parse_ganzhi_round_trip() {
+for n in 0..60u8 {
+    let g = GanZhi::from_index(n);
+    assert_eq!(parse_ganzhi(&g.to_string()), Some(g));
+}
+assert_eq!(parse_ganzhi("甲子"), Some(GanZhi { stem: 0, branch: 0 }));
+assert_eq!(parse_ganzhi("癸亥"), Some(GanZhi { stem: 9, branch: 11 }));
+// 异阴阳组合可解析（语义上不入六十甲子，但符号上仍是 （干，支））
+assert_eq!(parse_ganzhi("甲丑"), Some(GanZhi { stem: 0, branch: 1 }));
+assert!(parse_ganzhi("").is_none());
+assert!(parse_ganzhi("甲").is_none());
+assert!(parse_ganzhi("甲子丑").is_none());
+assert!(parse_ganzhi("XY").is_none());
+// 天干过关、地支不在表内——两个位置各自都要挡住
+assert!(parse_ganzhi("甲X").is_none());
+}
+
+#[test]
+fn element_index_round_trip() {
+// 五个五行索引互不相同、且与 ten_gods 划分（比劫=同党）兼容
+let all = [
+    Element::Wood, Element::Fire, Element::Earth, Element::Metal, Element::Water,
+];
+let mut seen = [false; 5];
+for e in all {
+    let i = e.index();
+    assert!(i < 5);
+    assert!(!seen[i]);
+    seen[i] = true;
+}
+assert!(seen.iter().all(|&b| b));
+}
+
+#[test]
+fn friendly_to_day_master_matches_ten_gods() {
+// 同党 = 十神为 比肩/劫财/偏印/正印。穷举 10 干 × 10 干对照 `ten_god`。
+for dm in 0..10u8 {
+    for x in 0..10u8 {
+        let tg = ten_god(dm, x);
+        let want = matches!(tg, "比肩" | "劫财" | "偏印" | "正印");
+        assert_eq!(
+            is_friendly_to_day_master(dm, x), want,
+            "dm={dm} other={x} ten_god={tg}"
+        );
+    }
+}
+}
+
+#[test]
+fn ten_gods() {
+// 日主 辛（7， 金阴）
+assert_eq!(ten_god(7, 6), "劫财"); // 辛 vs 庚（金阳）
+assert_eq!(ten_god(7, 7), "比肩");
+assert_eq!(ten_god(7, 8), "伤官"); // 辛 vs 壬（水阳） 我生异性
+assert_eq!(ten_god(7, 4), "正印"); // 辛 vs 戊（土阳） 生我异性
+assert_eq!(ten_god(7, 0), "正财"); // 辛 vs 甲（木阳） 我克异性
+assert_eq!(ten_god(7, 2), "正官"); // 辛 vs 丙（火阳） 克我异性
+assert_eq!(ten_god(7, 5), "偏印"); // 辛 vs 己（土阴） 生我同性
+assert_eq!(ten_god(7, 3), "七杀"); // 辛 vs 丁（火阴） 克我同性
+assert_eq!(ten_god(7, 1), "偏财"); // 辛 vs 乙（木阴） 我克同性
+assert_eq!(ten_god(7, 9), "食神"); // 辛 vs 癸（水阴） 我生同性
+}
+
+#[test]
+fn xun_head_branch_six_xun_anchors() {
+// 60 甲子 6 旬，每旬 10 干支，旬首支 ∈ {子，戌，申，午，辰，寅}。
+let xuns: [(u8, &str); 6] = [(0, "子"), (10, "戌"), (8, "申"), (6, "午"), (4, "辰"), (2, "寅")];
+for (i, (head, name)) in xuns.iter().enumerate() {
+    // 该旬第 1 个干支（stem=0/甲） 的 head = head
+    assert_eq!(
+        xun_head_branch(GanZhi { stem: 0, branch: *head }),
+        *head,
+        "旬首 甲{name}",
+    );
+    // 该旬第 10 个干支（stem=9/癸） 的 head 也 = head（同旬）
+    let last_b = (*head + 9) % 12;
+    assert_eq!(
+        xun_head_branch(GanZhi { stem: 9, branch: last_b }),
+        *head,
+        "末位 癸{} 应同旬",
+        BRANCHES[last_b as usize],
+    );
+    // 旬内任一干支都应 → 该旬首
+    for k in 0..10u8 {
+        let b = (*head + k) % 12;
+        assert_eq!(
+            xun_head_branch(GanZhi { stem: k, branch: b }),
+            *head,
+            "旬 {i} 第 {k} 位 应归该旬",
+        );
+    }
+}
+}
+
+#[test]
+fn xun_yi_six_yi_for_six_xun() {
+// 6 旬 → 6 仪：甲子→戊 / 甲戌→己 / 甲申→庚 / 甲午→辛 / 甲辰→壬 / 甲寅→癸
+let cases: [(u8, u8, &str); 6] = [
+    (0,  4, "戊"),  // 甲子旬遁戊
+    (10, 5, "己"),  // 甲戌旬遁己
+    (8,  6, "庚"),  // 甲申旬遁庚
+    (6,  7, "辛"),  // 甲午旬遁辛
+    (4,  8, "壬"),  // 甲辰旬遁壬
+    (2,  9, "癸"),  // 甲寅旬遁癸
+];
+for (head, yi, name) in cases {
+    assert_eq!(
+        xun_yi(GanZhi { stem: 0, branch: head }),
+        yi,
+        "旬首甲{} → {name}",
+        BRANCHES[head as usize],
+    );
+    assert_eq!(STEMS[yi as usize], name);
+}
+// 六仪 ∈ {戊己庚辛壬癸}，值落 4..=9。
+for i in 0..60u8 {
+    let gz = GanZhi { stem: i % 10, branch: i % 12 };
+    let y = xun_yi(gz);
+    assert!((4..=9).contains(&y), "六仪应 ∈ 4..=9， got {y} for gz {i}");
+}
+}
+
+#[test]
+fn xunkong_six_xun_oracles() {
+// 经典 6 旬旬空 oracle（三命通会通行版）。
+// 甲子旬空 戌亥(10，11)、甲戌旬空 申酉(8，9)、甲申旬空 午未(6，7)、
+// 甲午旬空 辰巳(4，5)、甲辰旬空 寅卯(2，3)、甲寅旬空 子丑(0，1)。
+let oracle: [(u8, [u8; 2], &str); 6] = [
+    (0,  [10, 11], "甲子旬空戌亥"),
+    (10, [8, 9],   "甲戌旬空申酉"),
+    (8,  [6, 7],   "甲申旬空午未"),
+    (6,  [4, 5],   "甲午旬空辰巳"),
+    (4,  [2, 3],   "甲辰旬空寅卯"),
+    (2,  [0, 1],   "甲寅旬空子丑"),
+];
+for (head, want, desc) in oracle {
+    assert_eq!(xunkong(GanZhi { stem: 0, branch: head }), want, "{desc}");
+}
+// 1987-09-17 15：00 时柱壬申 (stem=8， branch=8) → 甲子旬 → 旬空戌亥
+assert_eq!(xunkong(GanZhi { stem: 8, branch: 8 }), [10, 11]);
+// 性质：60 甲子（stem 与 branch 奇偶同性）旬空 2 支恒不在本旬 10 个地支内。
+for idx in 0..60u8 {
+    let gz = GanZhi { stem: idx % 10, branch: idx % 12 };
+    let head = xun_head_branch(gz);
+    let kong = xunkong(gz);
+    // 本旬 10 支 = (head..head+9) mod 12，旬空 2 支 = (head+10， head+11) mod 12，不交。
+    for k in 0..10u8 {
+        let in_xun = (head + k) % 12;
+        assert_ne!(in_xun, kong[0]);
+        assert_ne!(in_xun, kong[1]);
+    }
+}
+}

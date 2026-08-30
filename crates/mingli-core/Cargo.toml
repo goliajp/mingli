@@ -1,9 +1,12 @@
 [package]
 name = "mingli-core"
-description = "元 crate（树之根/数学石）：循环群+CRT、角度量化、二进制格+GF(2)、哈希环、群作用/置换、可审计随机。纯数学，零世界数据、零依赖。"
+description = "Mathematical primitives behind divination systems: cyclic groups with CRT, angle quantization, a GF(2) lattice, a hash ring, group actions, and a seeded sampler. No world data, no dependencies."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["cyclic-group", "crt", "gf2", "quantizer", "divination"]
+categories = ["algorithms", "mathematics"]
 
 # 数学石必须零依赖：它是整棵树的根，放大半径=全栈。
 [dependencies]

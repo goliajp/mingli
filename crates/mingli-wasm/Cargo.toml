@@ -1,9 +1,12 @@
 [package]
 name = "mingli-wasm"
-description = "命理大树的 wasm 绑定（整库一包）：engine 全叶 cast/cast_one、跨叶 NMI、释义 prompt 组装、D 族字/词。供浏览器/JS 直接调用引擎，无需服务端（LLM 释义除外）。"
+description = "WebAssembly bindings for the whole library: all eight intents, taking the same request bodies the HTTP endpoints take, so a browser can run the engine with no server."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["webassembly", "divination", "bindings", "browser"]
+categories = ["wasm", "api-bindings", "algorithms"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -11,17 +14,105 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
+# 这两个在根 manifest 里已设为 opt-in，故此处不给 features——
+# 由本 crate 下面的 feature 逐个接上，`--no-default-features` 才真的能裁掉星历。
 mingli-registry = { workspace = true }
-mingli-app = { workspace = true }
-mingli-interpret = { workspace = true }
+mingli-app = { workspace = true, optional = true }
+mingli-interpret = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wasm-bindgen = "0.2"
 
 [features]
-default = ["astrology"]
-# 关掉得轻量 wasm（去掉占星 + VSOP87 星历）。
-astrology = ["mingli-registry/astrology"]
+# 缺省装配全部二十四片叶。**只要其中几片就只打包那几片**——
+# `default-features = false` 后逐片开，名字即叶 id。
+# 实测整包 1.8 MB、只要四柱一片 0.28 MB，浏览器里这差别是有分量的。
+#
+# 占星与印度占星两片要**同时**开 registry 与 app 两侧：用例层也用它们
+# （运势的推运与 Vimshottari、合盘的两盘相位与八项合婚），
+# 只关 registry 那边的话星历会从 app 那条路照样被拉进来——曾经就是这样，
+# 产物两种构建一样大。
+# 装全部，同 `mingli-registry` 的 `full`。
+full = [
+    "usecases",
+    "bazi",
+    "ziwei",
+    "astrology",
+    "jyotish",
+    "qizhengsiyu",
+    "yijing",
+    "geomancy",
+    "sikidy",
+    "ifa",
+    "cartomancy",
+    "meihua",
+    "xiaoliuren",
+    "zeri",
+    "maya",
+    "pawukon",
+    "mahabote",
+    "liuren",
+    "qimen",
+    "taiyi",
+    "tibetan",
+    "numerology",
+    "gematria",
+    "abjad",
+    "wuge",
+]
+default = [
+    "usecases",
+    "bazi",
+    "ziwei",
+    "astrology",
+    "jyotish",
+    "qizhengsiyu",
+    "yijing",
+    "geomancy",
+    "sikidy",
+    "ifa",
+    "cartomancy",
+    "meihua",
+    "xiaoliuren",
+    "zeri",
+    "maya",
+    "pawukon",
+    "mahabote",
+    "liuren",
+    "qimen",
+    "taiyi",
+    "tibetan",
+    "numerology",
+    "gematria",
+    "abjad",
+    "wuge",
+]
+# 跨叶用例与释义。关掉它，产物只剩排盘两个出口，用例层与释义层不进包。
+usecases = ["dep:mingli-app", "dep:mingli-interpret"]
+bazi = ["mingli-registry/bazi"]
+ziwei = ["mingli-registry/ziwei"]
+astrology = ["mingli-registry/astrology", "mingli-app?/astrology"]
+jyotish = ["mingli-registry/jyotish", "mingli-app?/jyotish"]
+qizhengsiyu = ["mingli-registry/qizhengsiyu"]
+yijing = ["mingli-registry/yijing"]
+geomancy = ["mingli-registry/geomancy"]
+sikidy = ["mingli-registry/sikidy"]
+ifa = ["mingli-registry/ifa"]
+cartomancy = ["mingli-registry/cartomancy"]
+meihua = ["mingli-registry/meihua"]
+xiaoliuren = ["mingli-registry/xiaoliuren"]
+zeri = ["mingli-registry/zeri"]
+maya = ["mingli-registry/maya"]
+pawukon = ["mingli-registry/pawukon"]
+mahabote = ["mingli-registry/mahabote"]
+liuren = ["mingli-registry/liuren"]
+qimen = ["mingli-registry/qimen"]
+taiyi = ["mingli-registry/taiyi"]
+tibetan = ["mingli-registry/tibetan"]
+numerology = ["mingli-registry/numerology"]
+gematria = ["mingli-registry/gematria"]
+abjad = ["mingli-registry/abjad"]
+wuge = ["mingli-registry/wuge"]
 
 [lints]
 workspace = true

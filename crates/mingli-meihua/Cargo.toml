@@ -1,16 +1,27 @@
 [package]
 name = "mingli-meihua"
-description = "L3 叶(C 族/确定性)：梅花易数时间起卦——农历年支/月/日/时辰 mod8/mod6 → 本卦/互卦/之卦。建于 astro(Moment 农历) + gua(六爻代数)。时间→模运算，完全确定。"
+description = "Meihua Yishu cast from a moment: the lunar year branch, month, day and double-hour reduced mod 8 and mod 6 into the primary, nuclear and changed hexagrams."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["meihua", "yijing", "divination", "chinese"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-astro = { workspace = true }
 mingli-gua = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde", "mingli-astro/serde", "mingli-gua/serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

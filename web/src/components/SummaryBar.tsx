@@ -1,7 +1,7 @@
 // 顶部命局摘要行。
 import { Fragment } from 'react'
 import type { BaziChart, ChartRequest, ZiweiChart } from '../types'
-import { WUXING_COLOR, lunarStr } from '../leaves'
+import { WUXING_COLOR, lunarStr } from '../lib/display'
 import { HOUR_NAMES } from '../lib/ganzhi'
 
 export function SummaryBar({ bazi, ziwei, form }: { bazi: BaziChart; ziwei: ZiweiChart | null; form: ChartRequest }) {

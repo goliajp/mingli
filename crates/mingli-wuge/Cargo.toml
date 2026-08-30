@@ -1,15 +1,26 @@
 [package]
 name = "mingli-wuge"
-description = "L3 叶(D 族/确定性)：姓名五格剖象(熊崎式)——由康熙笔画算天/人/地/外/总格 + 三才五行 + 81 数归一。笔画为输入(康熙笔画表与 81 数吉凶判断属🟡大查表，不内置)。建于 core::ringhash::fold_81。"
+description = "Japanese-style five-grid name analysis: the heaven, person, earth, outer and total grids from stroke counts, the three-powers elements, and the 81 numbers reduced mod 80."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["wuge", "seimei", "name", "numerology"]
+categories = ["algorithms", "text-processing"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-core = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

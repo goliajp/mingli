@@ -1,15 +1,26 @@
 [package]
 name = "mingli-geomancy"
-description = "L3 叶(C 族)：地占 ʿilm al-raml——4 母图(种子)→盾牌图(女/侄/见证/法官)。建于 core(gf2 转置/XOR/奇偶 + sampler 种子)。法官恒为偶(GF(2) 奇偶校验定理)。"
+description = "Ilm al-raml geomancy: four mother figures seeded, then daughters, nieces, witnesses and the judge. The judge is always even, by a GF(2) parity theorem."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["geomancy", "raml", "divination", "gf2"]
+categories = ["algorithms", "simulation"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-core = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

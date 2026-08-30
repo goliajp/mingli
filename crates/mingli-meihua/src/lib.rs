@@ -22,11 +22,14 @@
     reason = "梅花起卦全是模运算：年支/月/日/时辰均落在 1..=31 的小范围，窄化到 u8 受控安全"
 )]
 
+#[cfg(feature = "port")]
 mod engine;
+#[cfg(feature = "port")]
 pub use engine::MeihuaEngine;
 
 use mingli_astro::Moment;
 use mingli_gua::{Hexagram, Trigram, TRIGRAM_XIANTIAN};
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// 起卦法（流派）。默认 [`Method::Time`]。
@@ -64,7 +67,8 @@ impl Method {
 ///
 /// 时间法填 [`year_branch`](Self::year_branch)/[`month`](Self::month)/[`day`](Self::day)；
 /// 数字法填 [`numbers`](Self::numbers)；[`hour_branch`](Self::hour_branch) 两法都填。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cast {
     /// 起卦法稳定 id（"time" / "numbers"）。
     pub method_id: &'static str,
@@ -325,19 +329,88 @@ mod tests {
         assert!(mingli_gua::TRIGRAM_NAMES.contains(&c.primary_upper));
     }
 
+    /// 自洽检查：`compute_at` 与它自己的模运算一致。
+    ///
+    /// **这条不是 oracle**——两边用的是同一组函数，公式整体写错它照样绿。
+    /// 它只保证「取出来的农历量确实是喂进公式的那几个」，真正的外部校验在
+    /// [`guanmei_the_worked_example_from_the_source_text`]。
     #[test]
     fn worked_example_matches_formula() {
-        // 手算校验：2024（辰=5） 农历某日。直接用农历量复核 compute_at 的模运算。
-        let m = Moment::new(2024, 6, 15, 14, 30, 8.0);
-        let c = compute_at(&m);
-        let base = u32::from(c.year_branch.unwrap())
-            + u32::from(c.month.unwrap())
-            + u32::from(c.day.unwrap());
-        let upper = super::trigram_mod8(base);
-        let lower = super::trigram_mod8(base + u32::from(c.hour_branch));
-        assert_eq!(c.primary, Hexagram::from_trigrams(upper, lower));
+        // 原先只取一个时刻，而那个时刻恰好是种错也看不见的一个：2024-06-15 是未时，
+        // 时支 8，`base + 8` 与 `base − 8` 模 8 同值，下卦一样；动爻本会变，但没人查动爻。
+        // 现在扫十二个时辰、连查动爻。
+        for hour in 0..24u32 {
+            let m = Moment::new(2024, 6, 15, hour, 30, 8.0);
+            let c = compute_at(&m);
+            let base = u32::from(c.year_branch.unwrap())
+                + u32::from(c.month.unwrap())
+                + u32::from(c.day.unwrap());
+            let with_hour = base + u32::from(c.hour_branch);
+            assert_eq!(
+                c.primary,
+                Hexagram::from_trigrams(super::trigram_mod8(base), super::trigram_mod8(with_hour)),
+                "{hour} 时的本卦"
+            );
+            assert_eq!(c.moving_line, super::moving_line_mod6(with_hour), "{hour} 时的动爻");
+            assert_eq!(c.hour_branch, hour_to_branch(hour));
+        }
+        let c = compute_at(&Moment::new(2024, 6, 15, 14, 30, 8.0));
         assert_eq!(c.year_branch, Some(5));
-        assert_eq!(c.hour_branch, hour_to_branch(14)); // 未时
+    }
+
+    /// 观梅占，这一次**从真入口走**。
+    ///
+    /// 上面那条 `guanmei_the_worked_example_from_the_source_text` 用底层函数把原书的例子
+    /// 重算了一遍，验的是 `trigram_mod8` / `moving_line_mod6` 与卦层——它从不调用
+    /// `compute_at`，而每一次真实起卦走的都是 `compute_at`。实测把 `compute_at` 里
+    /// 「下卦要加时支」那一步改成减，全量套件一条不红。
+    ///
+    /// 农历甲辰年十二月十七日 = 公历 2025-01-16（辰年，年支数 5），申时取 16 时（时支 9）。
+    /// 于是原书的四个中间量 34 / 兑 / 43 / 离与初爻动，应当由这条真实路径原样得出。
+    #[test]
+    fn the_source_example_comes_out_of_the_real_entry_point() {
+        let m = Moment::new(2025, 1, 16, 16, 0, 8.0);
+        assert_eq!((m.lunar.month, m.lunar.day), (12, 17), "该日应是农历十二月十七");
+        let c = compute_at(&m);
+        assert_eq!(c.year_branch, Some(5), "辰年，年支数 5");
+        assert_eq!(c.hour_branch, 9, "申时，时支数 9");
+        assert_eq!(c.primary_full_name, "泽火革", "上兑下离");
+        assert_eq!(c.moving_line, 1, "43 mod 6 = 1，初爻动");
+        assert_eq!(c.changed_full_name, "泽山咸", "革之咸");
+    }
+
+    /// 观梅占——《梅花易数》卷一自带的那个例子，逐步对上。
+    ///
+    /// 辰年十二月十七日申时：
+    /// 上卦 5 + 12 + 17 = 34，34 mod 8 = 2 = 兑；
+    /// 下卦 34 + 9 = 43，43 mod 8 = 3 = 离，合为**泽火革**；
+    /// 动爻 43 mod 6 = 1，初爻动，之卦**泽山咸**。
+    ///
+    /// 年支数子 1 丑 2 …… 辰 5，时辰数同法申 9。取这个例子是因为它出自原书本身，
+    /// 且四个中间量（34 / 2 / 43 / 3 / 1）都写在书里 —— 公式哪一步写反了都会在这里现形，
+    /// 而上面那条自洽检查不会。
+    ///
+    /// 来源：例题与「以年月日数之和除以八，余数为上卦；年月日时数之和除以八，余数为下卦；
+    /// 年月日时数之和除以六，余数取动爻」的表述在多处易学资料中一致复述（新浪 blog_4a66051f0101gwa2、
+    /// 知乎 p/630773131 等均给出同一组数）。
+    #[test]
+    fn guanmei_the_worked_example_from_the_source_text() {
+        let (year_branch, month, day, hour_branch) = (5u32, 12u32, 17u32, 9u32);
+        let base = year_branch + month + day;
+        assert_eq!(base, 34, "上卦之和");
+        assert_eq!(base % 8, 2, "34 mod 8 = 2 = 兑");
+        let with_hour = base + hour_branch;
+        assert_eq!(with_hour, 43, "下卦之和");
+        assert_eq!(with_hour % 8, 3, "43 mod 8 = 3 = 离");
+        assert_eq!(super::moving_line_mod6(with_hour), 1, "43 mod 6 = 1，初爻动");
+
+        let upper = super::trigram_mod8(base);
+        let lower = super::trigram_mod8(with_hour);
+        let primary = Hexagram::from_trigrams(upper, lower);
+        assert_eq!(primary.full_name(), "泽火革", "上兑下离即泽火革");
+
+        let changed = primary.changed(1 << (1 - 1)); // 初爻
+        assert_eq!(changed.full_name(), "泽山咸", "初爻动，革之咸");
     }
 
     #[test]

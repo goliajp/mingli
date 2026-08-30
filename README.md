@@ -2,11 +2,13 @@
 
 [中文](README.zh-CN.md)
 
+[![CI](https://github.com/goliajp/mingli/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/goliajp/mingli/actions/workflows/ci.yml)
+
 Divination systems, implemented as **algorithms**: deterministic casting engines in Rust, an axum service, and a React 19 frontend.
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 37 crates · 24 leaves (21 time-driven leaves fan out in parallel, 3 word-driven leaves go through `/api/word`) · 456 tests green
+> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 802 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -68,8 +70,8 @@ crates/
                  mingli-zeri         cyclic elements of date selection
                  mingli-xiaoliuren   Xiao Liu Ren (Zhuge's roadside divination)
   L3 leaves — family B (angle quantization)
-                 mingli-astrology    Western natal charts (Placidus / Koch / Whole Sign / Equal / Porphyry)
-                 mingli-jyotish      Vedic astrology (4 ayanamsas · 27 nakshatras · Vimshottari · D-9)
+                 mingli-astrology    Western natal charts (Placidus / Koch / Whole Sign / Equal / Porphyry) · cross-chart aspects
+                 mingli-jyotish      Vedic astrology (4 ayanamsas · 27 nakshatras · Vimshottari · 14 of the 16 divisional charts)
                  mingli-qizhengsiyu  Qizheng Siyu — indigenous Chinese astrology
   L3 leaves — family C (sampling / binary)
                  mingli-yijing       I Ching casting
@@ -93,9 +95,9 @@ crates/
                  mingli-engine       memoized shared context + parallel fan-out over an injected registry; knows no leaf
                  mingli-interpret    interpretation layer — assembles guard-railed prompts, strictly separated from computation
   L5 analysis    mingli-analysis     information-theoretic statistics across leaves
-  L6 use cases   mingli-app          natal / overlay strength / fortune / team / word / interpretation orchestration
+  L6 use cases   mingli-app          one use case per intent — natal · fortune · event · election · locative · synastry · mundane · word — and the input shapes both delivery paths share
   L7 assembly    mingli-registry     the one place that knows which leaves exist — add a leaf by registering one line here
-  L8 delivery    mingli-wasm         wasm bindings for the whole library
+  L8 delivery    mingli-wasm         wasm bindings — all eight intents, taking the same request bodies the HTTP endpoints take
 services/
   mingli-api/   axum service, :6027
 web/            React 19 + Vite frontend, :6026 (proxies /api to :6027 in dev)
@@ -117,19 +119,84 @@ cd web && bun install && bun run dev
 ## Seeing it
 
 ```bash
-cd web && bun run shots     # headless Chromium walks the UI, one screenshot per screen
+cd web && bun run shots     # reconcile the CSS variables, then walk the UI in headless Chromium
 ```
 
-Screens land in `web/e2e/shots/` and any console error, page exception or failed request is
-reported. A type check proves the code compiles; this proves the page still looks right.
+30 screens — all twenty-one leaves, the cross-cutting tabs, every intent — at 1440 and again at
+1024, landing in `web/e2e/shots/<width>/`. Console errors, page exceptions and failed requests are
+collected, and eight screens assert on what they rendered: the nine-palace grid has nine cells,
+each group heading's count matches the rows beneath it, the compass plots as many pins as the table
+has rows, a graha's third-divisional sign sits 0, 4 or 8 signs from its natal one. A final check
+counts requests over three idle seconds — a page that keeps talking to the backend while nobody
+touches it is looping. Any of that failing exits non-zero.
+
+Before the screens, one more pass compares what `/api/cast` returns against every
+source file under `web/src`: a field the backend computes that no file so much as
+names is a field nobody can see. Five had slipped through that way before the
+check existed.
+
+A type check proves the code compiles. This proves the page still agrees with itself.
+
+## Taking only what you need
+
+Each system is its own crate, and the registry gates each one behind a feature named
+after it. Nothing forces you to carry twenty-four.
+
+```bash
+cargo add mingli-bazi                     # one crate: serde plus three shared layers, no ephemeris
+cargo add mingli-registry --no-default-features --features bazi,yijing   # two systems behind the port
+```
+
+Measured, release wasm32:
+
+| npm package | Build | Module | gzipped |
+|---|---|---:|---:|
+| `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
+| `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
+| `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
+| `mingli-wasm-chart` | All twenty-four, charts only | 1236 KB | 711 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1441 KB | 788 KB |
+
+A system costs about 0.05 MB on top of the skeleton; the three that carry planetary
+ephemerides cost 0.87 MB between them. `feature-matrix.sh` builds every leaf on its
+own, so a system that quietly drags in another fails there rather than in your bundle.
+It also runs each of the 39 crates' tests in isolation: `cargo test --workspace` compiles
+with the *union* of everyone's features, so a crate whose own test dependencies are short
+a feature still passes there, and only fails when run alone.
+
+Casting is dominated by the three leaves that walk a planetary ephemeris. On this
+machine one chart takes roughly 300 µs for Western astrology, 250 µs for Jyotish and
+220 µs for the Seven Luminaries; 9 µs for Four Pillars and 7 µs for Zi Wei; and under
+5 µs each for the other sixteen. A guard checks the shape rather than the microseconds,
+which belong to this machine: exactly those three must cost two orders of magnitude
+more than the median leaf, so a system that starts walking an ephemeris shows up as
+one, and one that stops shows up too.
+A guard fails if any single leaf takes more than 60% of the whole tree's casting time
+or payload -- it exists because one did, once.
+
+Guards need guarding too. A test that can never fail and a test that is really holding
+something up look identical on a green run; the only way to tell them apart is to put the
+fault back and see whether it gets caught. `guard-probe.sh` turns that from something
+someone once did by hand into a command anyone can re-run: it plants 113 known faults
+and asks, for each, whether the guard that should catch it goes red. It has already found
+one guard that did not do what its name said -- "the composition root is the only place
+that lists leaves" never looked at the interpretation layer at all.
+
 
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 456 tests
+cargo test --workspace     # 802 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
+./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
+./scripts/api-snapshot.sh check snap.txt   # 43 requests, byte for byte
+./scripts/test-count.sh    # the count in this README, against a real run
+./scripts/feature-matrix.sh  # every leaf built alone, every crate tested alone, wasm32, one dependency-graph check
+./scripts/guard-probe.sh   # plants 113 known faults, checks the guard that should catch each one does
 ```
+
+All of the above, plus the screenshot pass, run on every push — see the badge at the top.
 
 Every authoritative reference value is **confirmed against multiple independent sources** and lives in a `#[test]` in the relevant crate. For example:
 
@@ -159,9 +226,14 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/team` · `/api/team/interpret` | Multi-subject (team) charts |
 | `GET  /api/analysis` | Information-theoretic statistics across leaves |
 | `GET  /api/intents` · `POST /api/route` | Query model — route an intent to the leaves that answer it |
+| `POST /api/event` · `/api/event/interpret` | Divination for a question asked at an instant |
+| `POST /api/election` · `/api/election/interpret` | Scan a window and rank the days in it |
+| `POST /api/locative` · `/api/locative/interpret` | Which direction to face |
+| `POST /api/synastry` · `/api/synastry/interpret` | Two people — what each supplies the other |
+| `POST /api/mundane` · `/api/mundane/interpret` | A polity's founding moment and its year charts |
 | `POST /api/interpret` | Interpretation layer (🔮 INT, not a computed result) |
 
-Request fields: `year month day hour` (required), `minute` (default 0), `tz` (default +8), `gender` (`male` / `female`; omit to skip luck cycles). Supported range 1900–2100.
+Request fields: `year month day hour` (required), `minute` (default 0), `tz` (default +8), `gender` (`male` / `female`, or `男` / `女`; omit to skip luck cycles — anything else is rejected rather than quietly ignored). Supported range 1900–2100.
 Bind address is overridable with `MINGLI_API_BIND`.
 
 ---

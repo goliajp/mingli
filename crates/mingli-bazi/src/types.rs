@@ -3,8 +3,9 @@
 use super::*;
 
 /// 性别（用于定大运顺逆）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Gender {
     /// 男。
     Male,
@@ -13,7 +14,8 @@ pub enum Gender {
 }
 
 /// 出生信息（排盘输入）。
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct BirthInput {
     /// 公历年。
     pub year: i32,
@@ -32,7 +34,8 @@ pub struct BirthInput {
 }
 
 /// 一柱（年/月/日/时）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Pillar {
     /// 干支（如「庚午」）。
     pub ganzhi: String,
@@ -59,7 +62,8 @@ pub struct Pillar {
 }
 
 /// 一个支藏天干 + 其对日主的十神（支藏十神）。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct HiddenStem {
     /// 藏干（天干）。
     pub stem: String,
@@ -68,7 +72,8 @@ pub struct HiddenStem {
 }
 
 /// 一步大运。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct LuckPillar {
     /// 起运虚岁。
     pub start_age: u32,
@@ -77,7 +82,8 @@ pub struct LuckPillar {
 }
 
 /// 大运。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct DaYun {
     /// 是否顺行（阳男阴女顺、阴男阳女逆）。
     pub forward: bool,
@@ -88,7 +94,8 @@ pub struct DaYun {
 }
 
 /// 农历日期。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct LunarChart {
     /// 农历年。
     pub year: i32,
@@ -101,7 +108,8 @@ pub struct LunarChart {
 }
 
 /// 一张完整八字盘。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct BaziChart {
     /// 排盘输入。
     pub input: BirthInput,

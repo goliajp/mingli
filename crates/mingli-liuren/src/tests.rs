@@ -1,0 +1,752 @@
+//! 大六壬的校验：古法工作例、全表课数对账、井栏等专课。
+
+use super::plates::{heaven_plate, month_general_branch, plate_offset, STEM_LODGING};
+use super::transmission::{
+    branch_is_yang, derive_transmission, down_controls_up, meng_zhong_ji, shehai_depth,
+    stem_is_yang, up_controls_down,
+};
+use super::*;
+
+#[test]
+fn worked_example_hai_general_zi_hour_jiazi_day() {
+    // 古法工作例：亥将(11)子时(0)甲子日（干甲=0，支子=0）。
+    // offset = (11-0) mod 12 = 11。四课上神应为 丑(1)/子(0)/亥(11)/戌(10)。
+    let offset = plate_offset(11, 0);
+    assert_eq!(offset, 11);
+    let courses = four_courses(0, 0, offset);
+    // 甲寄寅(2)，寅上见丑(1)→一课。
+    assert_eq!(courses[0], Course { down: 2, up: 1 });
+    // 丑(1)上见子(0)→二课。
+    assert_eq!(courses[1], Course { down: 1, up: 0 });
+    // 日支子(0)上见亥(11)→三课。
+    assert_eq!(courses[2], Course { down: 0, up: 11 });
+    // 亥(11)上见戌(10)→四课。
+    assert_eq!(courses[3], Course { down: 11, up: 10 });
+}
+
+#[test]
+fn month_general_from_sun_longitude() {
+    // λ 刚过雨水(330)→亥(11)=登明；λ∈[0，30)→戌(10)；λ∈[300，330)→子(0)。
+    assert_eq!(month_general_branch(331.0), 11);
+    assert_eq!(MONTH_GENERAL_NAMES[month_general_branch(331.0) as usize], "登明");
+    assert_eq!(month_general_branch(15.0), 10); // 河魁
+    assert_eq!(month_general_branch(310.0), 0); // 神后
+    // 全 360° 扫描：月将恒在 0..12。
+    let mut x = 0.0;
+    while x < 360.0 {
+        assert!(month_general_branch(x) < 12);
+        x += 5.0;
+    }
+}
+
+#[test]
+fn lodging_table_no_four_cardinals() {
+    // 四正（子0午6卯3酉9）不作寄宫。
+    for &b in &STEM_LODGING {
+        assert!(![0u8, 3, 6, 9].contains(&b), "寄宫不应落四正： {b}");
+    }
+    // 丙戊同寄巳(5)、丁己同寄未(7)。
+    assert_eq!(STEM_LODGING[2], STEM_LODGING[4]); // 丙=戊=巳
+    assert_eq!(STEM_LODGING[3], STEM_LODGING[5]); // 丁=己=未
+}
+
+#[test]
+fn heaven_plate_is_z12_rotation() {
+    // 天盘是地盘的纯平移：12 宫各异、双射。
+    for offset in 0..12u8 {
+        let set: std::collections::HashSet<u8> = (0..12).map(|g| heaven_plate(g, offset)).collect();
+        assert_eq!(set.len(), 12);
+    }
+}
+
+#[test]
+fn transmission_valid_when_present() {
+    // 扫描多日多时辰：凡给出三传者，三传皆合法地支、且中末传由层层取上神自洽。
+    for day in 1..=28u32 {
+        for hour in [0u32, 6, 12, 18] {
+            let c = compute(2024, 3, day, hour, 30, 8.0);
+            // 课式总有；课式名稳定。
+            let _ = c.pattern;
+            if let Some(t) = c.transmission {
+                assert!(t.iter().all(|&b| b < 12));
+                // 层层取上神的那几门：中传 = 初传上神、末传 = 中传上神。
+                // 昴星 / 别责 / 八专不走这条——它们的中末取干上神与支上神。
+                if !matches!(c.pattern, Pattern::MaoXing | Pattern::BieZe | Pattern::BaZhuan) {
+                    assert_eq!(t[1], heaven_plate(t[0], c.offset));
+                    assert_eq!(t[2], heaven_plate(t[1], c.offset));
+                }
+            }
+            // 天盘双射。
+            let set: std::collections::HashSet<u8> = c.heaven.iter().copied().collect();
+            assert_eq!(set.len(), 12);
+        }
+    }
+}
+
+#[test]
+fn fuyin_when_general_equals_hour() {
+    // 月将==时 → offset 0 → 伏吟，且给出三传。
+    let mg = month_general_branch(331.0); // 11
+    // 选 hour==mg 使 offset==0。
+    let c = compute_via(0, 0, mg, mg);
+    assert_eq!(c.offset, 0);
+    assert_eq!(c.pattern, Pattern::FuYin);
+    assert!(c.transmission.is_some());
+}
+
+#[test]
+fn classification_covers_kede_and_yaoke() {
+    // 构造覆盖：贼克类与遥克类都应在某些时辰出现。
+    use std::collections::HashSet;
+    let mut seen = HashSet::new();
+    for day in 1..=60u32 {
+        for hour in 0..24u32 {
+            let c = compute(2024, 1, 1 + (day % 28), hour, 0, 8.0);
+            seen.insert(c.pattern);
+        }
+    }
+    // 至少应见到重审/元首（贼克）与一种遥克或特殊式。
+    assert!(seen.contains(&Pattern::ZhongShen) || seen.contains(&Pattern::YuanShou));
+    assert!(seen.len() >= 2);
+}
+
+/// 测试辅助：直接给 （日干，日支，月将，时支） 起课。
+pub(super) fn compute_via(stem: u8, branch: u8, mg: u8, hb: u8) -> Cast {
+    compute_via_with(stem, branch, mg, hb, SheHaiSchool::Classical)
+}
+
+pub(super) fn compute_via_with(stem: u8, branch: u8, mg: u8, hb: u8, school: SheHaiSchool) -> Cast {
+    let offset = plate_offset(mg, hb);
+    let courses = four_courses(stem, branch, offset);
+    let (pattern, transmission) = derive_transmission(&courses, stem, branch, offset, school);
+    let mut heaven = [0u8; 12];
+    for (g, h) in heaven.iter_mut().enumerate() {
+        *h = heaven_plate(g as u8, offset);
+    }
+    Cast {
+        day_stem: stem,
+        day_branch: branch,
+        hour_branch: hb,
+        month_general: mg,
+        month_general_name: MONTH_GENERAL_NAMES[mg as usize],
+        offset,
+        heaven,
+        courses,
+        pattern,
+        pattern_label: pattern.label(),
+        transmission,
+    }
+}
+
+#[test]
+fn fanyin_when_opposite() {
+    // offset==6（天地相冲）→ 返吟。
+    let c = compute_via(0, 0, 6, 0); // mg=6,hb=0 → offset 6
+    assert_eq!(c.offset, 6);
+    assert_eq!(c.pattern, Pattern::FanYin);
+}
+
+#[test]
+fn special_patterns_have_none_transmission() {
+    // 九宗门里只剩返吟无克一路（井栏射等）不强编三传，其余八门皆已取传。
+    use std::collections::HashSet;
+    let mut seen = HashSet::new();
+    for stem in 0..10u8 {
+        for branch in 0..12u8 {
+            if stem % 2 != branch % 2 {
+                continue; // 干支阴阳须同，六十甲子
+            }
+            for mg in 0..12u8 {
+                for hb in 0..12u8 {
+                    let c = compute_via(stem, branch, mg, hb);
+                    seen.insert(c.pattern);
+                    assert!(c.transmission.is_some(), "九宗门取传已全覆盖，不该再有留空");
+                }
+            }
+        }
+    }
+    for p in [Pattern::SheHai, Pattern::MaoXing, Pattern::BieZe, Pattern::BaZhuan] {
+        assert!(seen.contains(&p), "{} 应在全枚举里出现", p.label());
+    }
+}
+
+#[test]
+fn full_scan_reaches_every_pattern_branch() {
+    // 穷举 （日干×日支×月将×时支）=10×12×12×12=17280 组合，确保每条判定分支都被走到，
+    // 并校验：十一种课式全部可达，且全部取传（九宗门已无留空）。
+    use std::collections::HashSet;
+    let mut patterns = HashSet::new();
+    let mut fanyin_with_ke = false;
+    let mut fanyin_no_ke = false;
+    for stem in 0..10u8 {
+        for branch in 0..12u8 {
+            for mg in 0..12u8 {
+                for hb in 0..12u8 {
+                    let c = compute_via(stem, branch, mg, hb);
+                    patterns.insert(c.pattern);
+                    assert!(c.transmission.is_some(), "九宗门取传已全覆盖");
+                    if c.pattern == Pattern::FanYin {
+                        let courses = four_courses(stem, branch, plate_offset(mg, hb));
+                        let has_ke = courses.iter().enumerate().any(|(i, cc)| {
+                            down_controls_up(i, cc, stem) || up_controls_down(i, cc, stem)
+                        });
+                        if has_ke {
+                            fanyin_with_ke = true;
+                        } else {
+                            fanyin_no_ke = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 全部 11 种课式都可达（判定树无死分支）。
+    for p in [
+        Pattern::ZhongShen,
+        Pattern::YuanShou,
+        Pattern::BiYong,
+        Pattern::SheHai,
+        Pattern::HaoShi,
+        Pattern::TanShe,
+        Pattern::MaoXing,
+        Pattern::BieZe,
+        Pattern::BaZhuan,
+        Pattern::FuYin,
+        Pattern::FanYin,
+    ] {
+        assert!(patterns.contains(&p), "课式 {p:?} 不可达");
+    }
+    assert!(fanyin_with_ke, "应存在有克返吟（走贼克类取传）");
+    assert!(fanyin_no_ke, "应存在无克返吟（走井栏射）");
+}
+
+#[test]
+fn deterministic() {
+    let a = compute(2024, 6, 15, 14, 30, 8.0);
+    let b = compute(2024, 6, 15, 14, 30, 8.0);
+    assert_eq!(a.courses, b.courses);
+    assert_eq!(a.pattern, b.pattern);
+}
+
+mod course_census {
+    use super::*;
+
+    /// 枚举六十甲子 × 十二局，收集某课式的全部命中。
+    fn census(want: Pattern) -> Vec<(u8, u8, u8, Cast)> {
+        let mut out = Vec::new();
+        for stem in 0..10u8 {
+            for branch in 0..12u8 {
+                if stem % 2 != branch % 2 {
+                    continue;
+                }
+                for offset in 0..12u8 {
+                    // 月将 = 时支 + offset，这里直接以时支 0 遍历 offset
+                    let c = super::tests::compute_via(stem, branch, offset, 0);
+                    if c.pattern == want {
+                        out.push((stem, branch, offset, c));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// 三门稀见课式**取出来的三传**是什么。
+    ///
+    /// 上面几条普查钉的是「哪些日子出哪门课式」——那是分类，不是取传。改动取传的算术
+    /// 不改分类，于是普查照旧对得上。变异测试在 `derive_transmission` 的八专、别责、
+    /// 昴星三段上留了十一个活口，全在这里。
+    ///
+    /// 底下每一条都是本模块注释里已经引好出处的规矩，只是从来没写成断言。
+    #[test]
+    fn the_three_rare_courses_transmit_the_way_the_books_say() {
+        // 《六壬粹言》卷一：八专与别责「中末皆取干上神」。
+        for pattern in [Pattern::BaZhuan, Pattern::BieZe] {
+            for (stem, branch, offset, c) in census(pattern) {
+                let t = c.transmission.expect("这两门必有三传");
+                assert_eq!(
+                    (t[1], t[2]),
+                    (c.courses[0].up, c.courses[0].up),
+                    "{pattern:?} 干{stem} 支{branch} 局{offset}：中末皆该取干上神"
+                );
+            }
+        }
+
+        // 《课经》：昴星「刚日本乎天者亲上，末传归干；柔日本乎地者亲下，末传归辰」。
+        // 即刚日中传支上神、末传干上神；柔日中传干上神、末传支上神。
+        for (stem, branch, offset, c) in census(Pattern::MaoXing) {
+            let t = c.transmission.expect("昴星必有三传");
+            let (gan_shang, zhi_shang) = (c.courses[0].up, c.courses[2].up);
+            if stem % 2 == 0 {
+                assert_eq!(
+                    (t[1], t[2]),
+                    (zhi_shang, gan_shang),
+                    "刚日昴星 干{stem} 支{branch} 局{offset}：中传支上、末传归干"
+                );
+            } else {
+                assert_eq!(
+                    (t[1], t[2]),
+                    (gan_shang, zhi_shang),
+                    "柔日昴星 干{stem} 支{branch} 局{offset}：中传干上、末传归辰"
+                );
+            }
+        }
+
+        // 昴星初传：「阳日仰视地盘酉位之上神，阴日俯视天盘酉所临之地盘支」。
+        // 这里不照抄闭式，改成把整张天盘摆出来查——刚日取酉位上写着谁，柔日反过来
+        // 找酉写在哪一位上。两者互为逆，先断言这张盘确是双射。
+        for (stem, _, offset, c) in census(Pattern::MaoXing) {
+            let plate: Vec<u8> = (0..12u8).map(|g| crate::plates::heaven_plate(g, offset)).collect();
+            let distinct: std::collections::BTreeSet<u8> = plate.iter().copied().collect();
+            assert_eq!(distinct.len(), 12, "局{offset} 的天盘该是十二支的一一对应");
+            let t = c.transmission.expect("昴星必有三传");
+            if stem % 2 == 0 {
+                assert_eq!(t[0], plate[9], "刚日昴星初传 = 地盘酉位的上神");
+            } else {
+                let under_you = plate.iter().position(|&v| v == 9).expect("天盘上必有酉");
+                assert_eq!(
+                    usize::from(t[0]),
+                    under_you,
+                    "柔日昴星初传 = 天盘酉所临的地盘支"
+                );
+            }
+        }
+
+        // 《课经》八专刚日算例：「干上阳神亥，顺数至丑」——连本位数，亥子丑。
+        // 六十甲子十二局里，刚日八专而干上神为亥的，正是甲寅日局九。
+        let ba_zhuan_yang_with_hai: Vec<_> = census(Pattern::BaZhuan)
+            .into_iter()
+            .filter(|(stem, _, _, c)| stem % 2 == 0 && c.courses[0].up == 11)
+            .collect();
+        // 十二局里合此形的有两课——甲寅日局九与庚申日局三，两课都该出丑亥亥。
+        let days: Vec<(u8, u8)> =
+            ba_zhuan_yang_with_hai.iter().map(|(s, b, ..)| (*s, *b)).collect();
+        assert_eq!(days, vec![(0, 2), (6, 8)], "甲寅与庚申两日");
+        for (stem, branch, offset, c) in &ba_zhuan_yang_with_hai {
+            assert_eq!(
+                c.transmission,
+                Some([1, 11, 11]),
+                "干{stem} 支{branch} 局{offset}：干上亥，顺数至丑，三传丑亥亥"
+            );
+        }
+
+        // 别责柔日：「支前三合」——初传与日支同一三合局，且不是日支本身。
+        for (stem, branch, offset, c) in census(Pattern::BieZe) {
+            if stem % 2 == 0 {
+                continue;
+            }
+            let t = c.transmission.expect("别责必有三传");
+            assert_eq!(
+                mingli_ganzhi::sanhe_group_index(t[0]),
+                mingli_ganzhi::sanhe_group_index(branch),
+                "柔日别责 干{stem} 支{branch} 局{offset}：初传该与日支同三合局"
+            );
+            assert_ne!(t[0], branch, "「支前」，不取日支自己");
+        }
+
+        // 别责刚日三课的初传：小注只给了日辰清单，没给三传，故此处是冻结现状而非外部求证。
+        // 若日后找到载有这三课三传的算例，应换成真正的 oracle。
+        let yang_bie_ze: Vec<(u8, u8, u8)> = census(Pattern::BieZe)
+            .into_iter()
+            .filter(|(stem, ..)| stem % 2 == 0)
+            .map(|(stem, branch, _, c)| (stem, branch, c.transmission.expect("有三传")[0]))
+            .collect();
+        assert_eq!(
+            yang_bie_ze,
+            vec![(2, 4, 11), (4, 4, 2), (4, 6, 2)],
+            "丙辰初传亥、戊辰与戊午初传寅——冻结现状，非外部求证"
+        );
+    }
+
+    /// 昴星恰 16 课，刚 4 柔 12 —— 两部独立的书各自自报过这两个数。
+    ///
+    /// 《六壬大全》卷一末〈补论〉「凡昴星止十六课」；
+    /// 《六壬粹言》卷二「昴星仰视格……计四课」「昴星俯视格……计一十二课」。
+    /// 课数对上，说明取传规则与作者脑中的规则是同一个——比任何单条口诀都硬。
+    #[test]
+    fn the_mao_xing_census_matches_what_two_books_each_reported() {
+        let all = census(Pattern::MaoXing);
+        let gang = all.iter().filter(|(s, ..)| s % 2 == 0).count();
+        let rou = all.len() - gang;
+        assert_eq!((all.len(), gang, rou), (16, 4, 12), "昴星应 16 课（刚 4 柔 12）");
+    }
+
+    /// 别责恰 9 课，刚 3 柔 6，且日辰清单与《六壬大全》卷一小注逐条对上。
+    ///
+    /// 小注原文：「戊辰、戊午、丙辰三刚日各一课，辛未二课，辛丑二课，丁酉、辛酉各一课」。
+    #[test]
+    fn the_bie_ze_census_matches_the_nine_days_listed_in_the_gloss() {
+        let all = census(Pattern::BieZe);
+        let gang = all.iter().filter(|(s, ..)| s % 2 == 0).count();
+        assert_eq!((all.len(), gang, all.len() - gang), (9, 3, 6), "别责应 9 课（刚 3 柔 6）");
+        // 干支组合逐一对表：丙辰、戊辰、戊午各一，辛未、辛丑各二，丁酉、辛酉各一
+        let mut tally: std::collections::BTreeMap<(u8, u8), usize> = std::collections::BTreeMap::new();
+        for (s, b, ..) in &all {
+            *tally.entry((*s, *b)).or_default() += 1;
+        }
+        // (干, 支, 课数)：丙2辰4 · 戊4辰4 · 戊4午6 · 辛7未7 · 辛7丑1 · 丁3酉9 · 辛7酉9
+        let want: Vec<((u8, u8), usize)> =
+            vec![((2, 4), 1), ((3, 9), 1), ((4, 4), 1), ((4, 6), 1), ((7, 1), 2), ((7, 7), 2), ((7, 9), 1)];
+        assert_eq!(tally.into_iter().collect::<Vec<_>>(), want, "别责的九课日辰应与小注一致");
+    }
+
+    /// 八专恰 16 课，刚 6 柔 10；癸丑日一课不入（四课皆有克）；独足课有且仅有一课。
+    ///
+    /// 《六壬粹言》卷二「顺数三神格……计六课」「逆数三神格……计十课」；
+    /// 《课经》「八专日有五，除癸丑日俱有克」；
+    /// 《御定六壬直指》「独脚课兮止一名」——三传三字全同者唯一。
+    #[test]
+    fn the_ba_zhuan_census_and_the_single_footed_course() {
+        let all = census(Pattern::BaZhuan);
+        let gang = all.iter().filter(|(s, ..)| s % 2 == 0).count();
+        assert_eq!((all.len(), gang, all.len() - gang), (16, 6, 10), "八专应 16 课（刚 6 柔 10）");
+        // 癸(9)丑(1) 一课不入
+        assert!(!all.iter().any(|(s, b, ..)| (*s, *b) == (9, 1)), "癸丑日四课皆有克，不入八专");
+        // 五个八专日里只有四日出现
+        let days: std::collections::BTreeSet<(u8, u8)> = all.iter().map(|(s, b, ..)| (*s, *b)).collect();
+        assert_eq!(days.into_iter().collect::<Vec<_>>(), vec![(0, 2), (3, 7), (5, 7), (6, 8)]);
+        // 独足：三传三字全同，唯一
+        let single_footed: Vec<_> = all
+            .iter()
+            .filter(|(.., c)| {
+                c.transmission.is_some_and(|t| t[0] == t[1] && t[1] == t[2])
+            })
+            .collect();
+        assert_eq!(single_footed.len(), 1, "独足课止一名");
+        let (s, b, _, c) = single_footed[0];
+        assert_eq!((*s, *b), (5, 7), "独足课是己未日");
+        assert_eq!(c.transmission, Some([9, 9, 9]), "三传酉酉酉");
+    }
+
+    /// 孟仲季三档，以及它看的是**地盘位**不是天盘神。
+    ///
+    /// 变异测试把 `meng_zhong_ji` 整个换成常量 0 或 1、删掉它的头两条 match 臂，
+    /// 三样都活了下来——这个函数是涉害取用第三级的判据，此前一处没验。
+    ///
+    /// 三档的分法各家一致：孟（寅申巳亥）＞ 仲（子午卯酉）＞ 季（辰戌丑未）。
+    /// 「看地盘不看天盘」这一点由《六壬粹言》的复等例钉死，本模块注释已引：
+    /// 戊辰日一课子加巳、四课午加亥，子午本是仲，书却说「俱在孟位上」——因为巳、亥是孟。
+    #[test]
+    fn the_three_ranks_read_the_ground_position_not_the_god_standing_on_it() {
+        for branch in [2u8, 8, 5, 11] {
+            assert_eq!(meng_zhong_ji(branch), 0, "寅申巳亥为孟");
+        }
+        for branch in [0u8, 6, 3, 9] {
+            assert_eq!(meng_zhong_ji(branch), 1, "子午卯酉为仲");
+        }
+        for branch in [4u8, 10, 1, 7] {
+            assert_eq!(meng_zhong_ji(branch), 2, "辰戌丑未为季");
+        }
+        // 十二支恰好分成三档、每档四支，一支不漏一支不重。
+        let mut tally = [0u8; 3];
+        for branch in 0..12u8 {
+            tally[meng_zhong_ji(branch) as usize] += 1;
+        }
+        assert_eq!(tally, [4, 4, 4], "三档各辖四支");
+        // 定义域就是 0..12：本函数**不做**模十二归位，越界一律落到通配臂当「季」。
+        // 调用方传的是地盘位，恒在 0..12，故今天无碍；写下来是免得下一个人以为它会归位。
+        assert_eq!(meng_zhong_ji(12), 2, "12 不等同于子，它落到通配臂");
+        assert_eq!(meng_zhong_ji(14), 2, "14 不等同于寅");
+
+        // 《六壬粹言》复等例：天盘子临地盘巳、天盘午临地盘亥，两课「俱在孟位上」。
+        // 判据取地盘的巳与亥（皆孟 0），而不是天盘的子与午（皆仲 1）。
+        assert_eq!((meng_zhong_ji(5), meng_zhong_ji(11)), (0, 0), "巳、亥皆孟");
+        assert_eq!((meng_zhong_ji(0), meng_zhong_ji(6)), (1, 1), "子、午皆仲——若误取天盘就成这两个");
+    }
+
+    /// 涉害取用的四级阶梯，每一级都真的在收窄。
+    ///
+    /// `resolve_kede` 里四处相等比较（比用的阴阳同、受克深浅同、孟仲季同、复等取干支上神）
+    /// 各留一个活口。这条扫遍六十甲子 × 十二局，查阶梯该有的形状：
+    /// 落到比用的课，其初传必来自四课上神且与日干同阴阳；落到涉害的课，初传同样出自四课，
+    /// 且比用与涉害互斥——一课不会既比用又涉害。
+    #[test]
+    fn the_shehai_ladder_narrows_at_every_rung() {
+        let mut biyong = 0u32;
+        let mut shehai = 0u32;
+        for stem in 0..10u8 {
+            for branch in 0..12u8 {
+                if stem % 2 != branch % 2 {
+                    continue;
+                }
+                for offset in 0..12u8 {
+                    let c = super::tests::compute_via(stem, branch, offset, 0);
+                    let Some(t) = c.transmission else { continue };
+                    let ups: Vec<u8> = c.courses.iter().map(|x| x.up).collect();
+                    match c.pattern {
+                        Pattern::BiYong => {
+                            biyong += 1;
+                            assert!(ups.contains(&t[0]), "比用初传应出自四课上神");
+                            assert_eq!(
+                                branch_is_yang(t[0]),
+                                stem_is_yang(stem),
+                                "干{stem} 支{branch} 局{offset}：比用取的该与日干同阴阳"
+                            );
+                        }
+                        Pattern::SheHai => {
+                            shehai += 1;
+                            assert!(ups.contains(&t[0]), "涉害初传应出自四课上神");
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        // 两门都要真的出现过，否则上面那些断言等于没跑。
+        assert!(biyong > 0, "比用一课都没出现，断言没被执行");
+        assert!(shehai > 0, "涉害一课都没出现，断言没被执行");
+    }
+
+    /// 涉害的「受克深浅」数法：六个古籍算例逐条复算。
+    ///
+    /// 两处边界由算例定死，都不计：起点（天盘神所临的地盘位）与终点（该神的本家）。
+    /// 《观月经》甲辰日「子加辰……巳上戊土、未土、未上己土、前又戌土，共四重」——
+    /// 起点辰本身是土（克子水）却不在账上；「未土 ＋ 未上己土」分两重记，故寄干单独计。
+    /// 《课经》甲午日「辰加寅，历卯木一重」——终点辰的寄干乙木若计就是两重，作一重故本家不计。
+    #[test]
+    fn the_depth_count_reproduces_six_worked_examples() {
+        // (下神, 上神, 古籍所记重数)
+        const ORACLE: [(u8, u8, u32); 6] = [
+            (2, 10, 2),  // 《观月经》甲辰日：戌加寅，历卯木、乙木二重
+            (4, 0, 4),   // 同上：子加辰，历巳戊土、未土、未己土、戌土四重
+            (3, 1, 1),   // 《课经》丁卯日：丑加卯，只历辰中乙木一重
+            (1, 11, 5),  // 同上：亥加丑，历辰戊未己戌土五重
+            (2, 4, 1),   // 《课经》甲午日缀瑕例：辰加寅，历卯木一重
+            (6, 8, 1),   // 同上：申加午，历丁火一重
+        ];
+        for (down, up, want) in ORACLE {
+            let got = shehai_depth(&Course { down, up });
+            assert_eq!(got, want, "{down} 上 {up} 的重数应为 {want}，实得 {got}");
+        }
+    }
+
+    /// 两派涉害并非同一件事：至少存在一课，古法与近法给出不同的初传。
+    #[test]
+    fn the_two_shehai_schools_are_not_the_same_rule() {
+        let mut differ = 0;
+        for stem in 0..10u8 {
+            for branch in 0..12u8 {
+                if stem % 2 != branch % 2 {
+                    continue;
+                }
+                for offset in 0..12u8 {
+                    let a = super::tests::compute_via_with(stem, branch, offset, 0, SheHaiSchool::Classical);
+                    let b = super::tests::compute_via_with(stem, branch, offset, 0, SheHaiSchool::ByPosition);
+                    if a.pattern == Pattern::SheHai && a.transmission != b.transmission {
+                        differ += 1;
+                    }
+                }
+            }
+        }
+        assert!(differ > 0, "两派若处处同解，就不该建成两个流派");
+    }
+
+    /// 流派 id 往返。
+    #[test]
+    fn shehai_school_id_roundtrip() {
+        for s in [SheHaiSchool::Classical, SheHaiSchool::ByPosition] {
+            assert_eq!(SheHaiSchool::from_id(s.id()), Some(s));
+        }
+        assert_eq!(SheHaiSchool::from_id("unknown"), None);
+        assert_eq!(SheHaiSchool::default(), SheHaiSchool::Classical);
+    }
+}
+
+mod jing_lan {
+    use super::*;
+
+    /// 返吟无克（井栏射 / 无亲）恰六课，六组三传逐字对《六壬粹言》卷二所列。
+    ///
+    /// 原文：「无亲课。谓返吟无克，取支之驿马为用，中用支上神，末用干上神，曰无亲。**计六课**。
+    /// 丁丑、己丑日三传亥未丑，辛丑日三传亥未辰，丁未己未日三传巳丑丑，辛未日三传巳丑辰。」
+    ///
+    /// 《六壬大全》卷一歌诀「若知六日该无克，丑未同干丁己辛」、卷七《订讹》
+    /// 「盖无克者，惟丁未、己未、辛未、丁丑、己丑、辛丑六日」、
+    /// 《注解大六壬指南》卷一同列六日，三处旁证。
+    #[test]
+    fn the_well_rail_course_has_exactly_six_days_with_the_transmissions_the_sources_list() {
+        // (日干, 日支, 三传)
+        const ORACLE: [(u8, u8, [u8; 3]); 6] = [
+            (3, 1, [11, 7, 1]),  // 丁丑 → 亥未丑
+            (5, 1, [11, 7, 1]),  // 己丑 → 亥未丑
+            (7, 1, [11, 7, 4]),  // 辛丑 → 亥未辰
+            (3, 7, [5, 1, 1]),   // 丁未 → 巳丑丑
+            (5, 7, [5, 1, 1]),   // 己未 → 巳丑丑
+            (7, 7, [5, 1, 4]),   // 辛未 → 巳丑辰
+        ];
+        // 六十甲子里返吟且无克的，恰是这六日
+        let mut found = Vec::new();
+        for stem in 0..10u8 {
+            for branch in 0..12u8 {
+                if stem % 2 != branch % 2 {
+                    continue;
+                }
+                let c = super::tests::compute_via_with(stem, branch, 6, 0, SheHaiSchool::Classical);
+                if c.pattern == Pattern::FanYin {
+                    // 有克的返吟走贼克类取传，三传由层层取上神得出；无克的走井栏
+                    let courses = four_courses(stem, branch, 6);
+                    let has_ke = courses.iter().enumerate().any(|(i, cc)| {
+                        down_controls_up(i, cc, stem) || up_controls_down(i, cc, stem)
+                    });
+                    if !has_ke {
+                        found.push((stem, branch, c.transmission.expect("井栏射应取传")));
+                    }
+                }
+            }
+        }
+        assert_eq!(found.len(), 6, "无克的返吟应恰六课，实得 {}", found.len());
+        for (stem, branch, want) in ORACLE {
+            let got = found
+                .iter()
+                .find(|(s, b, _)| (*s, *b) == (stem, branch))
+                .unwrap_or_else(|| panic!("六日里应有 干{stem} 支{branch}"));
+            assert_eq!(got.2, want, "干{stem} 支{branch} 的三传");
+        }
+        // 六日全是阴干配阴支——刚日返吟必有克，结构上不存在「刚日井栏射」
+        for (stem, branch, _) in &found {
+            assert!(!stem_is_yang(*stem) && !branch_is_yang(*branch), "井栏射只落六阴日");
+        }
+    }
+
+    /// 《六壬大全》卷四引《黄帝初占》的实占算例：己丑岁，小吉（未）加丑，三传亥未丑。
+    ///
+    /// 原文：「用井栏射法。初传巳上登明为用，将得六合。中传丑上见小吉，将得天后。
+    /// 末传未上见大吉，将得青龙。」登明＝亥、小吉＝未、大吉＝丑。
+    #[test]
+    fn the_worked_example_from_the_yellow_emperors_text() {
+        let c = super::tests::compute_via_with(5, 1, 6, 0, SheHaiSchool::Classical); // 己丑
+        assert_eq!(c.pattern, Pattern::FanYin);
+        assert_eq!(c.transmission, Some([11, 7, 1]), "亥 → 未 → 丑");
+    }
+
+    /// 丁未 / 己未 同时满足「返吟无克」与「八专」，两门归类有争而**结果无争**。
+    ///
+    /// 《大全》卷七〈课经集〉与所引《观月经》把这两日划归八专（故说「无克惟四日」），
+    /// 《订讹》、卷一歌诀、《粹言》、《指南》划归井栏（故说「六日」）。
+    /// 按八专阴日法（支阴连本位逆数三神为初、中末俱取干上神）算丁未日返吟，
+    /// 得初传未逆三 = 巳、中末皆丑，三传仍是巳丑丑，与井栏射一字不差。
+    #[test]
+    fn the_two_disputed_days_come_out_the_same_under_either_classification() {
+        for stem in [3u8, 5] {
+            let courses = four_courses(stem, 7, 6);
+            // 井栏法
+            let by_well = super::tests::compute_via_with(stem, 7, 6, 0, SheHaiSchool::Classical)
+                .transmission
+                .expect("应取传");
+            // 八专阴日法：起点取四课上神，连本位逆数三位；中末皆干上神
+            let by_bazhuan = [(courses[3].up + 10) % 12, courses[0].up, courses[0].up];
+            assert_eq!(by_well, by_bazhuan, "干{stem} 未日：两门归类不同但三传应相同");
+            assert_eq!(by_well, [5, 1, 1], "巳丑丑");
+        }
+    }
+}
+
+
+/// 方位候选：本叶自己也要跑一遍，不能只靠用例层的寻方位测试带过。
+///
+/// 覆盖率上这个函数曾整条没执行——它只在 app 的 locative 里被调，本 crate 的测试碰不到。
+#[test]
+fn bearings_name_their_source_and_point_somewhere() {
+    let c = compute(1987, 9, 17, 15, 0, 8.0);
+    let bs = bearings_of(&c);
+    assert!(!bs.is_empty(), "六壬课应给得出方位候选");
+    for b in &bs {
+        assert_eq!(b.leaf, "liuren", "每条都要注明出自哪片叶");
+        assert!(!b.element.is_empty() && !b.at.is_empty(), "要素与落点都不该空");
+        assert!(
+            BRANCH_DIR.contains(&b.direction),
+            "方位 `{}` 不在十二支方位表里",
+            b.direction
+        );
+    }
+    // 三传各出一条，故至少三条
+    assert!(bs.len() >= 3, "三传应各出一条，实得 {}", bs.len());
+}
+
+/// 十二支方位全走一遍：扫多日，直到每个方位都出现过。
+///
+/// 上一条只走了一课，覆盖率上十二支的分支多半没走全——而方位表写错一格，
+/// 只在那一支落到时才显形。
+#[test]
+fn every_branch_direction_shows_up_across_many_castings() {
+    use std::collections::BTreeSet;
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut branches: BTreeSet<String> = BTreeSet::new();
+    for d in 1..=28 {
+        for h in [1_u32, 7, 13, 19] {
+            for b in bearings_of(&compute(1987, 9, d, h, 0, 8.0)) {
+                seen.insert(b.direction);
+                branches.insert(b.at.clone());
+            }
+        }
+    }
+    assert_eq!(seen.len(), BRANCH_DIR.iter().collect::<BTreeSet<_>>().len(),
+        "八方应全部出现过，实得 {seen:?}");
+    assert!(branches.len() >= 10, "十二支落点应大都出现过，实得 {}", branches.len());
+}
+
+
+/// 三传不出时改列四课上神——这条回退分支**当前不可达**，如实记下来。
+///
+/// `bearings_of` 里有一支：`transmission` 为 `None` 时改从四课上神取方位，
+/// 注里说的是「六壬三传遇流派分歧课式时不出」。覆盖率照出这一支从没执行过，
+/// 于是扫了 1980–1989 共 2880 课去找触发它的课式——**一课都没有**。
+///
+/// 所以它不是「没测到」，是取传九门总能给出三传，这一支实际到不了。
+/// 这条测试把那个事实钉住：哪天真出现无三传的课，它会红，届时该给回退分支配真算例。
+#[test]
+fn the_nine_gates_always_yield_a_transmission() {
+    let (mut none, mut total) = (0_u32, 0_u32);
+    for y in 1980..1990 {
+        for m in 1..=12_u32 {
+            for d in [3_u32, 11, 19, 27] {
+                for h in [1_u32, 5, 9, 13, 17, 21] {
+                    total += 1;
+                    if compute(y, m, d, h, 0, 8.0).transmission.is_none() {
+                        none += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert!(total >= 2880, "样本应够大，实得 {total}");
+    assert_eq!(
+        none, 0,
+        "{total} 课里出现了 {none} 课无三传——回退分支从不可达变为可达了，\
+         该给它配真算例，并把 scripts/coverage.sh 里那条判词改掉"
+    );
+}
+
+
+/// 十二支配八方：三支一正方、其余各支两两夹一隅。
+///
+/// `BRANCH_DIR` 原先无逐条断言。这张表不是随手可改的名单——它就是后天八卦的方位配支：
+/// 子北、卯东、午南、酉西各占一正方，寅辰夹东北？不，是**四正各一支、四隅各两支**：
+/// 丑寅夹东北、辰巳夹东南、未申夹西南、戌亥夹西北。
+/// 认领「寻」这一类问局时，方位候选就是由它得出的，错一支就把人指向别处。
+#[test]
+fn the_twelve_branches_map_onto_the_eight_directions() {
+    use crate::bearings::{BRANCH_DIR, BRANCH_NAMES};
+    // 四正各占一支
+    for (branch, dir) in [("子", "北"), ("卯", "东"), ("午", "南"), ("酉", "西")] {
+        let k = BRANCH_NAMES.iter().position(|b| *b == branch).expect("十二支应有此支");
+        assert_eq!(BRANCH_DIR[k], dir, "{branch} 应指{dir}");
+    }
+    // 四隅各占两支，且那两支在十二支上相邻
+    for (dir, pair) in [
+        ("东北", ["丑", "寅"]),
+        ("东南", ["辰", "巳"]),
+        ("西南", ["未", "申"]),
+        ("西北", ["戌", "亥"]),
+    ] {
+        let ks: Vec<usize> = (0..12).filter(|&k| BRANCH_DIR[k] == dir).collect();
+        assert_eq!(ks.len(), 2, "{dir} 应占两支，实占 {}", ks.len());
+        let got: Vec<&str> = ks.iter().map(|&k| BRANCH_NAMES[k]).collect();
+        assert_eq!(got, pair, "{dir} 应是 {pair:?}");
+        assert_eq!(ks[1], ks[0] + 1, "{dir} 的两支应在十二支上相邻");
+    }
+    // 八方各有支、无第九方
+    let dirs: std::collections::BTreeSet<&str> = BRANCH_DIR.iter().copied().collect();
+    assert_eq!(dirs.len(), 8, "只该有八个方位，实有 {}：{dirs:?}", dirs.len());
+    assert!(!dirs.contains("中"), "中宫不是可面向的方位，不该出现在支配方位里");
+}

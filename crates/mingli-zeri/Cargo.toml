@@ -1,17 +1,28 @@
 [package]
 name = "mingli-zeri"
-description = "L3 叶(A 族/确定性)：择日学循环要素——建除十二神(日支−月建 on Z₁₂)与二十八宿值日(连续 Z₂₈)。建于 astro(节气月支) + ganzhi(日支)。时间→模运算，完全确定。"
+description = "Cyclic elements of Chinese date selection: the twelve jianchu officers and the 28 lunar mansions on duty."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["zeri", "date-selection", "chinese", "calendar"]
+categories = ["date-and-time", "algorithms"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-core = { workspace = true }
 mingli-astro = { workspace = true }
 mingli-ganzhi = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde", "mingli-astro/serde", "mingli-ganzhi/serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

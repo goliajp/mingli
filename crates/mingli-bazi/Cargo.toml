@@ -1,16 +1,28 @@
 [package]
 name = "mingli-bazi"
-description = "L3 叶：四柱推命（八字）排盘——年/月/日/时四柱、十神、五行、农历、大运。建于 astro(天文) + ganzhi(干支)。"
+description = "Four Pillars of Destiny: the four pillars, ten gods, five elements, lunar date, luck cycles, strength, pattern and useful god."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["bazi", "four-pillars", "chinese", "astrology"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-astro = { workspace = true }
 mingli-ganzhi = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调 `compute` 拿类型化盘的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。实测：`--no-default-features` 把单独取用这一片时的
+# 依赖棵数从 21 降到 6，去掉的十一棵里有 serde_derive 与 syn 两个 proc-macro。
+serde = ["dep:serde", "mingli-astro/serde", "mingli-ganzhi/serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

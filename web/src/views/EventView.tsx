@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { EventCast, Interpretation } from '../types'
 import { fetchEvent, fetchEventVerdict } from '../api/client'
-import { LeafChart } from '../leaves'
+import { LeafChart } from '../views/leaves'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 

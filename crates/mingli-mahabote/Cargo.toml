@@ -1,15 +1,26 @@
 [package]
 name = "mingli-mahabote"
-description = "L3 叶(A 族/确定性)：缅甸 Mahabote(မဟာဘုတ်)——本命核心数 = (缅历年 − 星期) mod 7 落七宫之一。另出八天週(周三按午分 Mercury/Rahu)对应行星。由民用日序(JDN)算缅历年/星期。"
+description = "Burmese Mahabote: the natal core number from the Burmese year and weekday, placed in one of seven houses, with the eight-day week and its planets."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["mahabote", "burmese", "calendar", "astrology"]
+categories = ["date-and-time", "algorithms"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-astro = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde", "mingli-astro/serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

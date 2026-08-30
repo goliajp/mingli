@@ -153,6 +153,53 @@ mod tests {
         }
     }
 
+    /// 上面几条校验的都是**性质**：法官恒偶、转置是对合、打包能往返。把 `xor` 整个换成
+    /// 常量 0，或者把 `sikidy_columns` 整个换成全零数组，这些性质一条都不会破——
+    /// 0 是偶的，全零转置回来还是全零。所以这里钉住具体数值。
+    ///
+    /// 数值不是权威常数而是算术后果，可以逐位手验：母图写成 4×4 矩阵（行 = 母图、
+    /// 低位在左）是 `1000 / 1100 / 1110 / 1111`，转置后按列读出即 `1111 / 0111 / 0011 / 0001`，
+    /// 也就是 15 / 14 / 12 / 8。
+    #[test]
+    fn the_derived_figures_are_pinned_to_concrete_values() {
+        assert_eq!(xor(0b1010, 0b0110), 0b1100);
+        assert_eq!(xor(0b1111, 0b0000), 0b1111);
+        assert_eq!(pack(&[true, false, true, true]), 0b1101);
+        assert_eq!(unpack(0b1101, 4), vec![true, false, true, true]);
+
+        let mothers = [0b0001u16, 0b0011, 0b0111, 0b1111];
+        assert_eq!(transpose4(mothers), [15, 14, 12, 8]);
+
+        let s = geomancy_shield(mothers);
+        assert_eq!(s.daughters, [15, 14, 12, 8]);
+        assert_eq!(s.nieces, [2, 8, 1, 4]); // 母₁⊕母₂、母₃⊕母₄、女₁⊕女₂、女₃⊕女₄
+        assert_eq!(s.witnesses, [10, 5]);
+        assert_eq!(s.judge, 15);
+
+        assert_eq!(
+            sikidy_columns(mothers),
+            [1, 3, 7, 15, 15, 14, 12, 8, 4, 1, 8, 2, 5, 10, 15, 14]
+        );
+    }
+
+    /// 转置的定义（女图 `d` 的第 `i` 位 = 母图 `i` 的第 `d` 位）在这里用位向量重述一遍，
+    /// 与移位实现在全部 16⁴ 组母图上逐一对照——两条独立的写法算出同一张表。
+    #[test]
+    fn transpose_agrees_with_the_bit_vector_definition() {
+        for combo in 0u32..(16 * 16 * 16 * 16) {
+            let m = [
+                (combo & 0xF) as u16,
+                ((combo >> 4) & 0xF) as u16,
+                ((combo >> 8) & 0xF) as u16,
+                ((combo >> 12) & 0xF) as u16,
+            ];
+            let rows: Vec<Vec<bool>> = m.iter().map(|&f| unpack(f, 4)).collect();
+            let by_definition: [Figure; 4] =
+                core::array::from_fn(|d| pack(&(0..4).map(|i| rows[i][d]).collect::<Vec<_>>()));
+            assert_eq!(transpose4(m), by_definition, "mothers={m:?}");
+        }
+    }
+
     #[test]
     fn transpose_is_involution() {
         // 转置两次还原。

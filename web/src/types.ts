@@ -96,6 +96,47 @@ export interface FortuneResponse {
   at: FortuneAt
   timeline: FortuneTimelinePoint[]
   max_age: number
+  /** Vimshottari 大运/小运。构建未含 jyotish 时为 null。 */
+  dasha: DashaSlice | null
+  /** 西洋占星的二次推运（一日一年）。构建未含 astrology 时为 null */
+  progression: Progression | null
+  ziwei: ZiweiFortune | null
+}
+
+/** 紫微那一层的「运」：所问之岁落在哪一步大限，所问之年入哪一宫。 */
+export interface ZiweiFortune {
+  system: string
+  ming_branch: string
+  /** 性别缺省时大限出不来（顺逆由「年干阴阳 + 性别」定），此处为 null */
+  limit: { step: number; start_age: number; end_age: number; branch: string; palace: string } | null
+  annual: { year: number; branch: string; palace: string }
+}
+
+/** 一格推运（对应 astrology::progression::ProgressedYear）。 */
+export interface ProgressedYear {
+  age: number
+  planets: { name: string; sign: string; degree: number; longitude: number }[]
+  /** 推运星与本命星之间的相位——「运」的着力处 */
+  to_natal: { a: string; b: string; kind: string; angle: number }[]
+}
+
+/** 二次推运时间线（对应 astrology::progression::Progression）。 */
+export interface Progression {
+  method: string
+  max_age: number
+  /** 相邻两格相差几岁 */
+  step: number
+  years: ProgressedYear[]
+}
+
+/** /api/fortune 里的 Vimshottari 切片。 */
+export interface DashaSlice {
+  system: string
+  birth_lord: string
+  age_years: number
+  /** 目标时刻所在的那一段大运；时刻落在 120 年之外时为 null */
+  current: Mahadasha | null
+  timeline: Mahadasha[]
 }
 
 // /api/interpret LLM 释义（INT，非计算）
@@ -290,12 +331,26 @@ export interface JyotishGraha {
   nakshatra_lord: string
   navamsa: number
   navamsa_name: string
+  /** 其余十二个分盘的落宫（分盘 id → rasi 索引 0..11）。D-9 见 navamsa。 */
+  vargas: Record<string, number>
 }
 
 export interface Mahadasha {
   lord: string
   years: number
   effective_years: number
+  start_jd: number
+  end_jd: number
+  start_age_years: number
+  end_age_years: number
+  /** 本段内的九步小运 */
+  antardashas: Antardasha[]
+}
+
+/** 一段大运内的小运（对应 jyotish::Antardasha）。 */
+export interface Antardasha {
+  lord: string
+  years: number
   start_jd: number
   end_jd: number
   start_age_years: number
@@ -355,6 +410,27 @@ export interface ZiweiChart {
   tianfu_branch: string
   palaces: Palace[]
   sihua: Sihua
+  /** 大限盘（十年一宫）。性别缺省时为 null——顺逆由「年干阴阳 + 性别」定，缺一不可 */
+  major_limits: MajorLimits | null
+}
+
+/** 一步大限（对应 ziwei::limit::MajorLimit）。 */
+export interface MajorLimit {
+  step: number
+  start_age: number
+  end_age: number
+  branch_index: number
+  branch: string
+  palace: string
+}
+
+/** 大限盘（对应 ziwei::limit::MajorLimits）。 */
+export interface MajorLimits {
+  /** 起运岁 = 五行局数 */
+  start_age: number
+  /** 阳男阴女为真 */
+  forward: boolean
+  steps: MajorLimit[]
 }
 
 /** 占事结果（对应 app::event::EventCast）。 */
@@ -414,6 +490,52 @@ export interface Synastry {
   a_supplies_b: number
   b_supplies_a: number
   detail: TeamResult
+  aspects: CrossAspects
+  /** 印度占星八项合婚。逐项给区间——各家判定表不一 */
+  ashtakuta: Ashtakuta
+}
+
+/** 八项合婚里的一项（对应 jyotish::kuta::KutaScore）。 */
+export interface KutaScore {
+  kuta: string
+  max_points: number
+  /** 得分下界（×10，避开浮点） */
+  min_tenths: number
+  max_tenths: number
+  /** 两源是否给出同一个值 */
+  settled: boolean
+  basis: string
+}
+
+/** 八项合婚（对应 jyotish::kuta::Ashtakuta）。 */
+export interface Ashtakuta {
+  kutas: KutaScore[]
+  total_min_tenths: number
+  total_max_tenths: number
+  max_points: number
+  /** 有几项两源不一致——区间宽度全由它们贡献 */
+  unsettled_count: number
+}
+
+/** 两张本命盘之间的相位一条（对应 astrology::CrossAspect）。 */
+export interface CrossAspect {
+  /** 甲盘上的星 */
+  a: string
+  /** 乙盘上的星 */
+  b: string
+  /** 相位名（合 / 冲 / 拱 / 刑 / 六分） */
+  kind: string
+  /** 实测夹角（度） */
+  angle: number
+}
+
+/** 合盘相位全量。哪些算数、容许度多少属取舍，本层出全量。 */
+export interface CrossAspects {
+  system: string
+  /** 容许度（度） */
+  orb: number
+  count: number
+  list: CrossAspect[]
 }
 
 /** 太乙时间线上的一年（对应 app::mundane::YearStep）。 */

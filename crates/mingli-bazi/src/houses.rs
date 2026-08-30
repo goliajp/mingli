@@ -12,7 +12,8 @@ use super::*;
 /// 注：命宫流派分歧——子平用**节气月支**（本算法），紫微/三命通会用**农历月**（数字 1..12）。
 /// 本 crate 站在子平视角，与 [`mingli_ziwei`](crate::compute_with_true_solar) 的农历月命宫
 /// 在「月支 ≠ 农历月对应支」的节气切换日会差一格。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ThreeHouses {
     /// 命宫干支（如「丙寅」）。
     pub ming_gong: String,

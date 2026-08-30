@@ -1,16 +1,27 @@
 [package]
 name = "mingli-yijing"
-description = "L3 叶(C 族)：易经起卦——三钱/蓍草法的可复现抽样→六爻→本卦/之卦。建于 core(sampler 种子) + gua(六爻代数)。"
+description = "I Ching casting: reproducible three-coin and yarrow-stalk sampling into six lines, the primary hexagram and the changed one."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["yijing", "iching", "divination", "hexagram"]
+categories = ["algorithms", "simulation"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-core = { workspace = true }
 mingli-gua = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde", "mingli-gua/serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

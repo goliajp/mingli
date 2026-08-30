@@ -1,15 +1,21 @@
 [package]
 name = "mingli-contract"
-description = "端口层：叶与编排之间的契约——CastingEngine / WordEngine trait、共享查询载荷、确定性谱与流派声明、问局意图清单。不认识任何具体叶，也不认识编排实现。"
+description = "The ports between a divination system and the code that orchestrates it: the CastingEngine and WordEngine traits, the shared query, and the determinism and school declarations."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["divination", "traits", "ports", "contract"]
+categories = ["algorithms", "api-bindings"]
 
 [dependencies]
 # 契约里的 `cast(&Moment, ..)` 需要共享时刻这一领域类型；除此之外不依赖任何叶。
-mingli-astro = { workspace = true }
+mingli-astro = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
 
 [lints]
 workspace = true

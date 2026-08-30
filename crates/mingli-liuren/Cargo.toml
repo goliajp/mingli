@@ -1,16 +1,27 @@
 [package]
 name = "mingli-liuren"
-description = "L3 叶(⟂ 横切/确定性)：大六壬——天地盘(月将加时,Z₁₂ 旋转) + 天干寄宫 + 四课 + 三传课式判定。天地盘/四课经古法工作例校验;三传流派分歧处只判式不强编取传(诚实标 None)。"
+description = "Da Liu Ren: the heaven plate rotated over the earth plate, stem lodging, the four courses and the three transmissions, with the school divergences left declared rather than invented."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["liuren", "divination", "chinese", "cyclic"]
+categories = ["algorithms", "date-and-time"]
 
 [dependencies]
-serde_json = { workspace = true }
-mingli-contract = { workspace = true }
+serde_json = { workspace = true, optional = true }
+mingli-contract = { workspace = true, optional = true }
 mingli-astro = { workspace = true }
 mingli-ganzhi = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["port"]
+# 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
+# 只想直接调本 crate 的类型化 API 的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
+port = ["dep:mingli-contract", "dep:serde_json", "serde"]
+# 盘面结构体的 `Serialize`。
+serde = ["dep:serde", "mingli-astro/serde", "mingli-ganzhi/serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

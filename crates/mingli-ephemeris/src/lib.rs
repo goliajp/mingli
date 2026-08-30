@@ -74,7 +74,7 @@ fn to_rect(s: vsop87::SphericalCoordinates) -> Rect {
     }
 }
 
-/// 行星的日心球面坐标（仅 5 颗大行星走此路径；太阳/月亮在上层特判）。
+/// 天体的日心球面坐标（7 颗行星各取自家 VSOP87D 级数；太阳取地球，月亮不走此路）。
 fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
     match body {
         Body::Mercury => vsop87d::mercury(jde),
@@ -84,7 +84,8 @@ fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
         Body::Saturn => vsop87d::saturn(jde),
         Body::Uranus => vsop87d::uranus(jde),
         Body::Neptune => vsop87d::neptune(jde),
-        // guarded：Sun/Moon 已在上层特判，永不到此。回退地球本身，永不被取值。
+        // 太阳走地球的日心位置——地心太阳 = 地球日心 + 180°，见下方 `Body::Sun` 分支。
+        // 月亮不用日心坐标（ELP-2000 直接给地心位置），上层已特判，不到此。
         Body::Sun | Body::Moon => vsop87d::earth(jde),
     }
 }
@@ -159,7 +160,7 @@ pub fn geocentric_ecliptic_longitude(body: Body, jde: f64) -> f64 {
     match body {
         Body::Sun => {
             // 太阳地心经度 = 地球日心经度 + 180°。
-            let e = vsop87d::earth(jde);
+            let e = heliocentric(Body::Sun, jde);
             (e.longitude().to_degrees() + 180.0).rem_euclid(360.0)
         }
         Body::Moon => moon_geocentric(jde).longitude,
@@ -209,20 +210,100 @@ mod tests {
         assert!(d < 1.0, "春分太阳经度应近 0°，实得 {v}");
     }
 
+    const PLANETS: [Body; 7] = [
+        Body::Mercury,
+        Body::Venus,
+        Body::Mars,
+        Body::Jupiter,
+        Body::Saturn,
+        Body::Uranus,
+        Body::Neptune,
+    ];
+
+    /// 环形最短差，返回角秒。
+    fn arcsec_apart(a: f64, b: f64) -> f64 {
+        ((a - b + 180.0).rem_euclid(360.0) - 180.0) * 3600.0
+    }
+
+    /// 七颗行星的地心黄经，1950–2050 每 25 年一个历元，逐个对表。
+    ///
+    /// 此前这里只有一条「经度落在 `[0,360)`」——而产出它的那行末尾就是
+    /// `rem_euclid(360.0)`，断言复述了刚刚做过的事，除了 NaN 没有任何东西能让它红。
+    /// 也就是说占星／印占／七政四余三片叶吃的行星位置，一个外部锚点都没有。
+    ///
+    /// 取值两源相合，且两源背后是两套彼此独立的行星理论：
+    ///
+    /// 1. NASA JPL Horizons（DE441）<https://ssd.jpl.nasa.gov/horizons/>
+    ///    `QUANTITIES=31` 的 ObsEcLon —— 当日平分点的**视**位置，含光行时、光线偏折、光行差
+    /// 2. IMCCE Miriade（INPOP19）<https://ssp.imcce.fr/webservices/miriade/>
+    ///    的 `ephemcc` 服务，J2000 黄道的**天测**位置 —— 含光行时，不含光行差
+    ///
+    /// 2000-01-01 两源逐颗相差 3.5″ 至 34.7″，正是章动（当日约 −14″）加光行差（至多 20″）
+    /// 该有的量；火星在 2024-06-15 上两源差 0.3370°，与 24.5 年岁差 0.3415° 扣掉同一项相符。
+    /// 框架关系对得上，所以两源确认的是同一件事。
+    ///
+    /// 本实现走 VSOP87D，当日平分点、含光行时、不含光行差与章动，因此与 JPL 的视位置
+    /// 应差在光行差加章动之内。实测 35 个点最大 37.4″，容差取 60″（1 角分）。
+    /// 下游最细的分度是二十七宿的 13°20′，1 角分比它紧三个数量级。
     #[test]
-    fn planets_in_range() {
-        let jde = jde_of(2024, 6, 15.0);
-        for body in [
-            Body::Mercury,
-            Body::Venus,
-            Body::Mars,
-            Body::Jupiter,
-            Body::Saturn,
-            Body::Uranus,
-            Body::Neptune,
-        ] {
-            let lon = geocentric_ecliptic_longitude(body, jde);
-            assert!((0.0..360.0).contains(&lon), "{body:?} 经度越界： {lon}");
+    fn every_planet_matches_the_positions_jpl_publishes_across_a_century() {
+        // JPL Horizons ObsEcLon，历元 1950 / 1975 / 2000 / 2025 / 2050 的 01-01 00:00 UT。
+        const PUBLISHED: [[f64; 5]; 7] = [
+            [299.447_252_3, 287.043_471_0, 271.111_799_4, 259.869_967_7, 270.059_488_2],
+            [316.979_477_5, 293.380_913_2, 240.961_401_7, 327.712_098_6, 281.248_037_7],
+            [182.211_196_7, 254.959_265_2, 327.575_459_2, 121.917_909_4, 227.714_693_4],
+            [306.505_324_9, 343.314_846_5, 25.233_108_6, 73.215_446_5, 121.691_548_0],
+            [169.437_421_8, 105.874_436_3, 40.405_837_4, 344.524_052_5, 297.574_279_9],
+            [92.682_720_5, 211.877_795_5, 314.784_051_9, 53.635_824_5, 170.732_610_0],
+            [197.266_039_2, 250.433_396_1, 303.175_243_2, 357.297_808_0, 53.603_420_9],
+        ];
+        const YEARS: [i32; 5] = [1950, 1975, 2000, 2025, 2050];
+        const TOLERANCE_ARCSEC: f64 = 60.0;
+
+        let mut worst = 0.0f64;
+        for (body, published) in PLANETS.iter().zip(PUBLISHED) {
+            for (year, expected) in YEARS.iter().zip(published) {
+                let ours = geocentric_ecliptic_longitude(*body, jde_of(*year, 1, 1.0));
+                let off = arcsec_apart(ours, expected);
+                assert!(
+                    off.abs() < TOLERANCE_ARCSEC,
+                    "{body:?} {year}-01-01：算出 {ours:.6}°，JPL 作 {expected:.6}°，差 {off:.1}″"
+                );
+                worst = worst.max(off.abs());
+            }
+        }
+        // 实测（2026-08-23）最大 37.4″，出现在土星 1975。逼近容差说明模型变了而不只是抖动。
+        assert!(worst < 45.0, "最大偏差 {worst:.1}″，已逼近容差");
+    }
+
+    /// 同一批位置的紧口径校验：2000-01-01 时当日平分点与 J2000 几乎重合，而 IMCCE 给的
+    /// 是天测位置——跟本实现一样不含光行差。两边于是可以直接比，容差从 1 角分收到 3 角秒。
+    ///
+    /// 这一条与上一条问的不是同一件事：上一条问「一个世纪里位置都对不对」，这一条问
+    /// 「理论本身是不是真跟一套独立星历同级」。实测七颗最大 0.62″（海王星，VSOP87D 截断
+    /// 在外行星上最大），水星差 0.003″。
+    #[test]
+    fn at_j2000_every_planet_matches_an_independent_theory_to_the_arcsecond() {
+        // IMCCE Miriade 的 ephemcc / INPOP19，2000-01-01T00:00:00，地心 J2000 黄道天测经度。
+        // 原文为度分秒：水 271°07′17.12957″、金 240°58′11.30468″、火 327°34′59.72815″、
+        // 木 25°14′07.75378″、土 40°24′24.52219″、天 314°47′33.73699″、海 303°11′04.04710″。
+        const IMCCE: [f64; 7] = [
+            271.121_424_9,
+            240.969_806_9,
+            327.583_257_8,
+            25.235_487_2,
+            40.406_811_7,
+            314.792_704_7,
+            303.184_457_5,
+        ];
+        let jde = jde_of(2000, 1, 1.0);
+        for (body, expected) in PLANETS.iter().zip(IMCCE) {
+            let ours = geocentric_ecliptic_longitude(*body, jde);
+            let off = arcsec_apart(ours, expected);
+            assert!(
+                off.abs() < 3.0,
+                "{body:?}：算出 {ours:.7}°，IMCCE 作 {expected:.7}°，差 {off:.3}″"
+            );
         }
     }
 

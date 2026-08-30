@@ -1,13 +1,21 @@
 [package]
 name = "mingli-gua"
-description = "L2 主干：六十四卦格 (Z₂)⁶——八卦、上下卦、错/综/互/之卦。纯卦格代数，建于 mingli-core::gf2。"
+description = "The 64 hexagrams as a (Z2)^6 lattice: trigrams, upper and lower, and the inverse, reversed, nuclear and changed hexagrams."
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["yijing", "hexagram", "gf2", "lattice"]
+categories = ["algorithms", "mathematics"]
 
 [dependencies]
 mingli-core = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["serde"]
+# 结构体的 `Serialize`。关掉它，依赖链上不会出现 serde（连同 serde_derive / syn 两个 proc-macro）。
+serde = ["dep:serde"]
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
