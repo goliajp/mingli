@@ -3,5 +3,5 @@
 chart-solo-bazi 198777 91166
 chart-solo-yijing 159557 73226
 chart-chinese 348983 146281
-chart-all 1265177 728055
-full 1475798 807120
+chart-all 1266490 728780
+full 1477112 807974

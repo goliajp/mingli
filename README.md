@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 802 tests green
+> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 803 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -154,8 +154,8 @@ Measured, release wasm32:
 | `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
 | `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
-| `mingli-wasm-chart` | All twenty-four, charts only | 1236 KB | 711 KB |
-| `mingli-wasm` | All twenty-four plus use cases | 1441 KB | 788 KB |
+| `mingli-wasm-chart` | All twenty-four, charts only | 1237 KB | 712 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1442 KB | 789 KB |
 
 A system costs about 0.05 MB on top of the skeleton; the three that carry planetary
 ephemerides cost 0.87 MB between them. `feature-matrix.sh` builds every leaf on its
@@ -186,7 +186,7 @@ that lists leaves" never looked at the interpretation layer at all.
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 802 tests
+cargo test --workspace     # 803 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason

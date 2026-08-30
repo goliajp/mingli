@@ -9,7 +9,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 39 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 802 个测试全绿
+> 39 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 803 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -147,8 +147,8 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 | `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
 | `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
 | `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
-| `mingli-wasm-chart` | 二十四片，只排盘 | 1236 KB | 711 KB |
-| `mingli-wasm` | 二十四片 + 跨叶用例 | 1441 KB | 788 KB |
+| `mingli-wasm-chart` | 二十四片，只排盘 | 1237 KB | 712 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1442 KB | 789 KB |
 
 　　数字出自 `scripts/wasm-budget.txt`，那张表就是 CI 的体积闸对着比的那一张，
 也是 `npm-pack.sh` 发包前逐字节核对的那一张——三处同一个数，不是三次各量各的。
@@ -175,7 +175,7 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 802 个测试
+cargo test --workspace     # 803 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
