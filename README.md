@@ -149,13 +149,13 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # two s
 
 Measured, release wasm32:
 
-| Bundle | Size |
-|---|---|
-| Skeleton, no systems | 0.53 MB |
-| Four Pillars only | 0.57 MB |
-| Four Pillars + Zi Wei | 0.60 MB |
-| Western astrology only | 1.32 MB |
-| All twenty-four | 1.83 MB |
+| npm package | Build | Module | gzipped |
+|---|---|---:|---:|
+| `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
+| `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
+| `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
+| `mingli-wasm-chart` | All twenty-four, charts only | 1236 KB | 711 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1441 KB | 788 KB |
 
 A system costs about 0.05 MB on top of the skeleton; the three that carry planetary
 ephemerides cost 0.87 MB between them. `feature-matrix.sh` builds every leaf on its

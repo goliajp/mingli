@@ -142,15 +142,20 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 
 　　实测（release，wasm32）：
 
-| 装配 | 体积 |
-|---|---|
-| 一片不装（纯骨架） | 0.53 MB |
-| 只要四柱 | 0.57 MB |
-| 四柱 + 紫微 | 0.60 MB |
-| 只要西洋占星 | 1.32 MB |
-| 全部二十四片 | 1.83 MB |
+| npm 包 | 装配 | 模块 | gzip 后 |
+|---|---|---:|---:|
+| `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
+| `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
+| `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
+| `mingli-wasm-chart` | 二十四片，只排盘 | 1236 KB | 711 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1441 KB | 788 KB |
 
-　　一片叶在骨架之上约 0.05 MB；三片带行星星历的叶合计 0.87 MB。
+　　数字出自 `scripts/wasm-budget.txt`，那张表就是 CI 的体积闸对着比的那一张，
+也是 `npm-pack.sh` 发包前逐字节核对的那一张——三处同一个数，不是三次各量各的。
+管线固定四步：`cargo build` → `wasm-bindgen` → `wasm-opt -Oz` → `gzip`。
+　　排盘档只出 `cast` 与 `cast_one`；跨叶用例与释义层在 `usecases` 之后，那一层要 208 KB。
+三片带行星星历的叶共用同一份 VSOP87 表，约 780 KB——第一片装它要 800 KB，
+第二、三片各只再加 29 KB 与 16 KB。
 `feature-matrix.sh` 会把每片叶各单独装配一次——某片悄悄拖进另一片，会在那里红，而不是在你的产物里。
 它还会把 39 个 crate 各自单独跑一遍测试：`cargo test --workspace` 跑的是**合并后**的 feature 集，
 一个 crate 的测试依赖少写了 feature，整仓一起跑照样绿，单独跑才炸。
