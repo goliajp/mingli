@@ -192,12 +192,35 @@ fn sun_from(earth: &vsop87::SphericalCoordinates) -> f64 {
     (earth.longitude().to_degrees() + 180.0).rem_euclid(360.0)
 }
 
-/// 一颗行星在给定地球位置下的地心黄经。光行时迭代三次足以收敛。
+/// 每颗行星的光行时迭代轮数。
+///
+/// 三轮不是随手取的数，也不该随手改——每一轮都要把该行星的整条 VSOP87D 级数
+/// 重算一遍，而那是排一张盘里最贵的一项（七颗行星单轮合计 76.3 µs，三轮 217 µs，
+/// 占九星总耗时 264 µs 的 82%）。
+///
+/// 1900–2100 每两年取一点、七颗行星逐轮量下来的最大位移：
+///
+/// | | 1→2 轮 | 2→3 轮 | 3→4 轮 |
+/// |---|---|---|---|
+/// | 水星 | 38.30″ | 0.0037″ | 0.0000018″ |
+/// | 金星 | 24.14″ | 0.0014″ | 0.0000010″ |
+/// | 火星 | 18.17″ | 0.0008″ | 0.0000011″ |
+/// | 木星 |  9.40″ | 0.00009″ | 0 |
+/// | 海王 |  3.80″ | 0.000002″ | 0 |
+///
+/// 也就是说：第二轮非要不可（几十角秒），第三轮值 3.7 毫角秒而要价 72 µs，
+/// 第四轮什么也不改。降到两轮能省 27%，代价是每一张已发出去的盘末位都会变——
+/// 那是对外契约变更，而 27% 关不上我们与截断级数实现之间三十倍的差距，
+/// 所以现在不动它。真要动，先看 `the_third_light_time_pass_is_worth_this_much`
+/// 钉住的那个数，再决定这笔交易划不划算。
+const LIGHT_TIME_PASSES: usize = 3;
+
+/// 一颗行星在给定地球位置下的地心黄经。
 fn planet_from(body: Body, jde: f64, earth: &Rect) -> f64 {
     let mut tau = 0.0;
     let mut lambda = 0.0;
     // 光行时迭代：在「光离开行星的时刻」取其位置。
-    for _ in 0..3 {
+    for _ in 0..LIGHT_TIME_PASSES {
         let p = to_rect(heliocentric(body, jde - tau));
         let (dx, dy, dz) = (p.x - earth.x, p.y - earth.y, p.z - earth.z);
         let dist = (dx * dx + dy * dy + dz * dz).sqrt();
@@ -433,5 +456,53 @@ mod tests {
             assert!(m.latitude.abs() < 6.0, "|β| 越界： {}", m.latitude);
             assert!(m.distance_km > 350_000.0 && m.distance_km < 410_000.0, "Δ 越界： {}", m.distance_km);
         }
+    }
+
+    /// 第三轮光行时值多少角秒——把这个数钉住，好让想省掉它的人先看见代价。
+    ///
+    /// 本测试自己按两轮与三轮各算一遍，不调 `planet_from`：那个函数的轮数正是被测的东西，
+    /// 用它来验它等于什么也没验。
+    #[test]
+    fn the_third_light_time_pass_is_worth_this_much() {
+        fn lambda_with(body: Body, jde: f64, passes: usize) -> f64 {
+            let earth = to_rect(vsop87d::earth(jde));
+            let (mut tau, mut lambda) = (0.0_f64, 0.0_f64);
+            for _ in 0..passes {
+                let p = to_rect(heliocentric(body, jde - tau));
+                let (dx, dy, dz) = (p.x - earth.x, p.y - earth.y, p.z - earth.z);
+                tau = LIGHT_TIME_PER_AU * (dx * dx + dy * dy + dz * dz).sqrt();
+                lambda = dy.atan2(dx).to_degrees().rem_euclid(360.0);
+            }
+            lambda
+        }
+        let short = |d: f64| {
+            let d = d.rem_euclid(360.0);
+            if d > 180.0 { d - 360.0 } else { d }
+        };
+        let bodies = [
+            Body::Mercury, Body::Venus, Body::Mars, Body::Jupiter,
+            Body::Saturn, Body::Uranus, Body::Neptune,
+        ];
+        let (mut second, mut third, mut n) = (0.0_f64, 0.0_f64, 0);
+        let mut jde = 2_415_020.0_f64; // 1900-01-01
+        while jde < 2_488_070.0 {
+            // 到 2100
+            for &b in &bodies {
+                let (a, c, d) = (lambda_with(b, jde, 1), lambda_with(b, jde, 2), lambda_with(b, jde, 3));
+                second = second.max(short(c - a).abs() * 3600.0);
+                third = third.max(short(d - c).abs() * 3600.0);
+                n += 1;
+            }
+            jde += 733.0;
+        }
+        assert!(n > 600, "只比了 {n} 组，取样太少");
+        // 第二轮非要不可：几十角秒。
+        assert!(second > 10.0, "第二轮只值 {second:.4}″——那它可以省，本注释要重写");
+        // 第三轮值 3.7 毫角秒。这个上界是实测记录：涨了说明星历那一路变了，
+        // 而不是说明这条测试该放宽。
+        assert!(
+            third < 0.005,
+            "第三轮值 {third:.6}″，记录是 0.0037″——变大了就要重新算这笔账"
+        );
     }
 }

@@ -381,7 +381,7 @@ probe "石头：朔的时刻整体挪了几分钟" mingli-astro the_new_moon_ins
 
 probe "石头：行星位置不再扣光行时" mingli-ephemeris every_planet_matches_the_positions_jpl_publishes_across_a_century \
   crates/mingli-ephemeris/src/lib.rs \
-  's|                tau = LIGHT_TIME_PER_AU \* dist;|                tau = 0.0 * dist;|'
+  's|^        tau = LIGHT_TIME_PER_AU \* dist;$|        tau = 0.0 * dist;|'
 
 probe "石头：行星理论掉出独立星历的量级" mingli-ephemeris at_j2000_every_planet_matches_an_independent_theory_to_the_arcsecond \
   crates/mingli-ephemeris/src/lib.rs \
@@ -501,6 +501,10 @@ probe "占星：Placidus 象限接错" mingli-astrology the_four_quadrants_of_as
 probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanity \
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
+
+probe "星历：光行时收敛变慢了" mingli-ephemeris the_third_light_time_pass_is_worth_this_much \
+  crates/mingli-ephemeris/src/lib.rs \
+  's@^const LIGHT_TIME_PER_AU: f64 = 0.005_775_518_3;$@const LIGHT_TIME_PER_AU: f64 = 0.05_775_518_3;@'
 
 probe_script "浏览器：四柱与 lunar-javascript 不再一致" \
   "bash scripts/npm-pack.sh >/dev/null 2>&1 && bash scripts/perf-vs-js.sh '' 200" \
