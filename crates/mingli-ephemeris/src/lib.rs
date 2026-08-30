@@ -19,7 +19,10 @@
 mod geometry;
 pub use geometry::{asc_mc, GeoLocation};
 
-#[cfg(feature = "vsop87")]
+#[cfg(feature = "eph-lite")]
+mod lite;
+
+#[cfg(all(feature = "vsop87", any(test, not(feature = "eph-lite"))))]
 use vsop87::vsop87d;
 
 #[cfg(feature = "vsop87")]
@@ -69,8 +72,8 @@ struct Rect {
 
 #[cfg(feature = "vsop87")]
 /// 日心球面 （L，B，R 弧度/AU） → 日心直角坐标。
-fn to_rect(s: vsop87::SphericalCoordinates) -> Rect {
-    let (l, b, r) = (s.longitude(), s.latitude(), s.distance());
+fn to_rect(s: &Spherical) -> Rect {
+    let (l, b, r) = (s.lon, s.lat, s.dist);
     Rect {
         x: r * b.cos() * l.cos(),
         y: r * b.cos() * l.sin(),
@@ -78,9 +81,27 @@ fn to_rect(s: vsop87::SphericalCoordinates) -> Rect {
     }
 }
 
+/// 日心球面坐标的本地形态。
+///
+/// 全量与截断两条路给出同一种东西，好让上层不必知道脚下是哪张表。
 #[cfg(feature = "vsop87")]
+pub(crate) struct Spherical {
+    pub(crate) lon: f64,
+    pub(crate) lat: f64,
+    pub(crate) dist: f64,
+}
+
+/// 截断表那条路。见 `lite` 模块的说明与它钉住的残差。
+#[cfg(feature = "eph-lite")]
+fn heliocentric(body: Body, jde: f64) -> Spherical {
+    let s = lite::heliocentric(body, jde);
+    Spherical { lon: s.lon, lat: s.lat, dist: s.dist }
+}
+
+// 开着 `eph-lite` 时，本函数只被测试用来当尺子——量截断表偏了多少。
+#[cfg(all(feature = "vsop87", any(test, not(feature = "eph-lite"))))]
 /// 天体的日心球面坐标（7 颗行星各取自家 VSOP87D 级数；太阳取地球，月亮不走此路）。
-fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
+fn heliocentric_full(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
     match body {
         Body::Mercury => vsop87d::mercury(jde),
         Body::Venus => vsop87d::venus(jde),
@@ -93,6 +114,22 @@ fn heliocentric(body: Body, jde: f64) -> vsop87::SphericalCoordinates {
         // 月亮不用日心坐标（ELP-2000 直接给地心位置），上层已特判，不到此。
         Body::Sun | Body::Moon => vsop87d::earth(jde),
     }
+}
+
+/// 全量表那条路，包成与截断那条同样的形状。
+///
+/// 两档同时开时它仍在，但不被 [`heliocentric`] 选中——测试要拿它当尺子量截断的残差，
+/// 而互斥的两份表没法在同一次构建里比较。
+#[cfg(all(feature = "vsop87", any(test, not(feature = "eph-lite"))))]
+pub(crate) fn heliocentric_ref(body: Body, jde: f64) -> Spherical {
+    let c = heliocentric_full(body, jde);
+    Spherical { lon: c.longitude(), lat: c.latitude(), dist: c.distance() }
+}
+
+/// 未开 `eph-lite` 时，选路落在全量表上。
+#[cfg(all(feature = "vsop87", not(feature = "eph-lite")))]
+fn heliocentric(body: Body, jde: f64) -> Spherical {
+    heliocentric_ref(body, jde)
 }
 
 /// 月亮在 `jde`（力学时儒略日）的地心 apparent 位置。
@@ -164,9 +201,9 @@ pub fn mean_lunar_apogee(jde: f64) -> f64 {
 #[must_use]
 pub fn geocentric_ecliptic_longitude(body: Body, jde: f64) -> f64 {
     match body {
-        Body::Sun => sun_from(&vsop87d::earth(jde)),
+        Body::Sun => sun_from(&heliocentric(Body::Sun, jde)),
         Body::Moon => moon_geocentric(jde).longitude,
-        _ => planet_from(body, jde, &to_rect(vsop87d::earth(jde))),
+        _ => planet_from(body, jde, &to_rect(&heliocentric(Body::Sun, jde))),
     }
 }
 
@@ -181,9 +218,9 @@ pub fn geocentric_ecliptic_longitude(body: Body, jde: f64) -> f64 {
 pub fn geocentric_ecliptic_longitudes(bodies: &[Body], jde: f64, out: &mut [f64]) {
     // 只在真有行星要算时才求地球——只问月亮的调用方不该为它付钱。
     let needs_earth = bodies.iter().any(|b| !matches!(b, Body::Moon));
-    let earth_sph = needs_earth.then(|| vsop87d::earth(jde));
+    let earth_sph = needs_earth.then(|| heliocentric(Body::Sun, jde));
     let earth_lon = earth_sph.as_ref().map(sun_from);
-    let earth = earth_sph.map(to_rect);
+    let earth = earth_sph.as_ref().map(to_rect);
     for (slot, &body) in out.iter_mut().zip(bodies.iter()) {
         *slot = match body {
             // `needs_earth` 为真才会走到这两支，故 earth 必已求出。
@@ -196,11 +233,57 @@ pub fn geocentric_ecliptic_longitudes(bodies: &[Body], jde: f64, out: &mut [f64]
 
 #[cfg(feature = "vsop87")]
 /// 地心太阳 = 地球日心 + 180°。
-fn sun_from(earth: &vsop87::SphericalCoordinates) -> f64 {
-    (earth.longitude().to_degrees() + 180.0).rem_euclid(360.0)
+fn sun_from(earth: &Spherical) -> f64 {
+    (earth.lon.to_degrees() + 180.0).rem_euclid(360.0)
 }
 
 #[cfg(feature = "vsop87")]
+/// 换一套删节级数省不到东西——两条都量过（2026-08-30）。
+///
+/// 全量 VSOP87D 的常量表在 wasm 产物里约 780 KB，占一个带星历档位的九成，
+/// 而算完那些级数是排一张盘里九成七的时间。顺理成章的想法是换 Meeus《Astronomical
+/// Algorithms》附录 III 的删节级数——`astro` crate 就是它的 Rust 实现，本 crate 算月亮
+/// 已经在用，源码里那份数据 31,953 行，对照 `vsop87` crate 的 820,691 行，少 26 倍。
+///
+/// 两件事都不成立：
+///
+/// | | 全量 VSOP87D | Meeus 删节 |
+/// |---|---|---|
+/// | 七行星一遍 | 268.17 µs | 261.81 µs（快 1.02×） |
+/// | wasm `-Oz` 后 | 807,701 字节 | **1,619,286 字节（大一倍）** |
+///
+/// 精度倒是没问题：1900–2100 每两年取样，两者黄经最大差 0.004″。
+///
+/// 体积反过来的原因在存法而不在项数：`vsop87` 把系数存成静态常量数组，
+/// `astro` 存成运行时构造 `Vec` 的代码，而代码比打包好的 f64 数组大。
+/// 源码行数少 26 倍是误导。
+///
+/// 上面那句「快 1.02×」曾被我读成「截断不是速度杠杆」。那是错的：那次比的是
+/// `astro` 的实现对 `vsop87` 的实现，把「项数」与「存法」混成了一个变量。
+/// 同一实现、只换表才是干净的比较——八颗行星的 L/B/R 全阶，按振幅 1e-6 截断：
+///
+/// | | 项数 | 求值一遍 |
+/// |---|---|---|
+/// | 全量 | 24,158 | 1099.1 µs |
+/// | 截断 1e-6 | 1,536（6.4%） | 83.3 µs（**快 13.2×**） |
+///
+/// 精度代价（日心黄经，1900–2100 每十年取样，对全量）：
+///
+/// | 阈值 | 保留 | 水星 | 地球 | 木星 | 土星 |
+/// |---|---|---|---|---|---|
+/// | 1e-8 | 10–55% | 0.016″ | 0.026″ | 0.037″ | 0.027″ |
+/// | 1e-7 | 4–23% | 0.097″ | 0.138″ | 0.234″ | 0.221″ |
+/// | 1e-6 | 1.7–10% | 1.150″ | 1.718″ | 1.039″ | 1.068″ |
+/// | 1e-5 | 0.8–4% | 7.293″ | 5.723″ | 8.880″ | 9.042″ |
+///
+/// 也就是说 `eph-lite` 这一档已经被量清楚了：表缩约 15.7 倍（780 KB → 约 50 KB）、
+/// 级数求值快约 13 倍、代价是 1.7 角秒——而公开盘只精确到角分（60″）。
+/// 它也解释了 astronomy-engine 那三十倍从哪来。
+///
+/// 做法：按振幅截断 `vsop87` 自己那张表（MIT/Apache，与本项目兼容），
+/// 同样存成常量数组。系数不是新的权威值，是已验证那份的子集，残差对着全量量。
+/// 不在 v1 范围内，但已不再缺任何东西。
+///
 /// 每颗行星的光行时迭代轮数。
 ///
 /// 三轮不是随手取的数，也不该随手改——每一轮都要把该行星的整条 VSOP87D 级数
@@ -231,7 +314,7 @@ fn planet_from(body: Body, jde: f64, earth: &Rect) -> f64 {
     let mut lambda = 0.0;
     // 光行时迭代：在「光离开行星的时刻」取其位置。
     for _ in 0..LIGHT_TIME_PASSES {
-        let p = to_rect(heliocentric(body, jde - tau));
+        let p = to_rect(&heliocentric(body, jde - tau));
         let (dx, dy, dz) = (p.x - earth.x, p.y - earth.y, p.z - earth.z);
         let dist = (dx * dx + dy * dy + dz * dz).sqrt();
         tau = LIGHT_TIME_PER_AU * dist;
@@ -475,10 +558,10 @@ mod tests {
     #[test]
     fn the_third_light_time_pass_is_worth_this_much() {
         fn lambda_with(body: Body, jde: f64, passes: usize) -> f64 {
-            let earth = to_rect(vsop87d::earth(jde));
+            let earth = to_rect(&heliocentric(Body::Sun, jde));
             let (mut tau, mut lambda) = (0.0_f64, 0.0_f64);
             for _ in 0..passes {
-                let p = to_rect(heliocentric(body, jde - tau));
+                let p = to_rect(&heliocentric(body, jde - tau));
                 let (dx, dy, dz) = (p.x - earth.x, p.y - earth.y, p.z - earth.z);
                 tau = LIGHT_TIME_PER_AU * (dx * dx + dy * dy + dz * dz).sqrt();
                 lambda = dy.atan2(dx).to_degrees().rem_euclid(360.0);
@@ -513,6 +596,108 @@ mod tests {
         assert!(
             third < 0.005,
             "第三轮值 {third:.6}″，记录是 0.0037″——变大了就要重新算这笔账"
+        );
+    }
+
+    /// 与另一套算法逐年对照，而不是只在几个点上对权威值。
+    ///
+    /// 上面两条 oracle 是稀疏点检：IMCCE 对一个时刻、JPL 对一世纪里的若干点。
+    /// 它们能证明我们没系统性跑偏，却证明不了「某几年、某颗星」上没有局部错——
+    /// 那种错正好躲在取样点之间。
+    ///
+    /// 这一条换个方向：拿 `astro` crate（Meeus《Astronomical Algorithms》附录 III 的
+    /// 删节 VSOP87，本 crate 算月亮已在用，且已对 Meeus 自己的教科书算例验过）
+    /// 在 1900–2100 上每两年比一次，七颗行星，约七百个点。两套级数、两个来源、
+    /// 两份实现，只有黄经这一个共同答案。
+    ///
+    /// 0.004″ 是实测记录，不是挑出来能过的容差：它涨了说明有一侧变了，
+    /// 而答案不是放宽这个数。
+    #[test]
+    fn our_longitudes_track_an_independent_series_across_two_centuries() {
+        use astro::planet::Planet as P;
+        const PAIRS: [(Body, P); 7] = [
+            (Body::Mercury, P::Mercury),
+            (Body::Venus, P::Venus),
+            (Body::Mars, P::Mars),
+            (Body::Jupiter, P::Jupiter),
+            (Body::Saturn, P::Saturn),
+            (Body::Uranus, P::Uranus),
+            (Body::Neptune, P::Neptune),
+        ];
+        let (mut worst, mut n) = (0.0_f64, 0u32);
+        let mut jde = 2_415_020.0_f64; // 1900-01-01
+        while jde < 2_488_070.0 {
+            // 到 2100
+            for (ours, theirs) in PAIRS {
+                let a = geocentric_ecliptic_longitude(ours, jde);
+                let (p, _) = astro::planet::geocent_apprnt_ecl_coords(&theirs, jde);
+                worst = worst.max(arcsec_apart(a, p.long.to_degrees()).abs());
+                n += 1;
+            }
+            jde += 733.0;
+        }
+        assert!(n > 600, "只比了 {n} 个点，取样太少");
+        // 界按脚下那张表取。全量时两套级数几乎重合（0.004″）；
+        // 开着 `eph-lite` 时我们主动丢了项，实测偏到 4.28″——那是有意的让步，
+        // 不是这条对照该放宽的理由，所以两个数各自记着。
+        let (bound, recorded) = if cfg!(feature = "eph-lite") { (6.0, "4.28″") } else { (0.02, "0.004″") };
+        assert!(
+            worst < bound,
+            "与删节级数最大差 {worst:.4}″，本档记录是 {recorded}——变大了说明有一侧动了"
+        );
+    }
+
+    /// 截断表偏全量表多少——把这个数钉住。
+    ///
+    /// `eph-lite` 的全部理由是「丢掉振幅低于 1e-6 的项」，那是一次**有意的**精度让步，
+    /// 所以让步多少必须是记录在案的实测值，而不是「跑过就算」。本测试拿同一次构建里
+    /// 的全量表当尺子（`heliocentric_ref` 在开着 lite 时仍编入测试，正为此）。
+    ///
+    /// 1.718″ 是 1900–2100 八颗行星的实测上界；公开盘只精确到角分，粗 35 倍。
+    /// 它涨了说明表被重新生成过或阈值动了，而答案不是放宽这个数。
+    #[cfg(feature = "eph-lite")]
+    #[test]
+    fn the_truncated_series_stays_within_this_much() {
+        const BODIES: [Body; 8] = [
+            Body::Mercury, Body::Venus, Body::Sun, Body::Mars,
+            Body::Jupiter, Body::Saturn, Body::Uranus, Body::Neptune,
+        ];
+        let (mut worst, mut n) = (0.0_f64, 0u32);
+        let mut jde = 2_415_020.0_f64;
+        while jde < 2_488_070.0 {
+            for b in BODIES {
+                // 量的是**地心**黄经：用户看到的是它，而日心残差经几何转换会放大
+                // （内行星在合日附近尤甚）。
+                let cut = geocentric_ecliptic_longitude(b, jde);
+                let full = {
+                    let e = to_rect(&heliocentric_ref(Body::Sun, jde));
+                    match b {
+                        Body::Sun => sun_from(&heliocentric_ref(Body::Sun, jde)),
+                        Body::Moon => moon_geocentric(jde).longitude,
+                        _ => {
+                            let (mut tau, mut lam) = (0.0_f64, 0.0_f64);
+                            for _ in 0..LIGHT_TIME_PASSES {
+                                let p = to_rect(&heliocentric_ref(b, jde - tau));
+                                let (dx, dy, dz) = (p.x - e.x, p.y - e.y, p.z - e.z);
+                                tau = LIGHT_TIME_PER_AU * (dx * dx + dy * dy + dz * dz).sqrt();
+                                lam = dy.atan2(dx).to_degrees().rem_euclid(360.0);
+                            }
+                            lam
+                        }
+                    }
+                };
+                worst = worst.max(arcsec_apart(cut, full).abs());
+                n += 1;
+            }
+            jde += 733.0;
+        }
+        assert!(n > 700, "只比了 {n} 个点，取样太少");
+        // 4.2759″ 是实测上界。注意它比日心残差（1.718″）大——几何转换会放大，
+        // 内行星在合日附近尤甚。用户看到的是地心，所以钉的是这个数。
+        // 公开盘只精确到角分（60″），比它粗 14 倍。
+        assert!(
+            worst < 6.0,
+            "截断表的地心黄经偏全量 {worst:.4}″，记录是 4.2759″——涨了说明表或阈值动过"
         );
     }
 }

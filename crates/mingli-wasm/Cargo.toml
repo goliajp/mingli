@@ -94,6 +94,8 @@ ziwei = ["mingli-registry/ziwei"]
 astrology = ["mingli-registry/astrology", "mingli-app?/astrology"]
 # 只要排盘、不要本地星历：行星位置由调用方给。产物比整片叶小 90.7%。
 astrology-lite = ["mingli-registry/astrology-lite"]
+# 整片占星叶 + 截断星历：位置自己算，但表小 89%。
+astrology-thin = ["mingli-registry/astrology-thin"]
 jyotish = ["mingli-registry/jyotish", "mingli-app?/jyotish"]
 qizhengsiyu = ["mingli-registry/qizhengsiyu"]
 yijing = ["mingli-registry/yijing"]
