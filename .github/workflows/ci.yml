@@ -29,6 +29,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: 脚本里不许有变量名紧挨全角标点
+        run: ./scripts/shell-lint.sh
       - run: cargo test --workspace
       - run: cargo clippy --workspace --all-targets
       - run: cargo doc --workspace --no-deps
