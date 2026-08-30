@@ -502,6 +502,10 @@ probe "占星：asc2 的快路取值变了" mingli-astrology asc2_quadrant_sanit
   crates/mingli-astrology/src/placidus.rs \
   's|        out = if sin_x < 0.0 { -90.0 } else { 90.0 };|        out = if sin_x < 0.0 { -90.0 } else { 89.0 };|'
 
+probe "星历：黄经整体偏了半角秒" mingli-ephemeris our_longitudes_track_an_independent_series_across_two_centuries \
+  crates/mingli-ephemeris/src/lib.rs \
+  's@        lambda = dy.atan2(dx).to_degrees().rem_euclid(360.0);@        lambda = (dy.atan2(dx).to_degrees() + 0.000_139).rem_euclid(360.0);@'
+
 probe "星历：光行时收敛变慢了" mingli-ephemeris the_third_light_time_pass_is_worth_this_much \
   crates/mingli-ephemeris/src/lib.rs \
   's@^const LIGHT_TIME_PER_AU: f64 = 0.005_775_518_3;$@const LIGHT_TIME_PER_AU: f64 = 0.05_775_518_3;@'
