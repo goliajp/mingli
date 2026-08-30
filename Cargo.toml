@@ -60,7 +60,9 @@ mingli-ephemeris = { version = "1.0.0", path = "crates/mingli-ephemeris", defaul
 mingli-ganzhi = { version = "1.0.0", path = "crates/mingli-ganzhi", default-features = false }
 mingli-gua = { version = "1.0.0", path = "crates/mingli-gua", default-features = false }
 mingli-luoshu = { version = "1.0.0", path = "crates/mingli-luoshu" }
-mingli-astrology = { version = "1.0.0", path = "crates/mingli-astrology" }
+# 缺省不带本地星历：装配根按档位（`astrology` / `astrology-lite`）自己补，
+# 用例层要强类型推运，显式补 `port`。
+mingli-astrology = { version = "1.0.0", path = "crates/mingli-astrology", default-features = false }
 mingli-jyotish = { version = "1.0.0", path = "crates/mingli-jyotish" }
 mingli-qizhengsiyu = { version = "1.0.0", path = "crates/mingli-qizhengsiyu" }
 mingli-engine = { version = "1.0.0", path = "crates/mingli-engine" }
