@@ -123,7 +123,20 @@ if [ -e "$SENTINEL" ]; then
 fi
 : > "$SENTINEL"
 
-trap 'restore; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"; rm -f "$SENTINEL"' EXIT INT TERM
+# 种下的错会让 proptest 失败，而 proptest 失败会把种子写进 `proptest-regressions/`。
+# 那份文件是给**真**失败留的：下次运行先重放它。可这里的失败是我们自己种的，
+# 留下来只会让下一个人以为发现了什么——它跟真失败的记录长得一模一样。
+# 记下开跑前有哪些，收尾时把新长出来的删掉，原有的一个不动。
+PROPTEST_BEFORE=$(find crates -type d -name proptest-regressions 2>/dev/null | sort)
+clean_proptest() {
+  local now
+  now=$(find crates -type d -name proptest-regressions 2>/dev/null | sort)
+  comm -13 <(printf '%s\n' "$PROPTEST_BEFORE") <(printf '%s\n' "$now") |
+    while IFS= read -r d; do [ -n "$d" ] && rm -rf "$d"; done
+  return 0
+}
+
+trap 'restore; clean_proptest; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"; rm -f "$SENTINEL"' EXIT INT TERM
 
 # probe <组名> <crate> <测试名> <文件> <sed 表达式>
 probe() {
