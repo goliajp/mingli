@@ -213,20 +213,35 @@ impl Moment {
 mod tests {
     use super::*;
 
-    // —— ΔT 五个年代分段全覆盖（值与已知 ΔT 量级吻合，且不抛 NaN）——
+    // —— ΔT 七个年代分段，逐值钉住 ——
+    //
+    // 从前这里给的是每段一个 ±2 秒的区间。区间对「量级没错」有用，对「系数有没有被改过」
+    // 没用：十六个改系数的变异体全部落在带内活着。系数出自 Espenak–Meeus 且已在
+    // `delta_t_seconds` 的注释里引用，那么它的输出就是确定的，该逐值钉。
+    //
+    // 这些是公式的**推算值**，不是观测值。2005 年以后那两段是外推，与实测 ΔT 的偏离
+    // 本处没有核对——本环境里找不到第二个独立实现或权威表（`astro` crate 把 ΔT 当参数
+    // 收，不自己算）。按铁律三，查不到就不写，而不是编一个看起来合理的数。
+    // 物理上这也不吃紧：ΔT 差一秒，月亮动约 0.5″、行星远小于此，而公开盘只到角分。
     #[test]
     fn delta_t_all_branches() {
-        for &(y, lo, hi) in &[
-            (1910.0, -5.0, 12.0),  // <1920 段
-            (1930.0, 22.0, 26.0),  // 1920–1941 段
-            (1950.0, 28.0, 32.0),  // 1941–1961
-            (1975.0, 44.0, 48.0),  // 1961–1986
-            (1995.0, 60.0, 64.0),  // 1986–2005
-            (2024.0, 68.0, 76.0),  // 2005–2050
-            (2100.0, 90.0, 220.0), // >2050 外推
+        for &(y, want) in &[
+            (1900.0, -2.790_000),   // <1920 段起点
+            (1910.0, 10.388_400),   // <1920 段
+            (1930.0, 24.132_900),   // 1920–1941
+            (1950.0, 29.070_000),   // 1941–1961 起点
+            (1975.0, 45.450_000),   // 1961–1986 起点
+            (1995.0, 60.795_421),   // 1986–2005
+            (2000.0, 63.860_000),   // 2005–2050 起点
+            (2024.0, 73.871_344),   // 2005–2050
+            (2050.0, 93.000_000),   // >2050 外推起点
+            (2100.0, 202.740_000),  // >2050 外推
         ] {
             let dt = delta_t_seconds(y);
-            assert!(dt > lo && dt < hi, "ΔT({y})={dt} 不在 [{lo}，{hi}]");
+            assert!(
+                (dt - want).abs() < 1e-5,
+                "ΔT({y}) = {dt}，应为 {want}——系数动过了"
+            );
         }
     }
 
@@ -238,6 +253,24 @@ mod tests {
         // jd_from_local 在东八区 00：00 = 前一日 16：00 UT
         let jd = jd_from_local(2024, 1, 1, 0, 0, 0.0, 8.0);
         assert!((jd - (julian_day(2024, 1, 1.0) - 8.0 / 24.0)).abs() < 1e-9);
+        // 上面那一行取的是时分秒全零，而日内小数正是 `(时 + 分/60 + 秒/3600) / 24`——
+        // 全零时整条算式归零，里面的加号除号怎么改都看不出来（十一个变异体因此活着）。
+        // 时分秒都给上非零值，每个运算符才各自可见。
+        for &(h, mi, sec, tz, want_frac) in &[
+            (6_u32, 0_u32, 0.0_f64, 0.0_f64, 6.0 / 24.0),
+            (0, 30, 0.0, 0.0, 0.5 / 24.0),
+            (0, 0, 45.0, 0.0, (45.0 / 3600.0) / 24.0),
+            (13, 47, 23.5, 8.0, (13.0 + 47.0 / 60.0 + 23.5 / 3600.0) / 24.0 - 8.0 / 24.0),
+        ] {
+            let got = jd_from_local(2024, 3, 15, h, mi, sec, tz);
+            let want = julian_day(2024, 3, 15.0) + want_frac;
+            assert!(
+                // 1e-9 天 ≈ 86 µs。放到这里不是迁就错误：期望值这一侧的求和次序与实现
+                // 不同，末位差约 2e-10；而任何一个运算符被改动造成的偏移都在小时量级。
+                (got - want).abs() < 1e-9,
+                "jd_from_local(2024-03-15 {h}:{mi}:{sec} tz{tz}) = {got}，应为 {want}"
+            );
+        }
         // 民用日序连续
         assert_eq!(
             civil_day_number(2024, 1, 2) - civil_day_number(2024, 1, 1),
@@ -589,5 +622,59 @@ mod tests {
         fn prop_civil_day_consecutive(d in 1u32..28) {
             prop_assert_eq!(civil_day_number(2000, 1, d + 1), civil_day_number(2000, 1, d) + 1);
         }
+    }
+
+    /// 朔的时刻，与另一份转写逐个比。
+    ///
+    /// 上面那条拿的是两源公开朔时刻，容差 2 分钟——公开值只给到分，钉不了更紧，
+    /// 于是 `new_moon_jd_ut` 里那些小周期项无人过问：变异扫描下它一个函数就留了
+    /// 193 个存活，全是改动幅度低于分钟级分辨率的系数。
+    ///
+    /// 这一条换个方向：`astro` crate 是同一套 Meeus 第 49 章公式的**另一份转写**。
+    /// 算法不独立（所以它不能当正确性权威，那仍是上面那条公开值的事），
+    /// 但转写独立——我们这边抄错任何一个系数，两边立刻分岔。实测它们逐位相同。
+    #[test]
+    fn our_new_moons_match_an_independent_transcription() {
+        use astro::{lunar, time};
+        let (mut worst, mut matched) = (0.0_f64, 0_u32);
+        for k in -1200..=620_i64 {
+            let ours = crate::new_moon_jd_ut(k);
+            let z = (ours + 0.5).floor();
+            let f = ours + 0.5 - z;
+            let a = if z < 2_299_161.0 {
+                z
+            } else {
+                let al = ((z - 1_867_216.25) / 36524.25).floor();
+                z + 1.0 + al - (al / 4.0).floor()
+            };
+            let b = a + 1524.0;
+            let cc = ((b - 122.1) / 365.25).floor();
+            let d = (365.25 * cc).floor();
+            let e = ((b - d) / 30.6001).floor();
+            let day = b - d - (30.6001 * e).floor() + f;
+            let month = if e < 14.0 { e - 1.0 } else { e - 13.0 };
+            let year = if month > 2.0 { cc - 4716.0 } else { cc - 4715.0 };
+            #[allow(clippy::cast_possible_truncation, reason = "年月落在 1500–2100，窄化安全")]
+            let date = time::Date {
+                year: year as i16,
+                month: month as u8,
+                decimal_day: day,
+                cal_type: time::CalType::Gregorian,
+            };
+            let theirs_jde = lunar::time_of_phase(&date, &lunar::Phase::New);
+            let theirs_ut = theirs_jde - delta_t_seconds(year_of_jd(theirs_jde)) / 86400.0;
+            let dm = (ours - theirs_ut) * 24.0 * 60.0;
+            // 差超过半个朔望月，说明 astro 按日期反推时落到了相邻的朔——那不是分歧。
+            if dm.abs() > 15.0 * 24.0 * 60.0 {
+                continue;
+            }
+            worst = worst.max(dm.abs());
+            matched += 1;
+        }
+        assert!(matched > 500, "只对上 {matched} 个朔，取样太少");
+        assert!(
+            worst < 0.001,
+            "与另一份转写最大差 {worst:.5} 分钟，记录是 0.00000——有一侧的系数动过了"
+        );
     }
 }
