@@ -73,6 +73,8 @@ restore() {
     fi
   done
   BACKUPS=()
+  [ -n "${SENTINEL:-}" ] && : > "$SENTINEL"
+  return 0
 }
 
 # 把种错落到一个文件或一整棵目录上。目录是给前端用的：一个字段名散在
@@ -80,6 +82,7 @@ restore() {
 plant() {
   local target=$1 expr=$2
   local bak="$BACKUP_DIR/$(printf '%s' "$target" | tr / _)"
+  printf '%s\t%s\n' "$target" "$bak" >> "$SENTINEL"
   if [ -d "$target" ]; then
     cp -R "$target" "$bak"; BACKUPS+=("$target"$'\t'"$bak")
     while IFS= read -r f; do sedi "$expr" "$f"; done < <(
@@ -95,7 +98,32 @@ plant() {
 # 往 Cargo.toml 里种依赖时，cargo 会顺手改写 Cargo.lock —— 它从不进 BACKUPS，
 # 于是一旦中途被打断，锁文件就留着种进去的那条依赖。始终单独兜住它。
 cp Cargo.lock "$BACKUP_DIR/Cargo.lock"
-trap 'restore; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"' EXIT INT TERM
+
+# 跨轮次的哨兵。
+#
+# trap 兜得住 EXIT/INT/TERM，兜不住 SIGKILL 与断电——那时种下的错就**留在工作区里**。
+# 光留着还算好办，坏在下一轮：下一轮 `cp` 备份的是那份已经带错的文件，把它当成
+# 「原始」，跑完再忠实地还原回去。错就这样在一次次「已还原」的汇报里活下来。
+#
+# 实测代价：一个留在 `year_of_jd` 里的 `* 365.25` 这样传了四轮。ΔT 的自变量被放大
+# 365 倍，节气往返测试失败、农历扫描跑不完——两样都被当成刚发现的真 bug 查了很久，
+# 而它们只是那一个残留。**测量装置坏掉的样子，跟数据长得一模一样。**
+#
+# 所以要一个 trap 之外的证据：种错之前把「哪个文件、备份在哪」写进哨兵，还原后删掉。
+# 下一轮开工先看它——它还在，说明上一轮没能还原，此时**拒绝开跑**，因为这一轮的
+# 备份会把错固化下来。
+SENTINEL=target/.guard-probe-in-flight
+mkdir -p target
+if [ -e "$SENTINEL" ]; then
+  printf '上一轮探测没能还原就结束了。它当时种在：\n' >&2
+  sed 's/^/  /' "$SENTINEL" >&2
+  printf '\n先确认这些文件是干净的（git diff / git checkout --），再删掉 %s 重跑。\n' "$SENTINEL" >&2
+  printf '现在直接跑会把残留的错当成原始内容备份下来，然后还原回去。\n' >&2
+  exit 1
+fi
+: > "$SENTINEL"
+
+trap 'restore; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"; rm -f "$SENTINEL"' EXIT INT TERM
 
 # probe <组名> <crate> <测试名> <文件> <sed 表达式>
 probe() {
@@ -295,6 +323,21 @@ probe "数值：日柱错一位" mingli-registry natal_cast_path_unchanged_regre
 
 
 # ── 契约面：改了不报错、只是答得不一样的那类 ────────────────────
+# 下面三条守的是「远历元钉住」那一族。它们钉的是转写而非权威值，所以更容易被当成
+# 可有可无——恰恰相反：那些高阶项在 1900–2100 内小到 0.001″ 量级，段内任何取样都
+# 看不见，测试要是不真守着，改掉系数照样全绿。
+probe "数值：黄赤交角的三次项被改了" mingli-astro \
+  obliquity_higher_order_terms_are_pinned_at_far_epochs \
+  crates/mingli-astro/src/lib.rs 's/0.001813 \* t \* t \* t/0.001913 * t * t * t/'
+
+probe "数值：恒星时的二次项符号翻了" mingli-astro \
+  sidereal_and_year_helpers_are_pinned_across_epochs \
+  crates/mingli-astro/src/lib.rs 's/+ 0.000387933/- 0.000387933/'
+
+probe "数值：太阳中心差的一次系数被改了" mingli-astro \
+  sun_longitude_coefficients_are_pinned_across_epochs \
+  crates/mingli-astro/src/sun.rs 's/1.914602/1.914702/'
+
 probe "契约：认不出的 subject 又被当成人盘" mingli-api an_unrecognised_subject_is_refused_rather_than_read_as_a_person \
   services/mingli-api/src/routes/natal.rs \
   's|None => return bad_request(format!("subject 认不出|None => mingli_interpret::Subject::Person, #[allow(unreachable_code)] _ => return bad_request(format!("subject 认不出|'
