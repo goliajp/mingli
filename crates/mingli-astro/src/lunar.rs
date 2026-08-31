@@ -52,7 +52,11 @@ fn new_moon_on_or_before(cdn: i64, tz: f64) -> (i64, i64) {
             k -= 1;
         } else {
             // 估算式取的是最近一个朔，真朔与平朔相差不超过 ~0.6 天，
-            // 因此估算至多偏大一格、不会偏小。这一支是搜索循环的安全网，实测不进。
+            // 因此估算至多偏大一格、不会偏小。这一支是搜索循环的安全网。
+            //
+            // 「实测不进」由 [`the_new_moon_estimate_is_never_too_low`] 守着，
+            // 不再只是这里的一句话。它此前确实只是一句话——本文件的注释这么写了很久，
+            // 而验证它的办法（把这支改成 panic 跑一遍全量扫描）从没有人跑过。
             k += 1;
         }
     }
@@ -155,5 +159,42 @@ pub fn solar_to_lunar(year: i32, month: u32, day: u32, tz: f64) -> LunarDate {
         month: mnum,
         leap,
         day: lday,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{new_moon_k_near, new_moon_on_or_before};
+    use crate::civil_day_number;
+
+    /// 朔序号的估算只会偏大，不会偏小。
+    ///
+    /// `new_moon_on_or_before` 的搜索有两支：估大了往回退，估小了往前进。前一支正常走，
+    /// 后一支按 [`new_moon_k_near`] 的构造应当永远不进——它取的是最近一个平朔，
+    /// 而真朔与平朔相差不超过 ~0.6 天。
+    ///
+    /// 这条把那个「应当」变成检查：若估算真的偏小过一次，返回的 k 就会大于估算值。
+    /// 实测（2026-09-01）1900–2100 全程无一例；另一种验法是把那一支改成 panic
+    /// 跑一遍全量扫描，同样不触发，但那种验法留不进仓库。
+    ///
+    /// 它也解释了变异扫描在那一支上留下的两个漏网（`k += 1` 改成 `-=` 或 `*=`）：
+    /// 走不到的代码改了不会有人知道，这是等价变异，不是守卫的缺口。
+    #[test]
+    fn the_new_moon_estimate_is_never_too_low() {
+        let mut checked = 0_u32;
+        for year in 1900..=2100 {
+            for (month, day) in [(1_u32, 15_u32), (4, 10), (7, 20), (10, 5)] {
+                let cdn = civil_day_number(year, month, day);
+                let (_, k) = new_moon_on_or_before(cdn, 8.0);
+                let est = new_moon_k_near(cdn as f64 - 0.5);
+                assert!(
+                    k == est || k == est - 1,
+                    "{year}-{month:02}-{day:02}：搜索落在 k={k}，估算是 {est}——\
+                     估算偏小了，那支「安全网」不再是死代码"
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 804, "取样数变了，上面那句实测结论要跟着重验");
     }
 }

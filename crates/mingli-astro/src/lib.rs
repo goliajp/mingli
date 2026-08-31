@@ -744,9 +744,22 @@ mod tests {
         #[test]
         fn prop_solar_term_longitude_roundtrip(year in 1950i32..2050, lambda in 1.0f64..359.0) {
             // solar_term_jd 求出的时刻，其太阳视黄经应≈请求的 λ（求解器往返自洽）。
-            let l = sun_apparent_longitude(jd_ut_to_jde(solar_term_jd(year, lambda)));
+            //
+            // 容差 1e-8 度按实测定：牛顿迭代十步后残差在 1e-9 之下。此前写的是 0.05——
+            // 宽出五千万倍，于是「迭代步长被改坏、收敛变慢」这类改动照样通过。
+            let jd = solar_term_jd(year, lambda);
+            let l = sun_apparent_longitude(jd_ut_to_jde(jd));
             let diff = (l - lambda).rem_euclid(360.0);
-            prop_assert!(diff.min(360.0 - diff) < 0.05, "λ={} got {}", lambda, l);
+            prop_assert!(diff.min(360.0 - diff) < 1e-8, "λ={} got {}", lambda, l);
+
+            // 而且要落在**请求的那一年**里——这是函数自述的契约（每个节气在一个公历年内
+            // 恰好出现一次），此前无人守。只验黄经是不够的：落到隔壁年的同一个节气上，
+            // 往返照样自洽。初值那一步（`adv / 0.98565`）存在的理由正是这件事。
+            prop_assert!(
+                jd >= julian_day(year, 1, 1.0) && jd < julian_day(year + 1, 1, 1.0),
+                "λ={} 落在 JD {}，不在 {} 年内",
+                lambda, jd, year
+            );
         }
         #[test]
         fn prop_civil_day_consecutive(d in 1u32..28) {
