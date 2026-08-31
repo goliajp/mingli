@@ -5,16 +5,24 @@
 # 这支是穷举：把一个 crate 里每个能改的地方都改一遍，问「有没有哪处改了没人管」。
 # 前者查已知的守卫，后者找没人守的地方。
 #
-#   ./scripts/mutants.sh mingli-astro          # 扫整个 crate
-#   ./scripts/mutants.sh mingli-astro lib.rs   # 只扫一个文件
+#   ./scripts/mutants.sh mingli-astro                       # 扫整个 crate
+#   ./scripts/mutants.sh mingli-astro lib.rs                # 只扫一个文件
+#   ./scripts/mutants.sh mingli-ephemeris '' eph-lite       # 带上非默认档位
 #
 # 一轮以小时计，所以它不进 CI，是手上工具。
 #
 # ---- 三个踩过的坑，写在这里省得下次再踩 ----
 #
-# 一、`-p` 只跑那个包自己的测试。
-#    漏网名单是「本包测试没拦住」，不是「整个仓库没拦住」。工作区里别处的测试
-#    可能正拦着它。所以名单要按 `cargo test --workspace` 复核一遍再动手。
+# 一、只跑本包的测试会虚报漏网。
+#    `-p` 挑的是「在哪个包里生成变异」，默认也只跑那个包自己的测试。于是别处测试
+#    拦着的东西会被报成漏网——实测：`geocentric_ecliptic_longitudes` 整个函数体被
+#    替换成空都「没人拦」，而拦它的测试在 `mingli-astrology` 里。
+#    所以这里固定加 `--test-workspace true`：慢，但名单是真的。
+#
+#    同一件事的另一面：**被 cfg 掉的代码白送漏网**。扫描按当前档位编译，而变异是
+#    照着源文件生成的——`#[cfg(feature = "x")]` 里的代码在 x 没开时压根没编进去，
+#    改它当然没人红。实测：`mingli-ephemeris` 按默认档扫出 44 条漏网，其中 22 条
+#    整块落在 `eph-lite` 里，而那正是 wasm 真正发出去的那条路。第三个参数就是为这个。
 #
 # 二、超时不是拦住。
 #    改坏之后测试挂死，扫描记的是 timeout，跟「拦住」分开列。它既没被拦也不算漏网，
@@ -36,8 +44,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 pkg=${1:-}
-[ -n "$pkg" ] || { echo "用法：./scripts/mutants.sh <crate> [文件]" >&2; exit 1; }
+[ -n "$pkg" ] || { echo "用法：./scripts/mutants.sh <crate> [文件] [档位]" >&2; exit 1; }
 file=${2:-}
+features=${3:-}
 
 command -v cargo-mutants >/dev/null 2>&1 || {
   echo "没装 cargo-mutants：cargo install cargo-mutants" >&2; exit 1
@@ -51,10 +60,11 @@ dirty=$(git status --porcelain | grep -v '^??' || true)
 }
 
 out=$(mktemp -d)
-args=(mutants -p "$pkg" --output "$out")
+args=(mutants -p "$pkg" --test-workspace true --output "$out")
 [ -z "$file" ] || args+=(-f "$file")
+[ -z "$features" ] || args+=(--features "$features")
 
-echo "扫 $pkg${file:+ / $file}，一轮以小时计……"
+echo "扫 $pkg${file:+ / $file}${features:+（档位 $features）}，一轮以小时计……"
 cargo "${args[@]}" || true
 
 missed="$out/mutants.out/missed.txt"
@@ -63,7 +73,7 @@ n_missed=$(wc -l < "$missed" 2>/dev/null | tr -d ' ' || echo 0)
 n_timeout=$(wc -l < "$timeout" 2>/dev/null | tr -d ' ' || echo 0)
 
 printf '\n漏网 %s 条，超时 %s 条。完整结果在 %s\n' "$n_missed" "$n_timeout" "$out/mutants.out"
-[ "$n_missed" -eq 0 ] || { echo; echo '漏网（记得按 workspace 复核，见坑一）：'; sed 's/^/  /' "$missed"; }
+[ "$n_missed" -eq 0 ] || { echo; echo '漏网：'; sed 's/^/  /' "$missed"; }
 [ "$n_timeout" -eq 0 ] || { echo; echo '超时（多半是某条循环没有上限，见坑二）：'; sed 's/^/  /' "$timeout"; }
 
 after=$(git status --porcelain | grep -v '^??' || true)
