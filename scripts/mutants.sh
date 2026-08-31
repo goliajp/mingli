@@ -64,7 +64,7 @@ args=(mutants -p "$pkg" --test-workspace true --output "$out")
 [ -z "$file" ] || args+=(-f "$file")
 [ -z "$features" ] || args+=(--features "$features")
 
-echo "扫 $pkg${file:+ / $file}${features:+（档位 $features）}，一轮以小时计……"
+echo "扫 $pkg${file:+ / $file}${features:+（档位 ${features}）}，一轮以小时计……"
 cargo "${args[@]}" || true
 
 missed="$out/mutants.out/missed.txt"
