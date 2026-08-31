@@ -19,6 +19,9 @@ default = ["serde"]
 serde = ["dep:serde"]
 
 [dev-dependencies]
+# 只为一条对照测试：`astro` 是 Meeus 第 49 章朔望时刻的另一份转写。
+# 算法不独立，转写独立——抄错一个系数两边立刻分岔，而实测它们逐位相同。
+astro = "2"
 # 仅测试期：基于性质的测试。
 proptest = "1"
 
