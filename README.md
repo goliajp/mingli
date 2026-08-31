@@ -223,6 +223,20 @@ cargo doc --workspace      # fully documented
 
 All of the above, plus the screenshot pass, run on every push — see the badge at the top.
 
+One check is deliberately not among them:
+
+```bash
+./scripts/mutants.sh mingli-astro   # break every spot in a crate, one at a time; see which breaks nothing
+```
+
+`guard-probe.sh` plants faults we chose, and asks whether the guard meant to
+catch each one does. This asks the opposite question — is there anywhere in a
+crate that nobody is watching — and it answers by breaking every spot in turn.
+A run takes hours, so it stays a hand tool rather than a gate. What it found
+here is the kind of thing a passing suite hides: coefficients too small to
+observe over the dates this project supports, and loops that answered a wrong
+input by never returning.
+
 Every authoritative reference value is **confirmed against multiple independent sources** and lives in a `#[test]` in the relevant crate. For example:
 
 - Day-pillar anchor 2024-01-01 = 甲子 (three sources agree)
