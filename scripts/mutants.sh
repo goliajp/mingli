@@ -28,6 +28,12 @@
 #    改坏之后测试挂死，扫描记的是 timeout，跟「拦住」分开列。它既没被拦也不算漏网，
 #    实际是最糟的一种：挂死不给任何可读的东西。见到 timeout 先去找那条没有上限的循环。
 #
+#    但先确认它是真的。cargo-mutants 的超时阈值由基线跑一遍推出来，而**基线只跑本包**
+#    （实测 0.62 秒），加上 `--test-workspace` 之后每个变异跑的却是整仓套件（实测 349 秒）。
+#    两个尺度差五百倍，于是凡是没被早早拦住的变异一律撞墙：一轮扫出十七个「超时」，
+#    逐个复跑全是**被拦住的**，只是让它红的那个测试二进制排在后面。
+#    所以下面先自己量一遍整仓套件，按实测的三倍给 `--timeout`。
+#
 # 三、机器忙的时候，超时可能是假的。
 #    cargo-mutants 的超时阈值由基线跑一遍推出来。别的活把机器压住时，一个其实
 #    「当场就被拦住」的变异也会因为编译被拖慢而记成超时。实测过一次：某个
@@ -59,8 +65,19 @@ dirty=$(git status --porcelain | grep -v '^??' || true)
   exit 1
 }
 
+# 先量整仓套件跑一遍要多久，顺带确认树是绿的——对着一棵红树扫，出来的名单没有意义。
+echo "先量一遍整仓套件（顺带确认树是绿的）……"
+t0=$(date +%s)
+cargo test --workspace >/dev/null 2>&1 || {
+  echo "整仓测试没全绿，扫描出来的名单不作数" >&2; exit 1
+}
+baseline=$(( $(date +%s) - t0 ))
+limit=$(( baseline * 3 ))
+[ "$limit" -ge 60 ] || limit=60
+echo "整仓套件 ${baseline}s，超时阈值取 ${limit}s"
+
 out=$(mktemp -d)
-args=(mutants -p "$pkg" --test-workspace true --output "$out")
+args=(mutants -p "$pkg" --test-workspace true --timeout "$limit" --output "$out")
 [ -z "$file" ] || args+=(-f "$file")
 [ -z "$features" ] || args+=(--features "$features")
 
