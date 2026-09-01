@@ -38,12 +38,19 @@ fn asc2(x: f64, f: f64, sine: f64, cose: f64) -> f64 {
     }
     let mut out;
     if sin_x == 0.0 {
+        // 这个 `<` 松成 `<=` 会把结果从 ~0 翻到 180°——两支同时退化时它是唯一的分水岭。
+        // 由 `asc1_is_pinned_branch_by_branch` 里 `f = 90 − ε` 那几格钉住。
         out = if ass < 0.0 { -VERY_SMALL } else { VERY_SMALL };
     } else if ass == 0.0 {
+        // `sin_x < 0.0` 在本函数的契约下走不到：`asc1` 只用象限一的 x（0..=90），
+        // 那里 sin 非负。变异扫描会把这一支的比较与那个负号列成漏网，
+        // 它们是**走不到的代码**上的变异，不是守卫的缺口。保留是为了跟 swehouse.c 逐行对得上。
         out = if sin_x < 0.0 { -90.0 } else { 90.0 };
     } else {
         out = (sin_x / ass).atan().to_degrees();
     }
+    // 这里的 `<` 松成 `<=` 是等价变异：`out` 取不到 0——`sin_x == 0` 那支给 ±VERY_SMALL，
+    // 另外两支给 ±90 或一个 atan 的非零值。
     if out < 0.0 {
         out += 180.0;
     }
@@ -54,12 +61,21 @@ fn asc2(x: f64, f: f64, sine: f64, cose: f64) -> f64 {
 pub(crate) fn asc1(mut x1: f64, f: f64, sine: f64, cose: f64) -> f64 {
     x1 = norm360(x1);
     let n = (x1 / 90.0).floor() as i32 + 1; // 1..=4
+    // 这两条是极点的**捷径**，不是分岔：`f → ±90` 时 `tan f` 发散，下面的通式本来
+    // 就趋向同一个 180 / 0。所以把它们的比较放宽、甚至把 `90.0 - f` 写成 `90.0 / f`，
+    // 结果只差 1e-14 量级——变异扫描列出的那几条是近似等价，不是没人守。
+    // 由 `the_pole_guards_short_circuit_before_the_quadrants` 钉住它们确实短路。
     if (90.0 - f).abs() < VERY_SMALL {
         return 180.0;
     }
     if (90.0 + f).abs() < VERY_SMALL {
         return 0.0;
     }
+    // 第三象限那一支与第四象限那条**恒等**：把 asc2 的定义代进去可得
+    // `asc2(180 − u, f) = 180 − asc2(u, −f)`，于是 `180 + asc2(x−180, −f)`
+    // 与 `360 − asc2(360 − x, f)` 处处相同（实测差 0 与 5.7e-14）。
+    // 所以变异扫描把「删掉第三支」与「`x1 - 180` 改成 `x1 + 180`」（后者模 360 同值）
+    // 报成漏网，两条都是等价变异。保留三支是为了跟 swehouse.c 的分发一一对应。
     let mut ass = match n {
         1 => asc2(x1, f, sine, cose),
         2 => 180.0 - asc2(180.0 - x1, -f, sine, cose),
@@ -113,6 +129,8 @@ fn solve_cusp(
     // 第一步初值
     let first_lambda = asc1(rectasc, pole_main, sine, cose);
     let tant = (sine * first_lambda.to_radians().sin()).asin().tan();
+    // 这个 `<` 与循环里那个同款的，松成 `<=` 都是等价变异：差别只在
+    // `tant.abs()` 恰好等于 1e-10 的那一个比特上，本域内取不到。
     if tant.abs() < VERY_SMALL {
         return Some(rectasc);
     }
@@ -126,8 +144,12 @@ fn solve_cusp(
     // 由 `the_iteration_forgets_the_pole_it_started_from` 钉住。
     let f_pole = ((inner.asin() / denom).sin() / tant).atan().to_degrees();
     let mut cusp = asc1(rectasc, f_pole, sine, cose);
-    let mut cusp_sv = 0.0_f64;
-    for i in 1..=NITER_MAX {
+    // 上一轮的值。头一轮没有上一轮——从前这里是个 0.0 的哨兵配一个 `i > 1`，
+    // 于是「哨兵恰好像个真值」成了可能：宫尖若落在 0° 前 0.01 角秒内，
+    // 把 `i > 1` 松成 `i >= 1` 就会在第一轮提前收工，而没有测试够得着那个角落。
+    // 用 `Option` 说出本意后，那个比较连同它的变异体一起不存在了。
+    let mut previous: Option<f64> = None;
+    for _ in 1..=NITER_MAX {
         let tant = (sine * cusp.to_radians().sin()).asin().tan();
         if tant.abs() < VERY_SMALL {
             return Some(rectasc);
@@ -138,10 +160,12 @@ fn solve_cusp(
         }
         let f_pole = ((inner.asin() / denom).sin() / tant).atan().to_degrees();
         let cusp_new = asc1(rectasc, f_pole, sine, cose);
-        if i > 1 && signed_diff_deg(cusp_new, cusp_sv).abs() < ITER_TOL_DEG {
+        // 比的是隔一轮的值（不是上一轮），这样两步一循环的振荡也能收住。
+        // 这里的 `<` 松成 `<=` 只在差值恰等于阈值的那一个比特上不同，是等价变异。
+        if previous.is_some_and(|prev| signed_diff_deg(cusp_new, prev).abs() < ITER_TOL_DEG) {
             return Some(cusp_new);
         }
-        cusp_sv = cusp;
+        previous = Some(cusp);
         cusp = cusp_new;
     }
     None
@@ -206,7 +230,11 @@ pub fn porphyry_cusps(asc: f64, mc: f64) -> PlacidusCusps {
 /// 极区(`|φ| ≥ 90° − ε`) 或迭代不收敛时返回 [`None`]，上层应回退到整宫制。
 #[must_use]
 pub fn cusps(ramc_deg: f64, obliquity_deg: f64, lat_deg: f64, asc: f64, mc: f64) -> Option<PlacidusCusps> {
-    // 极区保护（swehouse.c 同款）
+    // 极区保护（swehouse.c 同款）。
+    //
+    // 它与下面那道 `a_aux` 非有限的判据是**同一条界**：`tan φ · tan ε > 1`
+    // 等价于 `|φ| > 90° − ε`。所以把这里的减号改成加号（门槛跳到 113°，形同虚设）
+    // 不会有测试红——`a_aux` 那道会接住。是等价变异，不是缺口；这里留着是快路径。
     if lat_deg.abs() >= 90.0 - obliquity_deg {
         return None;
     }
@@ -404,6 +432,14 @@ mod tests {
             (180.0, 40.0, 180.0),
             (90.0, 66.0, 131.779_118_868_7),
             (270.0, -66.0, 311.779_118_868_7),
+            // `f = 90 − ε` 上 `tan f · sin ε` 恰好等于 `cos ε`，于是 x=0 处 `ass` 与
+            // `sin x` 同时落到零附近（实测 ass = −2.2e-16）。这一格是 `asc2` 里
+            // 「两支都退化」的唯一入口：`ass` 靠上面那条吸附归零，`ass < 0.0` 才判假、
+            // 才走到 `+VERY_SMALL`。吸附去掉、或那个 `<` 松成 `<=`，结果都会翻到 180°。
+            (0.0, 66.56, 0.000_000_000_1),
+            (180.0, -66.56, 180.0),
+            (90.0, 66.56, 132.535_670_438_098),
+            (270.0, 66.56, 227.464_329_561_902),
         ] {
             let got = asc1(x, f, sine, cose);
             assert!(
