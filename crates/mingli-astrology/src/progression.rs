@@ -59,7 +59,7 @@ pub fn progression(natal_jde: f64, natal: &[PlanetPos], max_age: u32, step: u32)
         .step_by(step as usize)
         .map(|age| {
             // 一日一年：第 N 年 = 出生后第 N 日
-            let planets = compute_planets(natal_jde + f64::from(age), None);
+            let planets = compute_planets(natal_jde + f64::from(age));
             let to_natal = crate::cross_aspects(&planets, natal, DEFAULT_ORB);
             ProgressedYear { age, planets, to_natal }
         })

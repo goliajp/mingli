@@ -344,21 +344,25 @@ fn planets_from(longitudes: &[f64; 9], asc_sign_idx: Option<usize>) -> Vec<Plane
         .collect()
 }
 
+/// 推运盘的行星位置。
+///
+/// 不带宫位：推运只有时刻没有地点，`house` 因此恒为 `None`。它从前是个
+/// `Option<usize>` 参数，而唯一的调用方（`progression.rs`）永远传 `None`——
+/// 于是那行归宫算式是走不到的代码，变异扫描在它上面留了八个漏网。
+/// 本盘的归宫在 [`planets_from`]，那条有地点，也有测试。
 #[cfg(feature = "ephemeris")]
-fn compute_planets(jde: f64, asc_sign_idx: Option<usize>) -> Vec<PlanetPos> {
+fn compute_planets(jde: f64) -> Vec<PlanetPos> {
     BODIES
         .iter()
         .map(|&(body, name)| {
             let lon = geocentric_ecliptic_longitude(body, jde);
             let sign_idx = quantizer::sector(lon, 12) as usize;
-            // Whole Sign：宫位 = （星座序 − 上升星座序） mod 12 + 1。
-            let house = asc_sign_idx.map(|a| ((sign_idx + 12 - a) % 12 + 1) as u8);
             PlanetPos {
                 name: name.to_string(),
                 longitude: lon,
                 sign: SIGNS[sign_idx].to_string(),
                 degree: quantizer::within(lon, 12),
-                house,
+                house: None,
             }
         })
         .collect()

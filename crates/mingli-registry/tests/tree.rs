@@ -991,6 +991,35 @@ fn every_school_option_actually_changes_the_chart() {
     let clocks = [(0, 30), (7, 0), (12, 0), (15, 0), (23, 30)];
     let seeds = [None, Some(1_u64), Some(7), Some(2024), Some(99_991)];
 
+    // 哪些叶声明了流派，先钉住。
+    //
+    // 下面那句 `continue` 会把空列表静默放过——于是把某片叶的 `schools()` 整个清空，
+    // 这条测试照常绿。变异扫描正是这么发现它的：`AstrologyEngine::schools` 返回空表，
+    // 没有一条测试红。空集合能满足的断言，等于没有断言。
+    //
+    // 这张表是实测的（2026-09-02）。加减流派是有意的改动，改这里一行就是；
+    // 而无意中把一片叶的流派丢掉，这里会红。
+    let with_schools: std::collections::BTreeMap<&str, usize> = mingli_registry::registry()
+        .iter()
+        .filter(|e| !e.schools().is_empty())
+        .map(|e| (e.id(), e.schools().len()))
+        .collect();
+    assert_eq!(
+        with_schools,
+        std::collections::BTreeMap::from([
+            ("astrology", 5),
+            ("bazi", 4),
+            ("jyotish", 4),
+            ("liuren", 2),
+            ("meihua", 2),
+            ("numerology", 2),
+            ("tarot", 7),
+            ("yijing", 2),
+            ("ziwei", 2),
+        ]),
+        "哪片叶有几个流派变了——是有意的就改这张表"
+    );
+
     for e in mingli_registry::registry() {
         let opts = e.schools();
         if opts.is_empty() {

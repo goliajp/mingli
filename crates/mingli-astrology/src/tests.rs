@@ -111,6 +111,54 @@ fn house_system_id_name_roundtrip() {
     assert_eq!(HouseSystem::from_id(""), HouseSystem::Placidus);
 }
 
+/// 宫尖表把每颗星恰好放进一个宫，相位表不含自反也不重复。
+///
+/// 上一条只问 `cusp_houses.is_some()`——在不在，不问里面是什么。于是把宫内名单的
+/// 筛选条件从 `== k` 改成 `!= k`（每颗星进十一个宫）照样绿。相位那边同理：
+/// 内层循环起点从 `i + 1` 改成 `i`，每颗星与自己成 0° 合相，也没有一条测试红。
+///
+/// 这两件事都不必知道正确答案是什么——只要求这张表是一个**划分**、那张表**无自反**。
+#[test]
+fn the_cusp_houses_partition_the_planets_and_the_aspects_never_pair_a_planet_with_itself() {
+    let geo = GeoLocation { latitude: 52.833, longitude: 0.5 };
+    let m = Moment::new(1961, 7, 1, 19, 45, 1.0);
+    let chart = compute_at(&m, Some(geo), HouseSystem::Placidus);
+
+    let entries = chart.cusp_houses.as_ref().expect("Placidus 应出宫尖表");
+    assert_eq!(entries.len(), 12, "宫尖表应有十二宫");
+    let mut seen: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+    for e in entries {
+        for name in &e.planets {
+            *seen.entry(name.as_str()).or_insert(0) += 1;
+        }
+    }
+    assert_eq!(
+        seen.len(),
+        chart.planets.len(),
+        "宫尖表里出现的星数与盘上的星数不符：{seen:?}"
+    );
+    for p in &chart.planets {
+        assert_eq!(
+            seen.get(p.name.as_str()).copied(),
+            Some(1),
+            "{} 落在 {:?} 个宫里，应恰好一个",
+            p.name,
+            seen.get(p.name.as_str())
+        );
+    }
+
+    let mut pairs = std::collections::HashSet::new();
+    for asp in &chart.aspects {
+        assert_ne!(asp.a, asp.b, "{} 与自己成了相位", asp.a);
+        let key = if asp.a < asp.b {
+            (asp.a.clone(), asp.b.clone())
+        } else {
+            (asp.b.clone(), asp.a.clone())
+        };
+        assert!(pairs.insert(key), "{} 与 {} 出现了不止一次", asp.a, asp.b);
+    }
+}
+
 #[test]
 fn koch_house_system_routes_to_koch_cusps() {
     // 显式选 Koch → cusp_system == "koch"，cusp_houses Some。
