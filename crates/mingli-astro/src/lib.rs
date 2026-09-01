@@ -751,20 +751,40 @@ mod tests {
             let l = sun_apparent_longitude(jd_ut_to_jde(jd));
             let diff = (l - lambda).rem_euclid(360.0);
             prop_assert!(diff.min(360.0 - diff) < 1e-8, "λ={} got {}", lambda, l);
-
-            // 而且要落在**请求的那一年**里——这是函数自述的契约（每个节气在一个公历年内
-            // 恰好出现一次），此前无人守。只验黄经是不够的：落到隔壁年的同一个节气上，
-            // 往返照样自洽。初值那一步（`adv / 0.98565`）存在的理由正是这件事。
-            prop_assert!(
-                jd >= julian_day(year, 1, 1.0) && jd < julian_day(year + 1, 1, 1.0),
-                "λ={} 落在 JD {}，不在 {} 年内",
-                lambda, jd, year
-            );
         }
         #[test]
         fn prop_civil_day_consecutive(d in 1u32..28) {
             prop_assert_eq!(civil_day_number(2000, 1, d + 1), civil_day_number(2000, 1, d) + 1);
         }
+    }
+
+    /// 二十四节气都落在请求的那个公历年内。
+    ///
+    /// 这是 [`solar_term_jd`] 自述的契约，此前无人守——只验黄经是不够的，落到隔壁年的
+    /// 同一个节气上往返照样自洽。初值那一步（`adv / 0.98565`）存在的理由正是这件事，
+    /// 而把它改成乘法的变异体因此活着。
+    ///
+    /// 契约只对**真的节气角**成立，不对任意 λ 成立。元旦那天太阳黄经在 280.1°–280.4°
+    /// 之间，λ 落在这条缝附近时交点本来就骑在年界上：实测 `solar_term_jd(1981, 280.3959)`
+    /// 落在 1982-01-01 03:36 UT。二十四节气是 15° 的整数倍，最近的两个（270° 冬至、
+    /// 285° 小寒）分别在 12 月 21 日与 1 月 5 日前后，离缝有好几天。
+    /// 所以这里逐个走那二十四个角，不用随机 λ——那样测的是函数没许诺过的事。
+    #[test]
+    fn every_solar_term_lands_inside_the_year_it_was_asked_for() {
+        let mut checked = 0_u32;
+        for year in 1900..=2100 {
+            let (lo, hi) = (julian_day(year, 1, 1.0), julian_day(year + 1, 1, 1.0));
+            for i in 0..24 {
+                let lambda = f64::from(i) * 15.0;
+                let jd = solar_term_jd(year, lambda);
+                assert!(
+                    jd >= lo && jd < hi,
+                    "{year} 年 λ={lambda}° 落在 JD {jd}，不在 [{lo}, {hi}) 内"
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 4_824, "取样数变了，上面那句实测结论要跟着重验");
     }
 
     /// 朔的时刻，与另一份转写逐个比。
