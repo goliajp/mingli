@@ -18,10 +18,15 @@
 #    拦着的东西会被报成漏网——实测：`geocentric_ecliptic_longitudes` 整个函数体被
 #    替换成空都「没人拦」，而拦它的测试在 `mingli-astrology` 里。
 #
-#    但整仓跑一遍要 530 秒，全程用它扫一个 crate 是三小时。所以分两趟：
-#    第一趟只跑本包（六分钟）。这一趟若一条漏网都没有，结论已经比整仓那趟**更强**
+#    但整仓跑一遍要十几分钟，全程用它扫一个 crate 是几小时。所以分两趟：
+#    第一趟只跑本包（几分钟）。这一趟若一条漏网都没有，结论已经比整仓那趟**更强**
 #    ——「本包自己就拦住了全部」蕴含「整仓拦住了全部」，不必再跑。
-#    只有出现漏网时才有第二趟：对**出现漏网的那几个文件**用整仓测试复核。
+#    只有出现漏网时才有第二趟：对出现漏网的那几个文件重扫一遍。
+#
+#    第二趟也不跑整仓。能拦住某个包里变异的测试，只可能在**它自己或依赖它的包**里
+#    ——别的包根本编不到那段代码。`dependents.py` 算出这一组（astrology 是 8 个而非 39 个）。
+#    这不是省事，是必要：第二趟的代价恰恰压在漏网身上（漏网 = 整组测试跑满才判定），
+#    一次实测里 54 条漏网 × 990 秒的整仓套件要跑十五小时。
 #
 #    同一件事的另一面：**被 cfg 掉的代码白送漏网**。扫描按当前档位编译，而变异是
 #    照着源文件生成的——`#[cfg(feature = "x")]` 里的代码在 x 没开时压根没编进去，
@@ -71,15 +76,23 @@ dirty=$(git status --porcelain | grep -v '^??' || true)
 
 # 先确认树是绿的——对着一棵红树扫，出来的名单没有意义。顺带量整仓套件要多久，
 # 第二趟的超时阈值按它定（见坑二：cargo-mutants 自己推的那个阈值量错了尺度）。
-echo "先量一遍整仓套件（顺带确认树是绿的）……"
+# 第二趟要跑的那一组：本包，加上传递依赖它的包。别的包编不到被改的代码。
+group=()
+while IFS= read -r g; do [ -n "$g" ] && group+=("$g"); done < <(python3 scripts/dependents.py "$pkg")
+[ "${#group[@]}" -ge 1 ] || { echo "算不出 $pkg 的依赖方" >&2; exit 1; }
+
+pkg_args=()
+for g in "${group[@]}"; do pkg_args+=(-p "$g"); done
+
+echo "先量一遍这一组的测试（${#group[@]} 个包，顺带确认它们是绿的）……"
 t0=$(date +%s)
-cargo test --workspace >/dev/null 2>&1 || {
-  echo "整仓测试没全绿，扫描出来的名单不作数" >&2; exit 1
+cargo test "${pkg_args[@]}" >/dev/null 2>&1 || {
+  echo "这一组测试没全绿，扫描出来的名单不作数" >&2; exit 1
 }
-ws_secs=$(( $(date +%s) - t0 ))
-limit=$(( ws_secs * 3 ))
+grp_secs=$(( $(date +%s) - t0 ))
+limit=$(( grp_secs * 3 ))
 [ "$limit" -ge 60 ] || limit=60
-echo "整仓套件 ${ws_secs}s；第二趟若要跑，超时阈值取 ${limit}s"
+echo "这一组 ${grp_secs}s；第二趟若要跑，超时阈值取 ${limit}s"
 
 out=$(mktemp -d)
 args=(mutants -p "$pkg" --output "$out")
@@ -98,10 +111,11 @@ n_missed=$(wc -l < "$missed" 2>/dev/null | tr -d ' ' || echo 0)
 if [ "$n_missed" -gt 0 ]; then
   files=$(sed 's/:.*//' "$missed" | sed 's|.*/src/|src/|' | sort -u)
   echo
-  echo "第一趟漏网 ${n_missed} 条，落在这几个文件里，用整仓测试复核："
+  echo "第一趟漏网 ${n_missed} 条，落在这几个文件里；用这 ${#group[@]} 个包的测试复核："
   printf '%s\n' "$files" | sed 's/^/  /'
   out2=$(mktemp -d)
-  args2=(mutants -p "$pkg" --test-workspace true --timeout "$limit" --output "$out2")
+  args2=(mutants -p "$pkg" --timeout "$limit" --output "$out2")
+  for g in "${group[@]}"; do args2+=(--test-package "$g"); done
   [ -z "$features" ] || args2+=(--features "$features")
   while IFS= read -r f; do [ -n "$f" ] && args2+=(-f "${f##*/}"); done <<< "$files"
   cargo "${args2[@]}" || true
