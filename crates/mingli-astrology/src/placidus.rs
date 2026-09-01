@@ -121,6 +121,9 @@ fn solve_cusp(
     if !(-1.0..=1.0).contains(&inner) {
         return None;
     }
+    // 这一行与 `cusps` 里的 fh1/fh2 同理：只是迭代的**起点**，循环每轮都从收敛中的
+    // cusp 重算极高。改这里的算术不改变答案，只改变迭代次数——等价变异。
+    // 由 `the_iteration_forgets_the_pole_it_started_from` 钉住。
     let f_pole = ((inner.asin() / denom).sin() / tant).atan().to_degrees();
     let mut cusp = asc1(rectasc, f_pole, sine, cose);
     let mut cusp_sv = 0.0_f64;
@@ -153,6 +156,8 @@ pub(crate) fn pack(asc: f64, mc: f64, c11: f64, c12: f64, c2: f64, c3: f64) -> P
     cusps[12] = c12;
     cusps[2] = c2;
     cusps[3] = c3;
+    // 下面六行的 `+ 180.0` 改成 `- 180.0` 不会有任何测试红，那不是缺口：
+    // 模 360 之下两者恒等。变异扫描会把这六条列成漏网，它们是等价变异。
     cusps[4] = norm360(mc + 180.0);
     cusps[5] = norm360(c11 + 180.0);
     cusps[6] = norm360(c12 + 180.0);
@@ -182,7 +187,7 @@ pub fn equal_cusps(asc: f64, mc: f64) -> PlacidusCusps {
 pub fn porphyry_cusps(asc: f64, mc: f64) -> PlacidusCusps {
     let asc = norm360(asc);
     let mc = norm360(mc);
-    let ic = norm360(mc + 180.0);
+    let ic = norm360(mc + 180.0); // `- 180.0` 与它模 360 恒等，是等价变异
     // MC→Asc 弧（逆时针，黄经增大方向）。
     let mc_to_asc = norm360(asc - mc);
     let third_top = mc_to_asc / 3.0;
@@ -331,6 +336,101 @@ mod singularities {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 极区门槛就在 `|φ| = 90° − ε` 上，两侧各验一次。
+    ///
+    /// `cusps` 用 `lat_deg.abs() >= 90.0 - obliquity_deg` 挡极区。把那个减号改成加号，
+    /// 门槛从 66.56° 跳到 113.44°——再没有一个纬度够得着，保护形同虚设，而所有测试照常绿：
+    /// 它们取的纬度都在温带，离门槛十几度远。
+    ///
+    /// 所以在门槛两侧各取一点：里面要给得出十二宫，外面要 `None`（上层据此回落 Porphyry）。
+    #[test]
+    fn the_polar_cutoff_sits_where_the_obliquity_puts_it() {
+        const EPS: f64 = 23.44;
+        let cutoff = 90.0 - EPS; // 66.56°
+        for &(lat, want_some) in &[
+            (cutoff - 0.5, true),
+            (-(cutoff - 0.5), true),
+            (cutoff + 0.5, false),
+            (-(cutoff + 0.5), false),
+            (89.0_f64, false),
+        ] {
+            let (asc, mc) = crate::asc_mc(120.0, EPS, lat);
+            let got = cusps(120.0, EPS, lat, asc, mc);
+            assert_eq!(
+                got.is_some(),
+                want_some,
+                "纬度 {lat}° 在门槛 {cutoff}° 的{}侧，应{}给出宫尖",
+                if want_some { "内" } else { "外" },
+                if want_some { "" } else { "不" }
+            );
+        }
+    }
+
+    /// `asc1` 的每个分支，逐点钉住。
+    ///
+    /// 这里此前只有性质：绕一圈不倒退、宫尖有序。性质拦不住把算式改坏——变异扫描下
+    /// `asc1` 与 `asc2` 共留二十个漏网，其中一个把**第三象限那条分支整个删掉**
+    /// （`n == 3` 落到第四象限的公式上）都没有一条测试红。
+    ///
+    /// 取样按分支铺开：四个象限各两点、`f` 取正负（`asc2` 的第二/三象限调用会翻 `f` 的号）、
+    /// 以及 `x = 0/90/180/270` 这四个退化点——`sin x == 0` 与 `ass == 0` 那两支只在那里走到，
+    /// 而绕圈测试的步长恰好跨过它们。
+    ///
+    /// 期望值由 `swehouse.c` 的 `Asc1`/`Asc2` 算式逐点算出（那两条算式已在函数注释里引用），
+    /// 钉的是转写：它答的是「有没有人改过这些分支」，不是「Placidus 对不对」——
+    /// 后者由下面对 pyswisseph 十二宫尖的比对守着。
+    #[test]
+    fn asc1_is_pinned_branch_by_branch() {
+        let (sine, cose) = (23.44_f64.to_radians().sin(), 23.44_f64.to_radians().cos());
+        for &(x, f, want) in &[
+            (0.0_f64, 0.0_f64, 0.000_000_000_1_f64),
+            (45.0, 0.0, 47.464_329_561_9),
+            (90.0, 0.0, 90.0),
+            (135.0, 0.0, 132.535_670_438_1),
+            (180.0, 0.0, 180.0),
+            (225.0, 0.0, 227.464_329_561_9),
+            (270.0, 0.0, 270.0),
+            (315.0, 0.0, 312.535_670_438_1),
+            (30.0, 52.0, 60.281_200_276_1),
+            (120.0, 52.0, 138.179_062_254_0),
+            (200.0, 52.0, 194.004_661_551_2),
+            (300.0, 52.0, 266.668_825_057_6),
+            (30.0, -52.0, 20.982_941_111_6),
+            (120.0, -52.0, 86.668_825_057_6),
+            (200.0, -52.0, 224.094_887_805_7),
+            (300.0, -52.0, 318.179_062_254_0),
+            (0.0, 40.0, 0.000_000_000_1),
+            (180.0, 40.0, 180.0),
+            (90.0, 66.0, 131.779_118_868_7),
+            (270.0, -66.0, 311.779_118_868_7),
+        ] {
+            let got = asc1(x, f, sine, cose);
+            assert!(
+                (got - want).abs() < 1e-9,
+                "asc1({x}, {f}) = {got}，应为 {want}——分支或算式动过了"
+            );
+        }
+    }
+
+    /// 极高恰在 ±90° 时，`asc1` 直接给出 180 或 0，不进象限分发。
+    ///
+    /// 这两支（`(90 − f).abs() < VERY_SMALL` 与 `(90 + f).abs() < …`）是 swehouse.c 的极点保护。
+    /// 上面那张表走不到它们：表里 `f` 最大 66°，而这两支只在正好 ±90 时开。
+    #[test]
+    fn the_pole_guards_short_circuit_before_the_quadrants() {
+        let (sine, cose) = (23.44_f64.to_radians().sin(), 23.44_f64.to_radians().cos());
+        for &x in &[0.0_f64, 45.0, 123.4, 200.0, 359.9] {
+            assert!(
+                (asc1(x, 90.0, sine, cose) - 180.0).abs() < 1e-12,
+                "f=90° 时 asc1({x}) 应恒为 180"
+            );
+            assert!(
+                asc1(x, -90.0, sine, cose).abs() < 1e-12,
+                "f=−90° 时 asc1({x}) 应恒为 0"
+            );
+        }
+    }
 
     // —— Diana, Princess of Wales (Rodden AA): 1961-07-01 19:45 BST=UT 18:45 ——
     // Sandringham 52°50′N 0°30′E。
