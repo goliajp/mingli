@@ -17,7 +17,11 @@
 #    `-p` 挑的是「在哪个包里生成变异」，默认也只跑那个包自己的测试。于是别处测试
 #    拦着的东西会被报成漏网——实测：`geocentric_ecliptic_longitudes` 整个函数体被
 #    替换成空都「没人拦」，而拦它的测试在 `mingli-astrology` 里。
-#    所以这里固定加 `--test-workspace true`：慢，但名单是真的。
+#
+#    但整仓跑一遍要 530 秒，全程用它扫一个 crate 是三小时。所以分两趟：
+#    第一趟只跑本包（六分钟）。这一趟若一条漏网都没有，结论已经比整仓那趟**更强**
+#    ——「本包自己就拦住了全部」蕴含「整仓拦住了全部」，不必再跑。
+#    只有出现漏网时才有第二趟：对**出现漏网的那几个文件**用整仓测试复核。
 #
 #    同一件事的另一面：**被 cfg 掉的代码白送漏网**。扫描按当前档位编译，而变异是
 #    照着源文件生成的——`#[cfg(feature = "x")]` 里的代码在 x 没开时压根没编进去，
@@ -65,28 +69,47 @@ dirty=$(git status --porcelain | grep -v '^??' || true)
   exit 1
 }
 
-# 先量整仓套件跑一遍要多久，顺带确认树是绿的——对着一棵红树扫，出来的名单没有意义。
+# 先确认树是绿的——对着一棵红树扫，出来的名单没有意义。顺带量整仓套件要多久，
+# 第二趟的超时阈值按它定（见坑二：cargo-mutants 自己推的那个阈值量错了尺度）。
 echo "先量一遍整仓套件（顺带确认树是绿的）……"
 t0=$(date +%s)
 cargo test --workspace >/dev/null 2>&1 || {
   echo "整仓测试没全绿，扫描出来的名单不作数" >&2; exit 1
 }
-baseline=$(( $(date +%s) - t0 ))
-limit=$(( baseline * 3 ))
+ws_secs=$(( $(date +%s) - t0 ))
+limit=$(( ws_secs * 3 ))
 [ "$limit" -ge 60 ] || limit=60
-echo "整仓套件 ${baseline}s，超时阈值取 ${limit}s"
+echo "整仓套件 ${ws_secs}s；第二趟若要跑，超时阈值取 ${limit}s"
 
 out=$(mktemp -d)
-args=(mutants -p "$pkg" --test-workspace true --timeout "$limit" --output "$out")
+args=(mutants -p "$pkg" --output "$out")
 [ -z "$file" ] || args+=(-f "$file")
 [ -z "$features" ] || args+=(--features "$features")
 
-echo "扫 $pkg${file:+ / $file}${features:+（档位 ${features}）}，一轮以小时计……"
+echo "第一趟：扫 $pkg${file:+ / $file}${features:+（档位 ${features}）}，只跑本包的测试……"
 cargo "${args[@]}" || true
 
 missed="$out/mutants.out/missed.txt"
 timeout="$out/mutants.out/timeout.txt"
 n_missed=$(wc -l < "$missed" 2>/dev/null | tr -d ' ' || echo 0)
+
+# 第一趟有漏网，才需要第二趟：那些漏网可能正被别的包的测试拦着。
+# 只重扫出现漏网的那几个文件，别的文件第一趟已经给出更强的结论。
+if [ "$n_missed" -gt 0 ]; then
+  files=$(sed 's/:.*//' "$missed" | sed 's|.*/src/|src/|' | sort -u)
+  echo
+  echo "第一趟漏网 ${n_missed} 条，落在这几个文件里，用整仓测试复核："
+  printf '%s\n' "$files" | sed 's/^/  /'
+  out2=$(mktemp -d)
+  args2=(mutants -p "$pkg" --test-workspace true --timeout "$limit" --output "$out2")
+  [ -z "$features" ] || args2+=(--features "$features")
+  while IFS= read -r f; do [ -n "$f" ] && args2+=(-f "${f##*/}"); done <<< "$files"
+  cargo "${args2[@]}" || true
+  out=$out2
+  missed="$out/mutants.out/missed.txt"
+  timeout="$out/mutants.out/timeout.txt"
+  n_missed=$(wc -l < "$missed" 2>/dev/null | tr -d ' ' || echo 0)
+fi
 n_timeout=$(wc -l < "$timeout" 2>/dev/null | tr -d ' ' || echo 0)
 
 printf '\n漏网 %s 条，超时 %s 条。完整结果在 %s\n' "$n_missed" "$n_timeout" "$out/mutants.out"
