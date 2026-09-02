@@ -1091,6 +1091,26 @@ fn the_yang_blade_and_the_prosperity_pattern_are_told_apart_by_polarity() {
         year: 1980, month: 2, day: 21, hour: 12, minute: 0, tz: 8.0, gender: None,
     });
     assert_eq!(lu.pattern.name, "建禄格", "甲日主生寅月本气甲，同阴阳应是建禄，实得 {}", lu.pattern.name);
+
+    // 换一个日主再走一遍——甲的序号是 0，`0 % 2` 与 `0 / 2` 都是 0，
+    // 单看甲这一对分不出「取余」和「整除」。丙的序号是 2：`2 % 2 = 0`，`2 / 2 = 1`。
+    let blade_bing = compute(BirthInput {
+        year: 1980, month: 6, day: 12, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(blade_bing.day.ganzhi, "丙辰", "取样的日柱变了，下面这条结论要重验");
+    assert_eq!(
+        blade_bing.pattern.name, "月刃格",
+        "丙日主生午月，本气丁（阴火）与丙（阳火）同五行异阴阳，应是月刃"
+    );
+    let lu_bing = compute(BirthInput {
+        year: 1980, month: 5, day: 13, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(lu_bing.day.ganzhi, "丙戌", "取样的日柱变了，下面这条结论要重验");
+    assert_eq!(
+        lu_bing.pattern.name, "建禄格",
+        "丙日主生巳月本气丙，同阴阳应是建禄，实得 {}",
+        lu_bing.pattern.name
+    );
 }
 
 #[test]

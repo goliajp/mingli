@@ -56,3 +56,17 @@ mingli-bazi chart.rs replace - with + in compute_dayun|1|同上
 mingli-bazi chart.rs replace - with / in compute_dayun|2|同上
 mingli-bazi chart.rs replace / with % in compute_dayun|2|同上
 mingli-bazi chart.rs replace / with * in compute_dayun|2|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::id -> &'static str with "xyzzy"|1|registry 的注册表测试拦住（只跑本包时才冒出来）
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上（哪片叶有几个流派已钉住）
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::subject_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::subject_notes -> Option<&'static str> with Some("")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::subject_notes -> Option<&'static str> with None|1|同上
+mingli-bazi engine.rs replace leaf_gender -> Option<crate::Gender> with None|1|同上
+mingli-bazi engine.rs delete match arm "early_lichun" in chart|1|流派选项的接线由 registry 的 every_school_option_actually_changes_the_chart 拦住
+mingli-bazi engine.rs delete match arm "early_sf" in chart|1|同上
+mingli-bazi engine.rs delete match arm "late_sf" in chart|1|同上
