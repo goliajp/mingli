@@ -18,6 +18,9 @@ pub(crate) fn add_days_civil(y: i32, m: u32, d: u32, delta: i32) -> (i32, u32, u
     let mut y = y;
     let mut m = m;
     let mut d = d as i32 + delta;
+    // 这个 `<` 松成 `<=` 是等价变异：`d == 1` 时它会向前借一个月
+    // （`m-1`，`d += 那个月的天数`），紧接着下面那个循环发现 `d` 超了本月天数，
+    // 又原样还回来，绕一圈回到同一天。
     while d < 1 {
         m = if m == 1 { y -= 1; 12 } else { m - 1 };
         d += days_in_month(y, m) as i32;
