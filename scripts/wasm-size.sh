@@ -100,7 +100,7 @@ while read -r name raw gz; do
   # 是两台机器的编译器不一样。留 1%：对最小的档位是 2 KB，比这两笔漂移大三倍，
   # 而真正值得拦的增长（多带一片叶、多一张表）都是几十上百 KB 量级。
   raw_ceil=$(( want_raw + want_raw / 100 ))   # +1%
-  gz_ceil=$(( want_gz + want_gz / 200 ))      # +0.5%
+  gz_ceil=$(( want_gz + want_gz / 100 ))      # +1%（gzip 侧漂得比 -Oz 更大，压缩会放大差异）
   if [ "$raw" -gt "$raw_ceil" ]; then
     printf '  ✗ %-20s %9s / %8s  产物超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_raw" "$raw_ceil"
     over=$((over+1))

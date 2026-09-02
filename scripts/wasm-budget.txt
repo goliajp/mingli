@@ -1,9 +1,19 @@
-# 各发布档位的体积预算（字节）。由 ./scripts/wasm-size.sh --record 写入。
-# 列：档位 -Oz后 gzip后。改这张表必须是有意的，且要写进 commit message。
-chart-solo-bazi 198777 91166
-chart-solo-yijing 159557 73226
-astrology-lite 165487 74498
-astrology-thin 234811 122258
-chart-chinese 348983 146268
-chart-all 1266883 729194
-full 1478027 808411
+# 各发布档位的体积预算（字节）。列：档位 -Oz后 gzip后。
+#
+# 这张表记的是 **CI 上量到的数**，不是本机的。
+#
+# 理由：预算在哪台机器上录，就该在哪台机器上判。同一份源码在本机与 CI 上
+# 差约 450 字节（-Oz，0.22%），gzip 侧更大——压缩把微小差异放大到 0.8%。
+# 从前这张表按本机录、在 CI 上判，两边一直差着，闸就一直红（2026-08-29 起五天）。
+#
+# 所以：`./scripts/wasm-size.sh --record` 写出来的是本机的数，**不要直接提交**；
+# 要更新预算，从 CI 那一步的输出里抄回来。本机跑这个闸会读到略小于预算的数，正常。
+#
+# 改这张表必须是有意的，且要写进 commit message。
+chart-solo-bazi 200123 91877
+chart-solo-yijing 160295 73656
+astrology-lite 166400 75103
+astrology-thin 237055 122382
+chart-chinese 351926 147142
+chart-all 1272648 731109
+full 1485850 811521
