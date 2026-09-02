@@ -116,6 +116,34 @@ fn aux_stars_1990_06_15_oracle() {
     // 18 颗（十四主星 + 4 辅星）无遗漏。
     let total: usize = chart.palaces.iter().map(|p| p.stars.len()).sum();
     assert_eq!(total, 18);
+
+    // 十四主星逐颗落宫。
+    //
+    // 上面只钉了四颗辅星与一个总数——十四主星各在哪一宫从来没问过。
+    // 紫微星系那六颗的偏移是负的（天机 −1、太阳 −3、武曲 −4、天同 −5、廉贞 −8），
+    // 把其中一个负号去掉，星就换个宫落，而总数仍是 18、辅星也不动，于是没人红。
+    //
+    // 这张表钉的是转写：值由当前实现在这张盘上算出，答的是「偏移有没有被改过」。
+    // 「紫微起得对不对」由 `ziwei_position_points` 与 `sample_1990_06_15` 对 iztro 守着。
+    for (star, want) in [
+        // 紫微星系：以紫微为基准逆行 0/−1/−3/−4/−5/−8
+        ("紫微", "申"), ("天机", "未"), ("太阳", "巳"),
+        ("武曲", "辰"), ("天同", "卯"), ("廉贞", "子"),
+        // 天府星系：以天府为基准顺行 0/+1/+2/+3/+4/+5/+6/+10
+        ("天府", "申"), ("太阴", "酉"), ("贪狼", "戌"), ("巨门", "亥"),
+        ("天相", "子"), ("天梁", "丑"), ("七杀", "寅"), ("破军", "午"),
+    ] {
+        assert_eq!(where_star(star).as_deref(), Some(want), "{star} 落宫");
+    }
+
+    // 命宫与身宫的标记：恰好各一个，且落在算出来的那一宫上。
+    //
+    // `is_ming` / `is_shen` 是由 `b == ming` / `b == shen` 得来的。把 `==` 写成 `!=`，
+    // 十二宫里会有十一个被标成命宫——而没有一条测试看过这两个字段。
+    let ming: Vec<&str> = chart.palaces.iter().filter(|p| p.is_ming).map(|p| p.branch.as_str()).collect();
+    let shen: Vec<&str> = chart.palaces.iter().filter(|p| p.is_shen).map(|p| p.branch.as_str()).collect();
+    assert_eq!(ming.len(), 1, "命宫应恰好一个，实得 {ming:?}");
+    assert_eq!(shen.len(), 1, "身宫应恰好一个，实得 {shen:?}");
 }
 
 #[test]
@@ -412,6 +440,18 @@ fn the_major_limits_walk_the_palaces_both_sources_list() {
     // 十二步走满一轮：地支不重不漏
     let seen: std::collections::BTreeSet<u8> = f.steps.iter().map(|s| s.branch_index).collect();
     assert_eq!(seen.len(), 12, "十二步应走遍十二宫");
+
+    // 步序与每一步的起讫岁数，十二步逐个对。
+    //
+    // 上面只问了第 0、1 步的 start_age 与第 0 步的 end_age，`step` 字段一次也没问过。
+    // 于是把 `step: i + 1` 写成 `i * 1`（步序从 0 起）、把 `end_age` 里的 `i * 10`
+    // 写成 `i / 10`（第 0 步照样是 ju+9，之后全错）都没有测试红。
+    for (i, st) in f.steps.iter().enumerate() {
+        let i = u32::try_from(i).expect("十二步");
+        assert_eq!(st.step, i + 1, "步序从 1 起，逐步加一");
+        assert_eq!(st.start_age, 3 + i * 10, "第 {} 步的起岁", i + 1);
+        assert_eq!(st.end_age, st.start_age + 9, "一限十年，含两端");
+    }
 }
 
 /// 流年：太岁支入宫，不涉顺逆也不涉性别。
@@ -428,4 +468,18 @@ fn the_annual_palace_follows_the_year_branch() {
     // 十二年走遍十二宫
     let seen: std::collections::BTreeSet<u8> = (2020..2032).map(|y| annual_palace(0, y).0).collect();
     assert_eq!(seen.len(), 12);
+
+    // 宫名本身也要钉住，不能只说「两个命宫下不一样」。
+    //
+    // 宫名序 = (命宫支 − 太岁支) mod 12。把那个减号写成加号，两个命宫下的名字**仍然**
+    // 各不相同，上面那条不等式照样成立——所以它拦不住。这里逐个报出该是哪一宫。
+    for (ming, year, want) in [
+        (0_u8, 2024_i32, "官禄"), // 辰(4) 入命宫子(0) 起的盘：(0−4) mod 12 = 8
+        (0, 2020, "命宫"),        // 子年子命 → 太岁入命
+        (0, 1990, "迁移"),        // 午(6) → (0−6) mod 12 = 6
+        (5, 2024, "兄弟"),        // (5−4) mod 12 = 1 → 兄弟
+    ] {
+        let (_, name) = annual_palace(ming, year);
+        assert_eq!(name, want, "命宫支 {ming}、{year} 年的流年宫");
+    }
 }
