@@ -786,9 +786,14 @@ probe "成本：一片叶重新驮上百年推运" mingli-registry no_single_lea
   crates/mingli-astrology/src/engine.rs \
   's|        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)|        let c = chart(self, m, q);\n        let mut v = serde_json::to_value(\&c).unwrap_or(Value::Null);\n        v["progression"] = serde_json::to_value(crate::progression::progression(m.jde, \&c.planets, 100, 1)).unwrap_or(Value::Null);\n        v|'
 
+# 种的活要跟它代表的真实风险同量级。
+#
+# 从前种 4 万次开方，恰好落在旧阈值 20 倍附近；阈值挪到 50 之后它就拦不住了——
+# 这条探测因此变红，正是它该做的事。而它要代表的事故是「一片叶顺手走了星历」，
+# 那在本仓实测是中位数的三百多倍，不是二十倍。加到 30 万次，量级对得上。
 probe "成本：一片普通叶开始干重活" mingli-registry the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris \
   crates/mingli-yijing/src/engine.rs \
-  's|    crate::cast(method, effective_seed(m, q))|    let mut w = 0f64;\n    for i in 0..40_000u32 { w += f64::from(i).sqrt(); }\n    crate::cast(method, effective_seed(m, q).wrapping_add(u64::from(w < 0.0)))|'
+  's|    crate::cast(method, effective_seed(m, q))|    let mut w = 0f64;\n    for i in 0..300_000u32 { w += f64::from(i).sqrt(); }\n    crate::cast(method, effective_seed(m, q).wrapping_add(u64::from(w < 0.0)))|'
 
 # ── 流派 ──────────────────────────────────────────────────────────
 probe "流派：选项收下了却不改盘" mingli-registry every_school_option_actually_changes_the_chart \
