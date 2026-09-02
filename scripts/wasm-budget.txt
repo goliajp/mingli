@@ -10,6 +10,13 @@
 # 要更新预算，从 CI 那一步的输出里抄回来。本机跑这个闸会读到略小于预算的数，正常。
 #
 # 改这张表必须是有意的，且要写进 commit message。
+#
+# 改完它，下面这四处要一起跟上——实测每一处都因为没跟上而红过：
+#   1. README.md / README.zh-CN.md 的体积表（KB 值 = (字节 + 512) / 1024）
+#   2. scripts/feature-matrix.sh 里核对那张表的那一段
+#   3. scripts/guard-probe.sh 里两条按具体数字定位的探测
+#   4. crates/mingli-registry/tests/readme.rs（它从本文件读，不必手改，但会红）
+# `./scripts/guard-probe.sh 预算表` 能一次问完前三处。
 chart-solo-bazi 200123 91877
 chart-solo-yijing 160295 73656
 astrology-lite 166400 75103

@@ -148,8 +148,11 @@ else
   while read -r name raw gz; do
     case "$name" in ''|'#'*) continue;; esac
     n_row=$((n_row+1))
-    kb_raw=$(python3 -c "print(f'{$raw/1024:.0f} KB')")
-    kb_gz=$(python3 -c "print(f'{$gz/1024:.0f} KB')")
+    # 与 crates/mingli-registry/tests/readme.rs 用同一条换算：整数的四舍五入，
+    # `(b + 512) / 1024`。从前这里用的是 Python 的 `:.0f`，它在 .5 上取偶——
+    # 166400 字节正好是 162.5 KB，一边得 162、一边得 163，两个守卫对着同一张预算表吵架。
+    kb_raw="$(( (raw + 512) / 1024 )) KB"
+    kb_gz="$(( (gz + 512) / 1024 )) KB"
     for md in README.md README.zh-CN.md; do
       if ! grep -q "| $kb_raw | $kb_gz |" "$md"; then
         printf '  ✗ %s 少了 %s 那一行（应是 %s / %s）\n' "$md" "$name" "$kb_raw" "$kb_gz"; fail=1
