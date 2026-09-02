@@ -253,18 +253,26 @@ pub struct ZiweiChart {
 
 /// 起紫微：由农历生日与五行局数，求紫微所在地支（子=0 约定）。
 /// 算法对齐 iztro getStartIndex（内部寅=0，末尾 +2 转子=0）。
+///
+/// # Panics
+///
+/// `ju` 为 0 时 panic。五行局只有 2..=6 五种，0 不是合法局数。
 #[must_use]
 pub fn ziwei_branch(day: u32, ju: u32) -> u8 {
-    let mut offset: i64 = -1;
-    let mut rem: i64 = -1;
-    let mut quotient: i64 = 0;
-    while rem != 0 {
-        offset += 1;
-        let d = i64::from(day) + offset;
-        quotient = d / i64::from(ju);
-        rem = d % i64::from(ju);
-    }
-    quotient %= 12;
+    // 补足数：让日数加到能被局数整除的最小非负增量。
+    //
+    // 从前这里是 `while rem != 0` 配两个哨兵（`offset = -1`、`rem = -1`），
+    // 循环没有上限——变异扫描在里面留了三个**超时**：把 `+=` 改成 `*=`、
+    // 把 `%` 改成 `/`，循环就再也退不出来，测试挂在那里而不是红。
+    //
+    // 上限本来就有，只是没写出来：连续 `ju` 个整数里必有一个是 `ju` 的倍数，
+    // 所以补足数一定落在 `0..ju` 内。写成有界的查找之后，哨兵和那三个超时一起没了。
+    let ju = i64::from(ju);
+    let day = i64::from(day);
+    let offset = (0..ju)
+        .find(|o| (day + o) % ju == 0)
+        .expect("连续 ju 个整数里必有 ju 的倍数");
+    let quotient = ((day + offset) / ju) % 12;
     // 寅=0 编号下：商定基准，补足数(offset)偶进奇退。
     let z = shift(quotient - 1, offset, 12, offset % 2 == 0);
     ((z + 2) % 12) as u8 // 转子=0
