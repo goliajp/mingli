@@ -1004,6 +1004,95 @@ fn midnight_exactly_stays_on_the_same_day() {
     );
 }
 
+/// 五行取值、互补打分、调候月支 —— 三张多路映射逐支走一遍。
+///
+/// 三处形状相同：一个五路（或更多路）的 `match`，而测试只走过其中几支。
+/// 变异扫描因此报出「把 `wx_pct` 整个换成常数 0」「删掉 `complement_score` 的
+/// 火/金/水三支」「删掉调候里 `2..=3` 那支」都没有一条测试红。
+///
+/// 表测试是这类缺口最直接的答案：把每一支都点一遍，且让每一支的期望值互不相同，
+/// 于是「走错支」和「整个函数被换掉」都会红。
+#[test]
+fn the_five_element_lookups_hit_every_arm() {
+    let wx = WuxingPower { wood: 11, fire: 22, earth: 33, metal: 44, water: 55 };
+
+    // 一、按 Element 取百分比：五支各取各的字段。数值互不相同，走错一支就红。
+    for (e, want) in [
+        (Element::Wood, 11_u32),
+        (Element::Fire, 22),
+        (Element::Earth, 33),
+        (Element::Metal, 44),
+        (Element::Water, 55),
+    ] {
+        assert_eq!(crate::strength::wx_pct(&wx, e), want, "{e:?} 取错了字段");
+    }
+
+    // 二、团队互补打分：按用神五行的中文名取对方那一行的百分比；认不出的给 0。
+    for (name, want) in [("木", 11_u32), ("火", 22), ("土", 33), ("金", 44), ("水", 55)] {
+        assert_eq!(complement_score(name, &wx), want, "{name} 取错了字段");
+    }
+    assert_eq!(complement_score("土星", &wx), 0, "认不出的五行名应给 0 而不是撞上某一支");
+}
+
+/// 中和局的调候，十二个月支各取到该取的那一行。
+///
+/// 调候那张表按月支分成五段（寒/燥/春木/秋金/杂气）。原有的用神测试只覆盖到其中几段，
+/// 于是删掉「寅卯春木月 — 取金修剪」那一支、让它落到杂气那条兜底上，也没有测试红。
+///
+/// 这里直接喂一个中和的 `Strength`（score 落在 41..=59），十二个月支逐个问。
+#[test]
+fn the_balanced_chart_takes_its_seasonal_remedy_from_the_month_branch() {
+    let strength = Strength {
+        score: 50,
+        level: "中和".to_string(),
+        got_ling: 15,
+        got_di: 15,
+        got_shi: 20,
+        wuxing: WuxingPower { wood: 20, fire: 20, earth: 20, metal: 20, water: 20 },
+    };
+    // 日干取甲（木）；杂气那一段取日主同行，故期望是「木」。
+    for (branch, want) in [
+        (0_u8, "火"), (1, "火"), (11, "火"),      // 亥子丑 寒月 → 火
+        (5, "水"), (6, "水"), (7, "水"),          // 巳午未 燥月 → 水
+        (2, "金"), (3, "金"),                     // 寅卯 春木月 → 金
+        (8, "火"), (9, "火"),                     // 申酉 秋金月 → 火
+        (4, "木"), (10, "木"),                    // 辰戌 杂气月 → 日主同行
+    ] {
+        let ys = determine_yongshen(0, branch, &strength);
+        assert_eq!(
+            ys.primary_wuxing, want,
+            "月支 {branch} 的调候应取 {want}，实得 {}（{}）",
+            ys.primary_wuxing, ys.reasoning
+        );
+    }
+}
+
+/// 月令本气与日主同五行时，同阴阳出建禄、异阴阳出月刃。
+///
+/// 这两格由 `(main_qi % 2) == (dm % 2)` 分开。而同五行的两个天干本来就同属一对
+/// （0/1 木、2/3 火……），所以把那个 `%` 改成 `/` 之后两边恒等，**一切都成了建禄**——
+/// 没有一条测试红，因为整个套件里**从来没有出现过月刃格**。
+///
+/// 1980-03-12 日柱甲申、月柱己卯：卯的本气是乙（阴木），日主甲（阳木），同五行异阴阳 → 月刃。
+#[test]
+fn the_yang_blade_and_the_prosperity_pattern_are_told_apart_by_polarity() {
+    let blade = compute(BirthInput {
+        year: 1980, month: 3, day: 12, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(blade.day.ganzhi, "甲申", "取样的日柱变了，下面这条结论要重验");
+    assert_eq!(blade.month.ganzhi, "己卯", "取样的月柱变了，下面这条结论要重验");
+    assert_eq!(
+        blade.pattern.name, "月刃格",
+        "甲日主生卯月，本气乙（阴木）与日主甲（阳木）同五行异阴阳，应是月刃而非建禄"
+    );
+
+    // 同五行同阴阳的对照：寅月本气甲，甲日主 → 建禄。
+    let lu = compute(BirthInput {
+        year: 1980, month: 2, day: 21, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(lu.pattern.name, "建禄格", "甲日主生寅月本气甲，同阴阳应是建禄，实得 {}", lu.pattern.name);
+}
+
 #[test]
 fn true_solar_helpers_round_trip() {
     // 校验 day_of_year 闰年分支 + add_days_civil 跨月跨年。
@@ -1013,6 +1102,25 @@ fn true_solar_helpers_round_trip() {
     assert_eq!(add_days_civil(2023, 12, 31, 1), (2024, 1, 1));
     assert_eq!(add_days_civil(2024, 2, 28, 2), (2024, 3, 1)); // 闰年 +2 跨 29
     assert_eq!(add_days_civil(2023, 2, 28, 2), (2023, 3, 2)); // 平年 28→3/2
+
+    // 二月本身，闰年与平年各问一次。
+    //
+    // 上面两条问的都是 3 月 1 日，那时 `m > 2` 与 `m >= 2` 给的是同一个答案；
+    // 分岔只在二月里：闰年的 2 月 29 日之前不该加那一天。
+    // 变异扫描因此把 `m > 2` 改成 `m >= 2` 也没人拦。
+    assert_eq!(day_of_year(2024, 2, 1), 32, "闰年 2 月 1 日仍是第 32 天，闰日在这天之后");
+    assert_eq!(day_of_year(2024, 2, 29), 60);
+    assert_eq!(day_of_year(2023, 2, 28), 59);
+    assert_eq!(day_of_year(2024, 1, 31), 31, "一月不受闰日影响");
+
+    // 往回退恰好落在某月 1 日。
+    //
+    // `while d < 1` 与 `while d <= 1` 的分岔只在结果正好是 1 号时：松成 `<=`，
+    // 1 号会被再退一个月、加上那个月的天数，变成上个月的 32 号这种数。
+    // 上面几条的结果分别是 31、1、1、2 号——落在 1 号的那两条是**加**出来的，
+    // 走的是另一个循环，退的那条落在 31 号，所以这一支一直没被问到。
+    assert_eq!(add_days_civil(2024, 3, 2, -1), (2024, 3, 1));
+    assert_eq!(add_days_civil(2024, 5, 2, -1), (2024, 5, 1));
 }
 
 #[test]
