@@ -389,6 +389,62 @@ fn the_direction_follows_the_year_stem_and_the_gender() {
     }
 }
 
+/// 起运岁数落在「三天折一年」该给的范围里，并与到节的天数对得上。
+///
+/// 现有的大运测试验的是方向、有无、步序单调——没有一条碰过**起运岁数**本身，
+/// 而那正是「几岁起运」这个对外头条输出。于是求下一个/上一个节所用的那两行初值
+/// （`jd ± (Δλ mod 360) / 0.98565`）改坏了也没人红：变异扫描在那两行上留了八个漏网。
+///
+/// 那两行是喂给牛顿迭代的**起点**，可这里的不动点不唯一——每年都有一个同名的节。
+/// 初值偏一格，迭代就收敛到隔壁年的那个节，天数从二十几天变成三百多天，
+/// 起运岁数从几岁变成一百多岁。所以这里钉两件事：
+///
+/// 一、`start_age_years × 3` 就是到节的天数，而节相邻两个之间至多约 31 天，
+///    故起运岁数必在 `[0, 11)` 内。落到隔壁年的话这条立刻红。
+/// 二、十步大运的 `start_age` 逐步 +10，且第一步等于起运岁数取整。
+#[test]
+fn the_starting_age_is_the_days_to_the_term_divided_by_three() {
+    for (y, mo, d, h, g) in [
+        (1987_i32, 9_u32, 17_u32, 14_u32, Gender::Male),
+        (1990, 6, 15, 12, Gender::Female),
+        (1989, 6, 15, 12, Gender::Male),
+        (2000, 1, 1, 0, Gender::Female),
+        (2024, 2, 4, 23, Gender::Male),
+    ] {
+        let chart = compute(BirthInput {
+            year: y,
+            month: mo,
+            day: d,
+            hour: h,
+            minute: 0,
+            tz: 8.0,
+            gender: Some(g),
+        });
+        let dy = chart.dayun.as_ref().expect("给了性别就该有大运");
+        assert!(
+            (0.0..11.0).contains(&dy.start_age_years),
+            "{y}-{mo:02}-{d:02}：起运 {} 岁——两节之间至多约 31 天，三天折一年最多 11 岁，\
+             超出说明求节时收敛到了隔壁年",
+            dy.start_age_years
+        );
+        assert_eq!(dy.pillars.len(), 10, "大运应排十步");
+        assert_eq!(
+            dy.pillars[0].start_age,
+            dy.start_age_years.round() as u32,
+            "第一步的起运岁数应与 start_age_years 取整一致"
+        );
+        for (i, w) in dy.pillars.windows(2).enumerate() {
+            assert_eq!(
+                w[1].start_age,
+                w[0].start_age + 10,
+                "第 {} 步与第 {} 步之间应差十年",
+                i + 1,
+                i + 2
+            );
+        }
+    }
+}
+
 #[test]
 fn dayun_reverse_for_yin_year_male() {
     // 1989 己巳（阴年）男 → 逆行
@@ -867,6 +923,85 @@ fn true_solar_changes_pillar_across_chen_boundary() {
     assert_eq!(no_solar.year.ganzhi, with_solar.year.ganzhi);
     assert_eq!(no_solar.month.ganzhi, with_solar.month.ganzhi);
     assert_eq!(no_solar.day.ganzhi, with_solar.day.ganzhi);
+}
+
+/// 真太阳时推过午夜时，校正后的年月日时分逐项对得上。
+///
+/// 上面几条真太阳时的测试都在长沙（112.94°E，偏移约 −22 分钟）上，一整天之内动不出去，
+/// 而且只比干支。于是两处没人守：跨日的那两支（`total < 0` 往前一天、
+/// `total >= 24×60` 往后一天）从没走到过；分钟数从来没被断言过——干支只认时辰，
+/// 把 `in_day_min % 60` 改成 `/ 60` 也看不出来。变异扫描在那几行上留了十个漏网。
+///
+/// 喀什（75.99°E）用北京时间，偏移约 −3 小时，是这条路的现实用例；往东取 135°E
+/// 走另一支。`BaziChart::input` 带的是**校正后**的时刻，所以这里逐项比它，
+/// 而不是只比干支。期望值由已经对过公开值的 `true_solar_offset_minutes` 推出。
+#[test]
+fn crossing_midnight_moves_the_whole_moment() {
+    for (lon, y, mo, d, h, mi) in [
+        (75.99_f64, 1987_i32, 9_u32, 17_u32, 1_u32, 0_u32),  // 往前跨到前一天
+        (75.99, 2000, 1, 1, 0, 30),                          // 跨年那一天，往前
+        (135.0, 1987, 9, 17, 23, 40),                        // 往后跨到次日
+        (135.0, 1999, 12, 31, 23, 50),                       // 跨年，往后
+    ] {
+        let off = true_solar_offset_minutes(lon, 8.0, y, mo, d).round() as i32;
+        let total = i32::try_from(h).expect("小时在 0..24") * 60
+            + i32::try_from(mi).expect("分钟在 0..60")
+            + off;
+        assert!(
+            !(0..24 * 60).contains(&total),
+            "{y}-{mo:02}-{d:02} {h:02}:{mi:02} 在 {lon}°E 的真太阳时是 {total} 分，\
+             没有跨日——这条测试要的正是跨日"
+        );
+        let (delta, in_day) = if total < 0 { (-1, total + 24 * 60) } else { (1, total - 24 * 60) };
+        let (ey, em, ed) = add_days_civil(y, mo, d, delta);
+        let got = compute_with_true_solar(
+            BirthInput { year: y, month: mo, day: d, hour: h, minute: mi, tz: 8.0, gender: Some(Gender::Male) },
+            lon,
+        );
+        assert_eq!(
+            (got.input.year, got.input.month, got.input.day, got.input.hour, got.input.minute),
+            (
+                ey,
+                em,
+                ed,
+                u32::try_from(in_day / 60).expect("0..24"),
+                u32::try_from(in_day % 60).expect("0..60")
+            ),
+            "{y}-{mo:02}-{d:02} {h:02}:{mi:02} @{lon}°E 的真太阳时刻不对"
+        );
+        let expected = compute(BirthInput {
+            year: got.input.year,
+            month: got.input.month,
+            day: got.input.day,
+            hour: got.input.hour,
+            minute: got.input.minute,
+            tz: 8.0,
+            gender: Some(Gender::Male),
+        });
+        assert_eq!(got.day.ganzhi, expected.day.ganzhi, "日柱应随跨日改成那一天的");
+        assert_eq!(got.hour.ganzhi, expected.hour.ganzhi);
+    }
+}
+
+/// 真太阳时正好落在午夜零点时，算作当天的 00:00，不往前退一天。
+///
+/// `total < 0` 与 `total <= 0` 的分岔只在这一刻上：松成 `<=`，零点会被当成
+/// 「前一天的 24:00」，时刻直接坏掉。取样得刚好把偏移抵消掉才走得到。
+#[test]
+fn midnight_exactly_stays_on_the_same_day() {
+    let (lon, y, mo, d) = (112.94_f64, 1987_i32, 9_u32, 17_u32);
+    let off = true_solar_offset_minutes(lon, 8.0, y, mo, d).round() as i32;
+    assert!((-60..0).contains(&off), "这条取样要一个 −60..0 分钟的偏移，实得 {off}");
+    let mi = u32::try_from(-off).expect("上面已限定在 0..60");
+    let got = compute_with_true_solar(
+        BirthInput { year: y, month: mo, day: d, hour: 0, minute: mi, tz: 8.0, gender: Some(Gender::Male) },
+        lon,
+    );
+    assert_eq!(
+        (got.input.year, got.input.month, got.input.day, got.input.hour, got.input.minute),
+        (y, mo, d, 0, 0),
+        "真太阳时恰为 00:00 时应留在当天"
+    );
 }
 
 #[test]
