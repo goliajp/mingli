@@ -61,8 +61,12 @@ const Q = JSON.stringify({ year: 1990, month: 6, day: 15, hour: 14, minute: 30, 
                            latitude: 31.23, longitude: 121.47, seed: 2024 });
 if (!($check)) { console.error('FAILED'); process.exit(1); }
 CHECK
-  if ! (cd "$d" && node .selfcheck.mjs >/dev/null 2>&1); then
-    printf '✗ %s 装配出来算不出东西——检查装配根有没有登记这一档\n' "$pkg"; exit 1
+  # node 的输出留着：这条自检在 CI 上红过一次，而当时两个流都进了 /dev/null，
+  # 报出来的只有「算不出东西」五个字，查不下去。失败时把它说的话原样带上。
+  if ! selfcheck_out=$(cd "$d" && node .selfcheck.mjs 2>&1); then
+    printf '✗ %s 装配出来算不出东西——检查装配根有没有登记这一档\n' "$pkg"
+    printf '%s\n' "$selfcheck_out" | sed 's/^/      /'
+    exit 1
   fi
   rm -f "$d/.selfcheck.mjs"
 
