@@ -214,7 +214,21 @@ pub(crate) fn compute_dayun(jd: f64, lam: f64, year_stem: u8, gender: Gender, mo
         solar_term_time_near(jd - (lam - prev_target).rem_euclid(360.0) / 0.98565, prev_target);
 
     let days = if forward { next_jd - jd } else { jd - prev_jd };
-    let start_age_years = (days / 3.0).max(0.0);
+    // 到节的天数必须落在一个节气间隔内。
+    //
+    // 这里从前写的是 `(days / 3.0).max(0.0)`。那个 `max` 看着像在防负数，实际是把
+    // **求错节**这件事压成了「起运 0 岁」——一个看着完全合理的答案。上面求前/后一个节
+    // 用的两行初值因此没人守：改坏了 `days` 变成负数，`max` 接住，测试全绿。
+    // 变异扫描在那两行上留了八个漏网，全是这么活下来的。
+    //
+    // 相邻两节相差 29–32 天，所以合法的 `days` 只可能在 [0, 33) 内；出了这个范围
+    // 就是求解落到了别的节上，那是错，不是需要兜住的边界。
+    assert!(
+        (0.0..33.0).contains(&days),
+        "到{}一个节的天数是 {days:.3}——相邻两节相差 29–32 天，这个数说明求解落到了别的节上",
+        if forward { "下" } else { "上" }
+    );
+    let start_age_years = days / 3.0;
     let start_age0 = start_age_years.round() as u32;
 
     let mut pillars = Vec::with_capacity(10);
