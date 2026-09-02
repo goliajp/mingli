@@ -151,13 +151,13 @@ Measured, release wasm32:
 
 | npm package | Build | Module | gzipped |
 |---|---|---:|---:|
-| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 231 KB | 120 KB |
-| `mingli-wasm-yijing` | Yi Jing only | 157 KB | 72 KB |
-| `mingli-wasm-astrology-lite` | Natal charts, you supply the positions | 163 KB | 73 KB |
-| `mingli-wasm-bazi` | Four Pillars only | 195 KB | 90 KB |
-| `mingli-wasm-chinese` | The ten Chinese systems | 344 KB | 144 KB |
-| `mingli-wasm-chart` | All twenty-four, charts only | 1243 KB | 714 KB |
-| `mingli-wasm` | All twenty-four plus use cases | 1451 KB | 793 KB |
+| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 230 KB | 120 KB |
+| `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
+| `mingli-wasm-astrology-lite` | Natal charts, you supply the positions | 162 KB | 73 KB |
+| `mingli-wasm-bazi` | Four Pillars only | 195 KB | 89 KB |
+| `mingli-wasm-chinese` | The ten Chinese systems | 342 KB | 143 KB |
+| `mingli-wasm-chart` | All twenty-four, charts only | 1238 KB | 713 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 790 KB |
 
 
 ### Bring your own ephemeris

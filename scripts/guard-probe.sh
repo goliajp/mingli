@@ -389,7 +389,7 @@ probe "自陈：认领了「字」却不在字词注册表里" mingli-app every_
 
 probe "自陈：README 的体积表与预算表对不上" mingli-registry the_wasm_size_table_and_the_budget_agree \
   README.md \
-  's:| `mingli-wasm-bazi` | Four Pillars only | 195 KB | 90 KB |:| `mingli-wasm-bazi` | Four Pillars only | 777 KB | 90 KB |:'
+  's:| `mingli-wasm-bazi` | Four Pillars only | 195 KB | 89 KB |:| `mingli-wasm-bazi` | Four Pillars only | 777 KB | 89 KB |:'
 
 probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain \
   crates/mingli-analysis/src/lib.rs \
@@ -582,7 +582,7 @@ probe_script "浏览器：四柱与 lunar-javascript 不再一致" \
 probe_script "发版：发出去的字节与预算表对不上" \
   "bash scripts/npm-pack.sh" \
   scripts/wasm-budget.txt \
-  's@^chart-solo-yijing 160295@chart-solo-yijing 160296@'
+  's@^chart-solo-yijing 160208@chart-solo-yijing 160209@'
 
 probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_leaves_the_composition_root_registers \
   crates/mingli/Cargo.toml \
