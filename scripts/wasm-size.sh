@@ -90,9 +90,19 @@ while read -r name raw gz; do
     printf '  ✗ %-20s 预算表里没有这一档\n' "$name"; over=$((over+1)); continue
   fi
   seen=$((seen+1))
-  gz_ceil=$(( want_gz + want_gz / 200 ))   # +0.5%
-  if [ "$raw" -gt "$want_raw" ]; then
-    printf '  ✗ %-20s %9s / %8s  产物超预算 %s\n' "$name" "$raw" "$gz" "$want_raw"
+  # 两条上限都留余量，因为「同一份源码」并不给出同一串字节。
+  #
+  # 实测（2026-09-03）：源码一字未动，只是工具链版本不同，七个档位一律涨 650–740 字节
+  # （约 0.35%，与包含哪几片叶无关，说明是胶水层而非我们的代码）；同一份源码在本机与
+  # CI 上再差约 450 字节（0.22%）。预算在本机录、在 CI 上判，这两笔叠起来必然超。
+  #
+  # 从前 -Oz 那条是零容差，于是这个闸从 2026-08-29 起一直红——报的不是我们把包做大了，
+  # 是两台机器的编译器不一样。留 1%：对最小的档位是 2 KB，比这两笔漂移大三倍，
+  # 而真正值得拦的增长（多带一片叶、多一张表）都是几十上百 KB 量级。
+  raw_ceil=$(( want_raw + want_raw / 100 ))   # +1%
+  gz_ceil=$(( want_gz + want_gz / 200 ))      # +0.5%
+  if [ "$raw" -gt "$raw_ceil" ]; then
+    printf '  ✗ %-20s %9s / %8s  产物超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_raw" "$raw_ceil"
     over=$((over+1))
   elif [ "$gz" -gt "$gz_ceil" ]; then
     printf '  ✗ %-20s %9s / %8s  gzip 超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_gz" "$gz_ceil"
