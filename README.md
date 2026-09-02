@@ -234,8 +234,16 @@ catch each one does. This asks the opposite question — is there anywhere in a
 crate that nobody is watching — and it answers by breaking every spot in turn.
 A run takes hours, so it stays a hand tool rather than a gate. What it found
 here is the kind of thing a passing suite hides: coefficients too small to
-observe over the dates this project supports, and loops that answered a wrong
-input by never returning.
+observe over the dates this project supports, loops that answered a wrong input
+by never returning, and tolerances wider than the wobble they were meant to
+catch.
+
+Not every survivor is a gap. Some are equivalent mutants — `+ 180` and `- 180`
+agree under a mod 360, a quadrant's formula turns out to equal its neighbour's.
+Proving that costs more than the scan does, so the conclusions are kept in
+`scripts/mutants-known.txt` with their reasons, and each run reconciles against
+it: only survivors nobody has explained yet are reported, and entries that stop
+appearing are flagged so the list cannot quietly go stale.
 
 Every authoritative reference value is **confirmed against multiple independent sources** and lives in a `#[test]` in the relevant crate. For example:
 

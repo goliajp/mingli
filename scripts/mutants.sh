@@ -102,6 +102,62 @@ args=(mutants -p "$pkg" --output "$out")
 echo "第一趟：扫 $pkg${file:+ / $file}${features:+（档位 ${features}）}，只跑本包的测试……"
 cargo "${args[@]}" || true
 
+# 拿已知清单对账，只留没见过的。
+#
+# 判断一条漏网是不是真缺口，功夫常常比扫一轮还大——证明 `+180` 与 `-180` 模 360 恒等、
+# 确认某条分支经调用方走不到，都要单独推一遍。`mutants-known.txt` 把这些结论存下来。
+# 它不隐藏什么：每轮照样全扫，清单只把已知的挪到一边；同时反查清单里已经不再出现的条目，
+# 免得它变成一份越攒越旧的免罪符。
+reconcile() {
+  local pkg=$1 file=$2
+  python3 - "$pkg" "$file" <<'PY'
+import collections, pathlib, sys
+pkg, missed_path = sys.argv[1], sys.argv[2]
+
+def norm(line):
+    # crates/x/src/y.rs:12:34: replace ... → ("y.rs", "replace ...")
+    body = line.split("/src/", 1)[1] if "/src/" in line else line
+    f, rest = body.split(":", 1)
+    return f, rest.split(":", 2)[2].strip()
+
+seen = collections.Counter()
+for line in pathlib.Path(missed_path).read_text().splitlines():
+    if line.strip():
+        seen[norm(line)] += 1
+
+known = collections.Counter()
+reasons = {}
+for line in pathlib.Path("scripts/mutants-known.txt").read_text().splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    head, count, why = line.split("|", 2)
+    kpkg, kfile, desc = head.split(" ", 2)
+    if kpkg != pkg:
+        continue
+    known[(kfile, desc)] += int(count)
+    reasons[(kfile, desc)] = why
+
+new = {k: n - known.get(k, 0) for k, n in seen.items() if n > known.get(k, 0)}
+gone = {k: known[k] - seen.get(k, 0) for k in known if known[k] > seen.get(k, 0)}
+
+if new:
+    print(f"
+没见过的漏网 {sum(new.values())} 条：")
+    for (f, d), n in sorted(new.items()):
+        print(f"  {f}  {d}" + (f"  ×{n}" if n > 1 else ""))
+if gone:
+    print(f"
+已知清单里这些条目这轮没再出现，去 scripts/mutants-known.txt 删掉：")
+    for (f, d), n in sorted(gone.items()):
+        print(f"  {f}  {d}" + (f"  ×{n}" if n > 1 else ""))
+if not new and not gone:
+    print("
+漏网全部在已知清单里，且清单没有过期条目。")
+sys.exit(1 if new or gone else 0)
+PY
+}
+
 missed="$out/mutants.out/missed.txt"
 timeout="$out/mutants.out/timeout.txt"
 n_missed=$(wc -l < "$missed" 2>/dev/null | tr -d ' ' || echo 0)
@@ -128,6 +184,7 @@ n_timeout=$(wc -l < "$timeout" 2>/dev/null | tr -d ' ' || echo 0)
 
 printf '\n漏网 %s 条，超时 %s 条。完整结果在 %s\n' "$n_missed" "$n_timeout" "$out/mutants.out"
 [ "$n_missed" -eq 0 ] || { echo; echo '漏网：'; sed 's/^/  /' "$missed"; }
+reconcile "$pkg" "$missed" || true
 [ "$n_timeout" -eq 0 ] || { echo; echo '超时（多半是某条循环没有上限，见坑二）：'; sed 's/^/  /' "$timeout"; }
 
 after=$(git status --porcelain | grep -v '^??' || true)
