@@ -509,7 +509,7 @@ probe "四柱：经度不再按一度四分钟" mingli-bazi one_degree_of_longit
 
 probe "四柱：起运折算不再除以三" mingli-bazi the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three \
   crates/mingli-bazi/src/chart.rs \
-  's|    let start_age_years = (days / 3.0).max(0.0);|    let start_age_years = (days / 4.0).max(0.0);|'
+  's|    let start_age_years = days / 3.0;|    let start_age_years = days / 4.0;|'
 
 probe "四柱：起运数到中气而非节" mingli-bazi the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three \
   crates/mingli-bazi/src/chart.rs \

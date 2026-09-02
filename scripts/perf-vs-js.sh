@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 浏览器形态的性能闸：跟当地最强的 JS 实现比，同机同输入。
 #
-#   ./scripts/perf-vs-js.sh              # 对拍 + 计时，四柱慢于对手即红
+#   ./scripts/perf-vs-js.sh              # 逐项校验输出一致，再计时；四柱慢于对手即红
 #   ./scripts/perf-vs-js.sh --record     # 重录星历漂移表
 #
 # 只在浏览器这个主场比。"我们比 Python 快 20 倍" 不能替代
