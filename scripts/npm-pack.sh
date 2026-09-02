@@ -10,6 +10,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# wasm-opt 要显式开 reference-types 与 bulk-memory。
+#
+# wasm-bindgen 的胶水在初始化时要 `table.grow(4)` 撑开 externref 表。wasm-opt 若不知道
+# 目标支持 reference-types，会把那张表的上限压成初始大小，于是初始化直接抛
+# `RangeError: WebAssembly.Table.grow(): failed to grow table by 4`——包能打出来、
+# 体积也正常，只是一加载就废。
+#
+# 本机的 binaryen 132 默认放行，CI 上 apt 装的那版不放行，所以只有 CI 显形。
+# 这不是 CI 的毛病：用那套工具链打出来的包在浏览器里同样是坏的。显式开着，两边一致。
+WASM_OPT_FEATURES=(--enable-reference-types --enable-bulk-memory)
+
+
 VER=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | sed -n 's/^version = "\(.*\)"/\1/p')
 REPO=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | sed -n 's/^repository = "\(.*\)"/\1/p')
 LIC=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | sed -n 's/^license = "\(.*\)"/\1/p')
@@ -48,7 +60,7 @@ while IFS='|' read -r pkg profile feats kw blurb check; do
     --no-default-features --features "$feats"
   wasm-bindgen --target web --out-dir "$d" \
     target/wasm32-unknown-unknown/release/mingli_wasm.wasm >/dev/null 2>&1
-  wasm-opt -Oz -o "$d/mingli_wasm_bg.wasm.opt" "$d/mingli_wasm_bg.wasm"
+  wasm-opt -Oz "${WASM_OPT_FEATURES[@]}" -o "$d/mingli_wasm_bg.wasm.opt" "$d/mingli_wasm_bg.wasm"
   mv "$d/mingli_wasm_bg.wasm.opt" "$d/mingli_wasm_bg.wasm"
   rm -f "$d/.gitignore" "$d/package.json"
 

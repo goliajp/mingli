@@ -22,6 +22,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# wasm-opt 要显式开 reference-types 与 bulk-memory。
+#
+# wasm-bindgen 的胶水在初始化时要 `table.grow(4)` 撑开 externref 表。wasm-opt 若不知道
+# 目标支持 reference-types，会把那张表的上限压成初始大小，于是初始化直接抛
+# `RangeError: WebAssembly.Table.grow(): failed to grow table by 4`——包能打出来、
+# 体积也正常，只是一加载就废。
+#
+# 本机的 binaryen 132 默认放行，CI 上 apt 装的那版不放行，所以只有 CI 显形。
+# 这不是 CI 的毛病：用那套工具链打出来的包在浏览器里同样是坏的。显式开着，两边一致。
+WASM_OPT_FEATURES=(--enable-reference-types --enable-bulk-memory)
+
+
 BUDGET=scripts/wasm-budget.txt
 LEAVES="bazi,ziwei,astrology,jyotish,qizhengsiyu,yijing,geomancy,sikidy,ifa,cartomancy,meihua,xiaoliuren,zeri,maya,pawukon,mahabote,liuren,qimen,taiyi,tibetan,numerology,gematria,abjad,wuge"
 
@@ -52,7 +64,7 @@ measure() {
   cargo build -q --release --target wasm32-unknown-unknown -p mingli-wasm $flags
   wasm-bindgen --target web --out-dir "$work/$name" \
     target/wasm32-unknown-unknown/release/mingli_wasm.wasm >/dev/null 2>&1
-  wasm-opt -Oz -o "$work/$name/o.wasm" "$work/$name/mingli_wasm_bg.wasm"
+  wasm-opt -Oz "${WASM_OPT_FEATURES[@]}" -o "$work/$name/o.wasm" "$work/$name/mingli_wasm_bg.wasm"
   local raw gz
   raw=$(wc -c < "$work/$name/o.wasm" | tr -d ' ')
   gz=$(gzip -9 -c "$work/$name/o.wasm" | wc -c | tr -d ' ')
