@@ -94,12 +94,24 @@ limit=$(( grp_secs * 3 ))
 [ "$limit" -ge 60 ] || limit=60
 echo "这一组 ${grp_secs}s；第二趟若要跑，超时阈值取 ${limit}s"
 
+# 第一趟的阈值也要按实测给。
+#
+# cargo-mutants 自己推的那个阈值在机器忙的时候一次次把「慢」记成「挂死」：
+# 实测过一轮报四个超时，逐个复跑全是被拦住的，只是花了 43–85 秒。
+t0=$(date +%s)
+cargo test -p "$pkg" >/dev/null 2>&1 || {
+  echo "$pkg 自己的测试没全绿，扫描出来的名单不作数" >&2; exit 1
+}
+pkg_secs=$(( $(date +%s) - t0 ))
+limit1=$(( pkg_secs * 3 ))
+[ "$limit1" -ge 60 ] || limit1=60
+
 out=$(mktemp -d)
-args=(mutants -p "$pkg" --output "$out")
+args=(mutants -p "$pkg" --timeout "$limit1" --output "$out")
 [ -z "$file" ] || args+=(-f "$file")
 [ -z "$features" ] || args+=(--features "$features")
 
-echo "第一趟：扫 $pkg${file:+ / $file}${features:+（档位 ${features}）}，只跑本包的测试……"
+echo "第一趟：扫 $pkg${file:+ / $file}${features:+（档位 ${features}）}，只跑本包的测试（阈值 ${limit1}s）……"
 cargo "${args[@]}" || true
 
 # 拿已知清单对账，只留没见过的。

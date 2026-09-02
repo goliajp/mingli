@@ -84,3 +84,18 @@ mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_not
 mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
 mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with None|1|同上
 mingli-ziwei engine.rs replace leaf_gender -> Option<crate::Gender> with None|1|同上
+
+# —— mingli-qimen ——
+# 五条同一个形状：先加一个模数，后面再取模时正好消掉。
+mingli-qimen cast.rs replace % with + in time_branch|1|h 只经 div_ceil(2) % 12 用，+24 让商加 12、模 12 消掉；h==23 那支两边同得 0
+mingli-qimen cast.rs replace % with + in time_ganzhi|1|五鼠遁 (stem%5)*2 与 (stem+5)*2 模 10 恒等
+mingli-qimen earth.rs replace % with + in earth_plate|1|start 只以 (start ± i) % 9 使用，+9 消掉
+mingli-qimen vigor.rs replace % with + in month_branch_of_term|1|k 加 12，末尾 (k+2) % 12 消掉
+mingli-qimen gates.rs replace * with / in gate_plate|1|乘以 ±1 与除以 ±1 同值
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::principal -> Option<Principal> with None|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with None|1|同上
