@@ -272,7 +272,9 @@ pub fn ziwei_branch(day: u32, ju: u32) -> u8 {
     let offset = (0..ju)
         .find(|o| (day + o) % ju == 0)
         .expect("连续 ju 个整数里必有 ju 的倍数");
-    let quotient = ((day + offset) / ju) % 12;
+    // 不必先取模 12：下面的 shift 用 rem_euclid(12) 归一，多这一步只是让
+    // 「% 12」和「+ 12」变成同一个结果的两种写法（变异扫描据此报过一个漏网）。
+    let quotient = (day + offset) / ju;
     // 寅=0 编号下：商定基准，补足数(offset)偶进奇退。
     let z = shift(quotient - 1, offset, 12, offset % 2 == 0);
     ((z + 2) % 12) as u8 // 转子=0
