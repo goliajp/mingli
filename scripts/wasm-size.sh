@@ -97,10 +97,10 @@ while read -r name raw gz; do
   # CI 上再差约 450 字节（0.22%）。预算在本机录、在 CI 上判，这两笔叠起来必然超。
   #
   # 从前 -Oz 那条是零容差，于是这个闸从 2026-08-29 起一直红——报的不是我们把包做大了，
-  # 是两台机器的编译器不一样。留 1%：对最小的档位是 2 KB，比这两笔漂移大三倍，
-  # 而真正值得拦的增长（多带一片叶、多一张表）都是几十上百 KB 量级。
-  raw_ceil=$(( want_raw + want_raw / 100 ))   # +1%
-  gz_ceil=$(( want_gz + want_gz / 100 ))      # +1%（gzip 侧漂得比 -Oz 更大，压缩会放大差异）
+  # 是两台机器的编译器不一样。留 1.5%：gzip 侧实测最大漂 0.81%，留出近两倍；
+  # 对最小的档位是 3 KB，而真正值得拦的增长（多带一片叶、多一张表）都是几十上百 KB。
+  raw_ceil=$(( want_raw + want_raw * 3 / 200 ))   # +1.5%
+  gz_ceil=$(( want_gz + want_gz * 3 / 200 ))      # +1.5%
   if [ "$raw" -gt "$raw_ceil" ]; then
     printf '  ✗ %-20s %9s / %8s  产物超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_raw" "$raw_ceil"
     over=$((over+1))

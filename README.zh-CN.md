@@ -144,13 +144,13 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 
 | npm 包 | 装配 | 模块 | gzip 后 |
 |---|---|---:|---:|
-| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 231 KB | 120 KB |
-| `mingli-wasm-yijing` | 只要易经起卦 | 157 KB | 72 KB |
-| `mingli-wasm-astrology-lite` | 占星排盘，位置你给 | 163 KB | 73 KB |
-| `mingli-wasm-bazi` | 只要四柱 | 195 KB | 90 KB |
-| `mingli-wasm-chinese` | 中华十片 | 344 KB | 144 KB |
-| `mingli-wasm-chart` | 二十四片，只排盘 | 1243 KB | 714 KB |
-| `mingli-wasm` | 二十四片 + 跨叶用例 | 1451 KB | 793 KB |
+| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 230 KB | 120 KB |
+| `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
+| `mingli-wasm-astrology-lite` | 占星排盘，位置你给 | 162 KB | 73 KB |
+| `mingli-wasm-bazi` | 只要四柱 | 195 KB | 89 KB |
+| `mingli-wasm-chinese` | 中华十片 | 342 KB | 143 KB |
+| `mingli-wasm-chart` | 二十四片，只排盘 | 1238 KB | 713 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 790 KB |
 
 
 ### 自带星历
