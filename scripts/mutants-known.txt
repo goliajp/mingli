@@ -46,3 +46,13 @@ mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::sch
 mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
 mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
 mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with None|1|同上
+
+# —— mingli-bazi ——
+mingli-bazi solar.rs replace < with <= in add_days_civil|1|d==1 时向前借一个月，紧接着的归一化循环又还回来，落回同一天
+mingli-bazi chart.rs replace < with <= in compute_at_impl|1|生辰恰在立春那一瞬才有分别，浮点上取不到
+mingli-bazi chart.rs replace % with + in compute_at_impl|1|五鼠遁 (stem%5)*2 与 (stem+5)*2 模 10 恒等
+mingli-bazi chart.rs replace + with - in compute_dayun|1|求节的迭代初值；节相距 30°，初值误差被这个间隔卡住，收敛到同一个节
+mingli-bazi chart.rs replace - with + in compute_dayun|1|同上
+mingli-bazi chart.rs replace - with / in compute_dayun|2|同上
+mingli-bazi chart.rs replace / with % in compute_dayun|2|同上
+mingli-bazi chart.rs replace / with * in compute_dayun|2|同上
