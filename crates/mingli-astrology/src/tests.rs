@@ -147,6 +147,9 @@ fn the_cusp_houses_partition_the_planets_and_the_aspects_never_pair_a_planet_wit
         );
     }
 
+    // 「无自反、不重复」是空表也满足的两句话——本轮修的就是这类断言，别在这里再留一个。
+    // 这张盘实测八条相位（2026-09-02）；数字会随容许度或天体表变，变了就是有意的。
+    assert_eq!(chart.aspects.len(), 8, "这张盘的相位条数变了");
     let mut pairs = std::collections::HashSet::new();
     for asp in &chart.aspects {
         assert_ne!(asp.a, asp.b, "{} 与自己成了相位", asp.a);

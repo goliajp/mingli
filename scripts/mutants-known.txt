@@ -1,0 +1,48 @@
+# 已经查明、并且**不是守卫缺口**的漏网。
+#
+# 变异扫描每轮都会把它们重新报一遍，而判断它们要花的功夫远超扫描本身：
+# 一条 `+ 180` 改成 `- 180` 看起来像缺口，证明它在模 360 下恒等要另花一段时间。
+# 这份清单把那段功夫存下来，`mutants.sh` 拿它对账，只报没见过的。
+#
+# 它**不隐藏**任何东西：每轮仍然完整扫，清单只负责把已知的挪到一边，
+# 并且反过来查——清单里的条目若不再出现（被真正拦住了，或代码没了），也会报出来，
+# 免得它变成一份越攒越旧的免罪符。
+#
+# 每行：<crate> <文件> <变异描述>|<条数>|<理由>
+# 描述取扫描输出去掉行号列号的那一段，故改代码不会让清单失效。
+
+# —— mingli-astrology / placidus.rs ——
+# 三条几何恒等 + 一批浮点阈值。逐条的证明写在 placidus.rs 相应位置的注释里。
+mingli-astrology placidus.rs replace + with - in pack|6|十二宫尖里六个对宫是 +180，模 360 下与 -180 恒等
+mingli-astrology placidus.rs replace + with - in porphyry_cusps|1|同上，IC = MC + 180
+mingli-astrology placidus.rs replace - with + in cusps|1|极区门槛 |φ|≥90−ε 与下面的 asin(tanφ·tanε) 判据是同一条界
+mingli-astrology placidus.rs replace / with % in cusps|4|fh1/fh2 只是迭代初值，循环每轮重算极高
+mingli-astrology placidus.rs replace / with * in cusps|4|同上
+mingli-astrology placidus.rs replace * with + in cusps|1|同上
+mingli-astrology placidus.rs replace * with / in cusps|1|同上
+mingli-astrology placidus.rs replace / with % in solve_cusp|2|同上，循环外那个 f_pole 也只是起点
+mingli-astrology placidus.rs replace / with * in solve_cusp|2|同上
+mingli-astrology placidus.rs replace - with + in asc1|1|x1−180 与 x1+180 模 360 同值
+mingli-astrology placidus.rs replace - with / in asc1|1|f→±90 的极点捷径，通式本来就趋向同一个值，差 1e-14
+mingli-astrology placidus.rs replace < with <= in asc1|3|浮点阈值上的松紧，只差恰等于阈值的那一个比特
+mingli-astrology placidus.rs replace < with == in asc1|1|同上
+mingli-astrology placidus.rs replace < with <= in asc2|4|同上
+mingli-astrology placidus.rs replace < with == in asc2|1|同上
+mingli-astrology placidus.rs replace < with > in asc2|1|sin_x<0 那支经 asc1 走不到（只喂象限一的角）
+mingli-astrology placidus.rs delete - in asc2|1|同上，那支里的 −90 走不到
+mingli-astrology placidus.rs replace < with <= in solve_cusp|3|浮点阈值上的松紧
+mingli-astrology placidus.rs replace < with == in solve_cusp|1|同上
+
+# —— mingli-astrology / 本包测试够不着、由依赖它的包拦住 ——
+# 这些在「只跑本包」的第一趟里会冒出来，第二趟（本包 + 依赖方）里没有。
+mingli-astrology lib.rs replace sun_sign_at -> &'static str with "xyzzy"|1|registry 的自陈测试拦住
+mingli-astrology lib.rs replace sun_sign_at -> &'static str with ""|1|同上
+mingli-astrology lib.rs replace compute_aspects -> Vec<Aspect> with vec![]|1|同上（本包也已加相位条数下限）
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::id -> &'static str with "xyzzy"|1|registry 的注册表测试拦住
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::principal -> Option<Principal> with None|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上（哪片叶有几个流派已钉住）
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with None|1|同上
