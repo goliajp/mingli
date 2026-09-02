@@ -70,3 +70,17 @@ mingli-bazi engine.rs replace leaf_gender -> Option<crate::Gender> with None|1|�
 mingli-bazi engine.rs delete match arm "early_lichun" in chart|1|流派选项的接线由 registry 的 every_school_option_actually_changes_the_chart 拦住
 mingli-bazi engine.rs delete match arm "early_sf" in chart|1|同上
 mingli-bazi engine.rs delete match arm "late_sf" in chart|1|同上
+
+# —— 各叶的 engine.rs 元数据 ——
+# 形状都一样：`CastingEngine` 的 id/name/answers/principal/schools/reading_notes/subject_notes
+# 以及流派分派的 match 分支。它们由 mingli-registry 的注册表与自陈测试拦住，
+# 只在「只跑本包」的第一趟里冒出来。这里按叶登记，省得每片叶再推一遍。
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::principal -> Option<Principal> with None|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-ziwei engine.rs replace leaf_gender -> Option<crate::Gender> with None|1|同上
