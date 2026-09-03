@@ -33,10 +33,16 @@ impl GanZhi {
     #[must_use]
     pub fn index(&self) -> u8 {
         let mut n = i32::from(self.stem);
-        while n % 12 != i32::from(self.branch) {
+        // 至多六步：天干每加十，模十二的余数走一个步长为十的循环，六步遍历全部六个可达余数
+        // （十与十二的最大公约数是二，故同奇偶的六个余数各到一次）。
+        // 从前是没有上限的 `while`，把 `+=` 改成 `*=` 就永远等不到——变异扫描记成超时。
+        for _ in 0..6 {
+            if n % 12 == i32::from(self.branch) {
+                return (n % 60) as u8;
+            }
             n += 10;
         }
-        (n % 60) as u8
+        unreachable!("干支同奇偶，六步内必对上；{}/{} 不是合法干支", self.stem, self.branch)
     }
     /// 由 60 甲子序号 `n`（甲子=0）构造（对 `n` 取模，越界安全）。
     #[must_use]
