@@ -79,6 +79,8 @@ pub fn tzolkin_round(jdn: i64) -> i64 {
 #[must_use]
 pub fn haab(jdn: i64) -> (u8, usize) {
     let doy = haab_day_of_year(jdn);
+    // 这个 `<` 松成 `<=` 是等价变异：doy 恰为 360 时两支给同一个答案——
+    // 普通支得 (360 % 20, 360 / 20) = (0, 18)，Wayeb 支得 (360 − 360, 18) = (0, 18)。
     if doy < 360 {
         ((doy % 20) as u8, (doy / 20) as usize)
     } else {
