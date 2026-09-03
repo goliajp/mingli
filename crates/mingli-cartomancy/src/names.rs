@@ -168,9 +168,7 @@ pub fn card_meta(deck: Deck, index: usize, tarot_order: TarotOrder) -> (&'static
                 (en, zh, "")
             } else {
                 let m = index - 22; // 0..56
-                let suit_idx = m / 14;
-                let rank_idx = m % 14;
-                tarot_minor_at(suit_idx, rank_idx)
+                tarot_minor_at(m / 14)
             }
         }
         Deck::TarotMajor => {
@@ -202,14 +200,14 @@ pub(crate) fn tarot_major_at(index: usize, order: TarotOrder) -> (&'static str, 
     TAROT_MAJOR_NAMES[mapped]
 }
 
-pub(crate) fn tarot_minor_at(suit_idx: usize, rank_idx: usize) -> (&'static str, &'static str, &'static str) {
+pub(crate) fn tarot_minor_at(suit_idx: usize) -> (&'static str, &'static str, &'static str) {
+    // 只返花色。完整牌名（"Six of Wands" / 「权杖六」）要拼接，而本函数的签名是
+    // `&'static str`，拼出来的不是 static——所以完整名由 [`minor_full_name`] 在 fmt 层给。
+    //
+    // 从前这里还收一个 `rank_idx`，取出点数名之后一行 `let _ = (r_en, r_zh);` 丢掉。
+    // 那是走不到的计算：`card_meta` 里算 `m % 14` 喂进来，而它不影响任何输出，
+    // 于是变异扫描在那个取模上留了两个漏网。参数删掉，那两个变异体也就不存在了。
     let (s_en, s_zh) = TAROT_MINOR_SUITS[suit_idx.min(3)];
-    let (r_en, r_zh) = TAROT_MINOR_RANKS[rank_idx.min(13)];
-    // 静态化拼接需要返回 &'static str，故每次只能返回引用 — 这里改返签名为 (en， zh， glyph)
-    // 但拼接结果非 static；用 Box::leak 或返回 String 不合签名。
-    // 折中：Minor 牌名通过 `minor_full_name(suit_idx, rank_idx)` 在 fmt 层拼；这里只返花色英/中。
-    // 为保持 card_meta 签名，Minor 返回花色名（简化）；完整名由调用方 fmt（见 web）。
-    let _ = (r_en, r_zh);
     (s_en, s_zh, "")
 }
 

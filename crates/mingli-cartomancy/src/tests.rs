@@ -377,7 +377,74 @@ for c in &s.cards {
 }
 // tarot_minor_at 内部 helper(card_meta 走 TarotFull idx>=22 通过 minor_full_name 而非 tarot_minor_at；
 // 这里直接调以覆盖)
-let (s_en, s_zh, _) = tarot_minor_at(0, 0);
+let (s_en, s_zh, _) = tarot_minor_at(0);
 assert_eq!(s_en, "Wands");
 assert_eq!(s_zh, "权杖");
 }
+
+/// 七十八张塔罗的花色分界与牌名，逐张钉住。
+///
+/// 大阿卡纳 0..21、小阿卡纳 22..77 每十四张一花色。此前没有一条测试逐张读过 `card_meta`，
+/// 于是分界处的 `index < 22`（松成 `<=` 会让第 22 张变成「世界」）、
+/// 花色分割 `(index − 22) / 14`（改成乘或取模就全乱）都无人过问。
+#[test]
+fn the_seventy_eight_cards_fall_into_their_arcana_and_suits() {
+    use std::collections::BTreeSet;
+    // 大阿卡纳两端与分界。
+    for (i, want) in [(0_usize, "The Fool"), (21, "The World")] {
+        let (en, _, _) = card_meta(Deck::TarotFull, i, TarotOrder::RiderWaite);
+        assert_eq!(en, want, "第 {i} 张");
+    }
+    // 小阿卡纳：每十四张一花色，四色依次。
+    for (suit, want) in [(0_usize, "Wands"), (1, "Cups"), (2, "Swords"), (3, "Pentacles")] {
+        for k in 0..14_usize {
+            let i = 22 + suit * 14 + k;
+            let (en, _, _) = card_meta(Deck::TarotFull, i, TarotOrder::RiderWaite);
+            assert_eq!(en, want, "第 {i} 张应属 {want}");
+        }
+    }
+    // 第 22 张是小阿卡纳的第一张，不是大阿卡纳的第 22 张——分界就在这里。
+    let (twenty_two, _, _) = card_meta(Deck::TarotFull, 22, TarotOrder::RiderWaite);
+    assert_eq!(twenty_two, "Wands", "第 22 张已进小阿卡纳");
+    let (twenty_one, _, _) = card_meta(Deck::TarotFull, 21, TarotOrder::RiderWaite);
+    assert_ne!(twenty_one, twenty_two, "第 21 与第 22 张应分属两个阿卡纳");
+    // 大阿卡纳二十二张互不相同。
+    let majors: BTreeSet<&str> = (0..22_usize)
+        .map(|i| card_meta(Deck::TarotFull, i, TarotOrder::RiderWaite).0)
+        .collect();
+    assert_eq!(majors.len(), 22, "大阿卡纳应有二十二个不同的名字");
+}
+
+/// 固定种子的一次抽牌，逐张钉住。
+///
+/// 现有的抽牌测试问的是「同种子同结果」「不放回」「张数被截断」「逆位两种都出现过」——
+/// 这些性质在整副牌重新洗过、逆位流换一条种子之后照样成立。于是 `seed ^ 常量`
+/// 改成 `|` 或 `&`、`reversible && dir.bit()` 改成 `||`，都没有测试红。
+///
+/// 值由当前实现算出，钉的是转写：它答的是「洗牌与逆位的取流动过没有」。
+#[test]
+fn a_fixed_seed_deals_the_same_ten_cards() {
+    let sp = draw_deck_with_order(Deck::TarotFull, TarotOrder::RiderWaite, 6, 20_240_301);
+    let got: Vec<(usize, bool, &str)> =
+        sp.cards.iter().map(|c| (c.index, c.reversed, c.name.as_str())).collect();
+    assert_eq!(
+        got,
+        vec![
+            (12_usize, false, "The Hanged Man"),
+            (10, true, "Wheel of Fortune"),
+            (51, true, "Two of Swords"),
+            (1, true, "The Magician"),
+            (38, true, "Three of Cups"),
+            (45, true, "Ten of Cups"),
+        ],
+        "固定种子抽出的牌变了——洗牌或逆位的取流动过了"
+    );
+
+    // 不可逆的牌组一张都不许翻。Lenormand 传统上不用逆位。
+    let no_rev = draw_deck_with_order(Deck::Lenormand, TarotOrder::RiderWaite, 8, 20_240_301);
+    assert!(
+        no_rev.cards.iter().all(|c| !c.reversed),
+        "不可逆的牌组出现了逆位——`reversible && …` 被写成了「或」"
+    );
+}
+
