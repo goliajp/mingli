@@ -121,10 +121,8 @@ mod generals {
         ];
         for Example { year, ju: want_ju, palace: want_palace, wenchang: want_wc, jishen: want_js, shiji: want_sj, ke_suan: want_ke } in ORACLE {
             let j = accumulated_years(year);
-            let ju = {
-                let r = j.rem_euclid(72);
-                if r == 0 { 72 } else { r }
-            };
+            // 用库里那份，不再在测试里抄一遍——抄一遍就等于不验它。
+            let ju = crate::ju_of(j);
             assert_eq!(ju, want_ju, "{year} 年应是第 {want_ju} 局");
             let t = taiyi_palace(j, true);
             assert_eq!(t.palace, want_palace, "{year} 年太乙应在 {want_palace} 宫");
