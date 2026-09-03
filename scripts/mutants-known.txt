@@ -99,3 +99,16 @@ mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::principal -
 mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
 mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
 mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with None|1|同上
+
+# —— mingli-liuren ——
+mingli-liuren transmission.rs replace == with != in resolve_kede|1|涉害第三层（复等）：全枚举 17280 组里被走到 936 次，两种写法结果一次都没变——前两层筛完后池里两课共用同一上神
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::principal -> Option<Principal> with None|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-liuren transmission.rs replace == with != in resolve_kede|1|复等那一层的 `pool.len() == 1`：else 分支恒等于 pool[0].up，两支同解
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::bearings -> Vec<Bearing> with vec![]|1|下游 registry 的方位测试拦住（只跑本包时才冒出来）
