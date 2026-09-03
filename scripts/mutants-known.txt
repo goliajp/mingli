@@ -244,3 +244,5 @@ mingli-ganzhi shensha.rs delete match arm 2 | 6 | 10 in sanhe_group_index|1|该�
 mingli-gua lib.rs replace | with ^ in Hexagram::from_trigrams|1|两操作数占不相交位段（0–2 与 3–5）
 mingli-gua lib.rs replace | with ^ in Hexagram::mutual|1|同上
 mingli-gua lib.rs replace | with ^ in value_from_full_name|2|同上
+mingli-engine lib.rs replace map_leaves -> Vec<T> with vec![]|1|被改的是 #[cfg(target_arch = "wasm32")] 那一份，本机不编译（同 eph-lite 那类档位假象）
+mingli-engine lib.rs replace map_leaves -> Vec<T> with vec![Default::default()]|1|同上
