@@ -807,3 +807,31 @@ fn every_pattern_has_its_own_name() {
     assert_eq!(names.len(), all.len(), "课式名不许重复");
     assert!(!names.contains(""), "课式名不许为空");
 }
+
+/// 方位表把三传（或四课上神）逐条译成方位，且译得出名字与方向。
+///
+/// `bearings_of` 整个返回空表都没有测试红——这一层是「寻」意图对外给的东西，
+/// 内容从没被读过。里面两处 `% 12` 也因此无人过问：越界会 panic，而没有测试走到那儿。
+#[test]
+fn the_bearings_name_every_step_of_the_transmission() {
+    // 取三张课式不同的盘，都要出得了方位。
+    for (stem, branch, mg, hb) in [(0_u8, 0_u8, 3_u8, 5_u8), (4, 7, 9, 2), (7, 11, 0, 8)] {
+        let cast = compute_via(stem, branch, mg, hb);
+        let bearings = crate::bearings::bearings_of(&cast);
+        assert!(!bearings.is_empty(), "干{stem} 支{branch} 的盘没有给出任何方位");
+        let expect = if cast.transmission.is_some() { 3 } else { 4 };
+        assert_eq!(bearings.len(), expect, "有传给三条（初中末），无传给四课上神");
+        for b in &bearings {
+            assert_eq!(b.leaf, "liuren");
+            assert!(!b.at.is_empty(), "地支名不许为空：{b:?}");
+            assert!(!b.direction.is_empty(), "方向不许为空：{b:?}");
+            assert!(b.note.contains(cast.pattern_label), "注记里应带课式名：{b:?}");
+        }
+        // 三传的地支名要跟传本身对得上，不是随便哪个字。
+        if let Some(tr) = cast.transmission {
+            for (b, v) in bearings.iter().zip(tr) {
+                assert_eq!(b.at, BRANCH_NAMES[v as usize], "方位的地支名与传对不上：{b:?}");
+            }
+        }
+    }
+}
