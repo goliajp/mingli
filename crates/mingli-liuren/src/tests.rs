@@ -178,6 +178,21 @@ fn full_scan_reaches_every_pattern_branch() {
     let mut patterns = HashSet::new();
     let mut fanyin_with_ke = false;
     let mut fanyin_no_ke = false;
+    // 整张扫描的摘要。
+    //
+    // 上面几条问的是「每种课式都可达吗」「都出得了传吗」——**没有一条问传是什么**。
+    // 于是取用的规则可以整片失效而这张扫描照样绿：变异扫描下 `single_kede` 直接返回
+    // `None`（单一克对永不成立，元首/重审全落到比用涉害去）、涉害三层的
+    // 「深浅」「孟仲季」「复等」三个判等各自取反，六条全部活着。
+    //
+    // 逐组列期望不现实（17,280 组）；一个把 (课式, 三传) 都揉进去的滚动摘要够用：
+    // 任何一处取用变了，它就变。它答的是「取传的规则动过没有」，不是「六壬对不对」——
+    // 后者由上面那些古籍算例守着。
+    let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut mix = |v: u64| {
+        digest ^= v;
+        digest = digest.wrapping_mul(0x1000_0000_01b3);
+    };
     for stem in 0..10u8 {
         for branch in 0..12u8 {
             for mg in 0..12u8 {
@@ -185,6 +200,11 @@ fn full_scan_reaches_every_pattern_branch() {
                     let c = compute_via(stem, branch, mg, hb);
                     patterns.insert(c.pattern);
                     assert!(c.transmission.is_some(), "九宗门取传已全覆盖");
+                    mix(u64::from(stem) << 24 | u64::from(branch) << 16 | u64::from(mg) << 8 | u64::from(hb));
+                    mix(c.pattern as u64);
+                    for v in c.transmission.expect("上一行刚断言过") {
+                        mix(u64::from(v));
+                    }
                     if c.pattern == Pattern::FanYin {
                         let courses = four_courses(stem, branch, plate_offset(mg, hb));
                         let has_ke = courses.iter().enumerate().any(|(i, cc)| {
@@ -200,6 +220,12 @@ fn full_scan_reaches_every_pattern_branch() {
             }
         }
     }
+    assert_eq!(
+        digest, 0x127f_895f_c34a_cdf9,
+        "整张扫描的 (课式, 三传) 摘要变了——取传的规则动过了。\n\
+         若确是有意的（补了流派、改了取用），把新值写进来，并在 commit message 里说清楚改的是哪一条。"
+    );
+
     // 全部 11 种课式都可达（判定树无死分支）。
     for p in [
         Pattern::ZhongShen,
@@ -749,4 +775,35 @@ fn the_twelve_branches_map_onto_the_eight_directions() {
     let dirs: std::collections::BTreeSet<&str> = BRANCH_DIR.iter().copied().collect();
     assert_eq!(dirs.len(), 8, "只该有八个方位，实有 {}：{dirs:?}", dirs.len());
     assert!(!dirs.contains("中"), "中宫不是可面向的方位，不该出现在支配方位里");
+}
+
+/// 十一个课式各有各的中文名，逐个钉住。
+///
+/// `Pattern::label` 整个换成空串或 "xyzzy" 都没有测试红——课式名从没被断言过，
+/// 而它是盘面对外说话的那一层（web 与释义都照着它显示）。
+///
+/// 逐个列，且不用循环遍历枚举：漏掉一个变体的表和一个只数个数的断言，
+/// 都拦不住「某一支返回了别人的名字」。
+#[test]
+fn every_pattern_has_its_own_name() {
+    use std::collections::BTreeSet;
+    let all = [
+        (Pattern::ZhongShen, "重审"),
+        (Pattern::YuanShou, "元首"),
+        (Pattern::BiYong, "比用"),
+        (Pattern::SheHai, "涉害"),
+        (Pattern::HaoShi, "蒿矢"),
+        (Pattern::TanShe, "弹射"),
+        (Pattern::MaoXing, "昴星"),
+        (Pattern::BieZe, "别责"),
+        (Pattern::BaZhuan, "八专"),
+        (Pattern::FuYin, "伏吟"),
+        (Pattern::FanYin, "返吟"),
+    ];
+    for (p, want) in all {
+        assert_eq!(p.label(), want, "{p:?} 的课式名");
+    }
+    let names: BTreeSet<&str> = all.iter().map(|(_, n)| *n).collect();
+    assert_eq!(names.len(), all.len(), "课式名不许重复");
+    assert!(!names.contains(""), "课式名不许为空");
 }

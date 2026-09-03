@@ -31,8 +31,17 @@ pub(crate) fn meng_zhong_ji(ground: u8) -> u8 {
 pub(crate) fn shehai_depth(course: &Course) -> u32 {
     let target = branch_element(course.up);
     let mut depth = 0;
-    let mut g = (course.down + 1) % 12;
-    while g != course.up {
+    // 从 `down` 的下一支走到 `up`，两端都不计——十二支一圈，最多走十一步。
+    //
+    // 从前这里是 `while g != course.up`，靠 `(g + 1) % 12` 转回来收尾。那个环没有上限：
+    // 把那个 `%` 改成 `/`、或让 `heaven_plate` 交出一个 ≥ 12 的支序，`g` 就永远等不到
+    // `up`，测试挂在这里而不是红。变异扫描里三个超时全出自这一处。
+    // 步数上限本来就有（一圈十二支），写出来即可。
+    for step in 1..12u8 {
+        let g = (course.down + step) % 12;
+        if g == course.up {
+            break;
+        }
         if branch_element(g).controls() == target {
             depth += 1;
         }
@@ -43,7 +52,6 @@ pub(crate) fn shehai_depth(course: &Course) -> u32 {
                 depth += 1;
             }
         }
-        g = (g + 1) % 12;
     }
     depth
 }
