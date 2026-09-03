@@ -234,3 +234,7 @@ mingli-cartomancy engine.rs  replace % with + in <impl CastingEngine for TarotEn
 mingli-gematria engine.rs  replace <impl WordEngine for GematriaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
 mingli-wuge engine.rs  replace <impl WordEngine for WugeEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
 mingli-wuge engine.rs  replace || with && in <impl WordEngine for WugeEngine>::compute|1|registry 拦住
+
+# —— 共享层 ——
+mingli-core cyclic.rs replace || with && in lcm|1|任一为零时另一支也算出零：(0/gcd(0,b))*b = 0、(a/gcd(a,0))*0 = 0
+mingli-core gf2.rs replace | with ^ in pack|1|每个位置只被置一次（i 来自 enumerate），或与异或只在该位已为 1 时分家
