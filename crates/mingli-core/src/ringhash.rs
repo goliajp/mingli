@@ -20,7 +20,12 @@ pub fn digital_root(n: u64) -> u64 {
 #[must_use]
 pub fn sum_digits(mut n: u64) -> u64 {
     let mut s = 0;
-    while n > 0 {
+    // 至多二十位：u64 的十进制位数上限。从前是 `while n > 0` 靠 `n /= 10` 收敛，
+    // 把它改成 `%=` 或把比较取反，循环就不动了（变异扫描三个超时出自这里）。
+    for _ in 0..20 {
+        if n == 0 {
+            break;
+        }
         s += n % 10;
         n /= 10;
     }
