@@ -150,3 +150,8 @@ mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::
 mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
 mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
 mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::profile -> &'static[DetItem] with Vec::leak(Vec::new())|1|registry 拦住
+
+# —— mingli-jyotish ——
+mingli-jyotish kuta.rs replace && with || in ashtakuta|1|Bhakoot 两向恒同吉凶：d1+d2 恒为 14，吉位集 {1,3,4,7,10,11} 在 d↦14−d 下自对称（由 the_two_bhakoot_directions_always_agree 钉住）
+mingli-jyotish graha.rs replace + with - in graha_position|1|Ketu = 交点 + 180，模 360 下与 −180 恒等
+mingli-jyotish dasha.rs replace % with + in vimshottari_timeline_with|1|naks 只用于 `naks % 9`，而 27 ≡ 0 (mod 9)，加 27 不改起步
