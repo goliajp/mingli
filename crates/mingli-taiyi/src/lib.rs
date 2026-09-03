@@ -107,13 +107,28 @@ pub fn wenchang(jinian: i64, yang_dun: bool) -> usize {
     };
     let mut k = start;
     let mut count = 0_i64;
-    loop {
+    // 至多十八步：目标不超过 18，而每一步至少记一数（双计的宫记二）。
+    //
+    // 从前这里是没有上限的 `loop`，靠 `count >= target` 收尾。把 `+=` 改成 `-=`、
+    // 或把那个比较取反，它就永远收不了——变异扫描里三个超时全出自这一处，
+    // 而超时既不算拦住也不算漏网，只是把测试挂在那儿。
+    for _ in 0..18 {
         count += if doubled.contains(&k) { 2 } else { 1 };
         if count >= target {
             return k;
         }
         k = (k + 1) % 16;
     }
+    unreachable!("目标 {target} 不超过 18，而每步至少记一数，十八步内必到")
+}
+
+/// 局数 1..=72：积年对 72 取模，整除时作第 72 局。
+///
+/// 单独成函数是因为测试从前自己抄了一遍这段算式——于是库里这份改坏了它也看不见
+/// （变异扫描据此报过一个漏网）。两边共用一份，测试问的才是真正在跑的那段。
+pub(crate) fn ju_of(jinian: i64) -> i64 {
+    let r = jinian.rem_euclid(72);
+    if r == 0 { 72 } else { r }
 }
 
 /// 计神所在的十六神位。阳遁起寅、阴遁起申，**逆行**十二辰（四维不入）。
@@ -149,6 +164,11 @@ pub fn shiji(wenchang_pos: usize, jishen_pos: usize) -> usize {
 /// 《太乙统宗宝鉴》卷二第七条补上方向与终点：「自左順行，依宫数筭……**故算至太乙前一宫而止**」。
 ///
 /// 三条边界：起点若为正宫则计其宫数、为间神则计 1；间神一律不累加；**终点太乙宫不计入**。
+///
+/// # Panics
+///
+/// `taiyi_palace` 不在十六宫的正宫表里时 panic——绕满一圈也遇不到它，那是入参坏了，
+/// 不是需要兜住的边界。
 #[must_use]
 pub fn suan(from: usize, taiyi_palace: u8) -> u32 {
     if RING_PALACE[from] == Some(taiyi_palace) {
@@ -156,7 +176,8 @@ pub fn suan(from: usize, taiyi_palace: u8) -> u32 {
     }
     let mut total = RING_PALACE[from].map_or(1, u32::from);
     let mut k = from;
-    loop {
+    // 至多绕环一圈十六步。同上：从前是没有上限的 `loop`，靠撞上目标宫收尾。
+    for _ in 0..16 {
         k = (k + 1) % 16;
         match RING_PALACE[k] {
             Some(p) if p == taiyi_palace => return total,
@@ -164,6 +185,7 @@ pub fn suan(from: usize, taiyi_palace: u8) -> u32 {
             None => {}
         }
     }
+    panic!("绕满十六宫仍未遇到太乙所在的 {taiyi_palace} 宫——环表或入宫算错了")
 }
 
 /// 「去十用零」：《太乙统宗宝鉴》卷二第八条——余数即大将所迁宫次；
@@ -301,10 +323,7 @@ pub fn compute_at(m: &Moment) -> Cast {
     let jinian = accumulated_years(year);
     let yang = is_yang_dun(m.sun_longitude);
     let taiyi = taiyi_palace(jinian, yang);
-    let ju = {
-        let r = jinian.rem_euclid(72);
-        if r == 0 { 72 } else { r }
-    };
+    let ju = ju_of(jinian);
     let wc = wenchang(jinian, yang);
     let js = jishen(ju, yang);
     Cast {
