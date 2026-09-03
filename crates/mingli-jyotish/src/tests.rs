@@ -815,3 +815,92 @@ fn a_yoni_pair_the_sources_disagree_on_must_come_out_as_a_range() {
     }
     assert!(ranged > 0 && settled > 0, "两类都该出现过：定值 {settled} 组、区间 {ranged} 组");
 }
+
+/// 三张名称表逐项钉住：分盘的梵文名与主判、九曜的梵文名。
+///
+/// 三处形状相同——一个 `match` 把枚举映到字符串，而没有一条测试读过它们。
+/// 变异扫描因此报出「整个函数返回 "xyzzy"」都没人红。这些名字是盘面对外说话的那一层
+/// （web 与释义照着它显示），不是内部细节。
+#[test]
+fn every_name_table_maps_each_variant_to_its_own_string() {
+    use crate::graha::Graha;
+    use crate::varga::{Varga, ALL};
+    use std::collections::BTreeSet;
+
+    let varga_names: [(Varga, &str, &str); 12] = [
+        (Varga::D3, "drekkāṇa", "兄弟姊妹"),
+        (Varga::D4, "chaturthāṃśa", "田宅"),
+        (Varga::D7, "saptāṃśa", "子嗣"),
+        (Varga::D10, "daśāṃśa", "事功"),
+        (Varga::D12, "dvādaśāṃśa", "父母"),
+        (Varga::D16, "ṣoḍaśāṃśa", "车乘·安适"),
+        (Varga::D20, "viṃśāṃśa", "修行"),
+        (Varga::D24, "chaturviṃśāṃśa", "学问"),
+        (Varga::D27, "bhāṃśa", "体质"),
+        (Varga::D40, "khavedāṃśa", "母系"),
+        (Varga::D45, "akṣavedāṃśa", "父系"),
+        (Varga::D60, "ṣaṣṭyāṃśa", "总述"),
+    ];
+    assert_eq!(varga_names.len(), ALL.len(), "分盘数与 ALL 对不上");
+    for (v, sanskrit, subject) in varga_names {
+        assert_eq!(v.sanskrit_name(), sanskrit, "{v:?} 的梵文名");
+        assert_eq!(v.subject(), subject, "{v:?} 的主判");
+    }
+    let sanskrit: BTreeSet<&str> = varga_names.iter().map(|(_, s, _)| *s).collect();
+    let subjects: BTreeSet<&str> = varga_names.iter().map(|(_, _, s)| *s).collect();
+    assert_eq!(sanskrit.len(), 12, "梵文名不许重复");
+    assert_eq!(subjects.len(), 12, "主判不许重复");
+
+    let grahas: [(Graha, &str); 9] = [
+        (Graha::Sun, "Surya"),
+        (Graha::Moon, "Chandra"),
+        (Graha::Mars, "Mangala"),
+        (Graha::Mercury, "Budha"),
+        (Graha::Jupiter, "Guru"),
+        (Graha::Venus, "Shukra"),
+        (Graha::Saturn, "Shani"),
+        (Graha::Rahu, "Rahu"),
+        (Graha::Ketu, "Ketu"),
+    ];
+    for (g, name) in grahas {
+        assert_eq!(g.sanskrit_name(), name, "{g:?} 的梵文名");
+    }
+    let names: BTreeSet<&str> = grahas.iter().map(|(_, n)| *n).collect();
+    assert_eq!(names.len(), 9, "九曜梵文名不许重复");
+}
+
+/// Vimshottari 时间线，扫一段月亮黄经取摘要。
+///
+/// 上面几条问的是结构：九步相接、总和一百二十年、次序正确、换年长只缩放不移龄。
+/// 这些性质在「整体错位但自洽」的时间线上照样成立——变异扫描因此在
+/// `vimshottari_timeline_with` 里留了八个漏网（起步索引、首段剩余、各段起止的算式）。
+///
+/// 逐条列九段 × 多个经度不现实，一个把 (主星, 实际年数, 起止年龄) 都揉进去的滚动摘要够用：
+/// 任何一处算式变了它就变。它答的是「时间线的算法动过没有」，
+/// 不是「Vimshottari 对不对」——后者由上面那些性质与古法年数表守着。
+#[test]
+fn the_vimshottari_timeline_digest_is_unchanged() {
+    let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut mix = |v: u64| {
+        digest ^= v;
+        digest = digest.wrapping_mul(0x1000_0000_01b3);
+    };
+    // 每 0.5° 取一个月亮黄经，覆盖二十七宿的每一段与段内不同位置。
+    for step in 0..720_u32 {
+        let lon = f64::from(step) * 0.5;
+        let timeline = crate::dasha::vimshottari_timeline_with(lon, 2_451_545.0, 365.25);
+        assert_eq!(timeline.len(), 9, "λ={lon} 的大运应有九步");
+        for md in &timeline {
+            mix(md.lord.bytes().fold(0_u64, |a, b| a.wrapping_mul(31).wrapping_add(u64::from(b))));
+            // 浮点取到 1e-6 的定点，避免最后一位抖动
+            for v in [md.effective_years, md.start_age_years, md.end_age_years] {
+                mix((v * 1e6).round() as i64 as u64);
+            }
+        }
+    }
+    assert_eq!(
+        digest, 0xbf7f_02f6_61bb_c565,
+        "整条 Vimshottari 时间线的摘要变了——算式动过了。\n\
+         若确是有意的，把新值写进来，并在 commit message 里说清楚改的是哪一步。"
+    );
+}
