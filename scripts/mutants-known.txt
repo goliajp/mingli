@@ -218,3 +218,19 @@ mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_
 mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
 mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::principal -> Option<Principal> with None|1|registry 拦住
 mingli-pawukon lib.rs replace - with + in caturwara_index|1|(day−2) 与 (day+2) 相差 4，模 4 为零
+
+# —— abjad / cartomancy / gematria / wuge ——
+mingli-abjad engine.rs  replace <impl WordEngine for AbjadEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-cartomancy engine.rs  replace % with / in <impl CastingEngine for TarotEngine>::principal|1|registry 拦住
+mingli-cartomancy engine.rs  replace % with + in <impl CastingEngine for TarotEngine>::principal|1|registry 拦住
+mingli-gematria engine.rs  replace <impl WordEngine for GematriaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-wuge engine.rs  replace <impl WordEngine for WugeEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-wuge engine.rs  replace || with && in <impl WordEngine for WugeEngine>::compute|1|registry 拦住
