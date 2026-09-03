@@ -85,6 +85,7 @@ pub fn caturwara_index(day: usize) -> usize {
     } else if day <= 72 {
         2 // Jaya
     } else {
+        // 这里的 `- 2` 改成 `+ 2` 是等价变异：两者相差 4，模 4 为零。
         (day - 2) % 4
     }
 }

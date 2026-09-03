@@ -187,3 +187,34 @@ mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::answer
 mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::principal -> Option<Principal> with None|1|registry 拦住
 mingli-maya lib.rs replace < with <= in haab|1|doy 恰为 360 时两支同解：(360%20, 360/20) = (0, 18) = (360−360, 18)
 mingli-qizhengsiyu lib.rs replace + with - in star_position|1|计都 = 交点 + 180，模 360 下与 −180 恒等
+
+# —— pawukon / mahabote / ifa / sikidy ——
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-pawukon lib.rs replace - with + in caturwara_index|1|(day−2) 与 (day+2) 相差 4，模 4 为零

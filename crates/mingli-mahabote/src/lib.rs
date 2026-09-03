@@ -164,10 +164,13 @@ mod tests {
     #[test]
     fn wednesday_splits_mercury_rahu() {
         // 找一个周三（wd==4），午前 Mercury、午后 Rahu。
-        let mut base = mingli_astro::civil_day_number(2024, 1, 1);
-        while weekday(base) != 4 {
-            base += 1;
-        }
+        // 七天之内必遇周三。从前这里是没有上限的 `while`：把 `weekday` 换成常数，
+        // 它就永远找不到，测试挂在这里而不是红——变异扫描里两个超时出自这一处。
+        let base = (0..7)
+            .map(|k| mingli_astro::civil_day_number(2024, 1, 1) + k)
+            .find(|&d| weekday(d) == 4)
+            .expect("七天之内必有一个周三");
+        assert_eq!(weekday(base), 4);
         assert_eq!(planet8_index(4, true), 3); // Mercury
         assert_eq!(planet8_index(4, false), 4); // Rahu
         assert_eq!(PLANETS_8[3], "Mercury");
@@ -176,6 +179,43 @@ mod tests {
         for wd in [0usize, 1, 2, 3, 5, 6] {
             assert_eq!(planet8_index(wd, true), planet8_index(wd, false));
         }
+
+        // 每一天对应哪一颗，逐个钉住。
+        //
+        // 上面只问了「周三分不分早晚」，没问哪一天是哪颗星。于是把周日到周五那几条
+        // match 分支逐个删掉、让它们落到兜底的 Saturn 上，五个变异体全部活着：
+        // 「不分早晚」在全都变成土星之后照样成立。
+        for (wd, idx, name) in [
+            (0_usize, 7_usize, "Saturn"),
+            (1, 0, "Sun"),
+            (2, 1, "Moon"),
+            (3, 2, "Mars"),
+            (5, 5, "Jupiter"),
+            (6, 6, "Venus"),
+        ] {
+            assert_eq!(planet8_index(wd, true), idx, "星期下标 {wd} 的行星位");
+            assert_eq!(PLANETS_8[idx], name, "第 {idx} 位应是 {name}");
+        }
+    }
+
+    /// 正午整点归午后：`hour < 12` 的那道界。
+    ///
+    /// 周三按午前午后拆 Mercury / Rahu，而全模块只有这一处读时刻。把 `<` 松成 `<=`，
+    /// 只有生在正午整点的盘会变——此前没有一条测试取在那一刻，于是它活着。
+    #[test]
+    fn noon_itself_counts_as_afternoon() {
+        // 找一个周三（同上，七天之内必有）。
+        let wed = (0..7)
+            .map(|k| mingli_astro::civil_day_number(2024, 1, 1) + k)
+            .find(|&d| weekday(d) == 4)
+            .expect("七天之内必有一个周三");
+        let (y, mo, d) = (2024, 1, 1 + (wed - mingli_astro::civil_day_number(2024, 1, 1)));
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "日在 1..=7")]
+        let day = d as u32;
+        let before = compute(y, 1, day, 11, 59, 6.5);
+        let at_noon = compute(y, mo, day, 12, 0, 6.5);
+        assert_eq!(before.planet, "Mercury", "午前应是 Mercury");
+        assert_eq!(at_noon.planet, "Rahu", "正午整点应归午后，取 Rahu");
     }
 
     /// 缅历年号本身此前只在 2000-01-01 一个日期上验过，而它是个浮点历元折算，
@@ -191,6 +231,27 @@ mod tests {
     ///
     /// 两源合起来给出一条可查的关系：跳变前 ME = 公历 − 639，跳变后 = 公历 − 638。
     /// 取 2 月 1 日与 8 月 1 日，两头都离四月的跳变足够远，不必知道跳变具体在哪天。
+    /// 年号跳变落在哪一天，逐年钉住。
+    ///
+    /// 上面那条取 2 月与 8 月，两头都离跳变很远——于是把历元折算里的 `− 0.5`
+    /// 写成 `+ 0.5`（整条界挪一天）也没人红。跳变日本身才是那半天唯一显形的地方。
+    ///
+    /// 实测（2026-09-03）：1900 年 4-16、1950 年 4-17、2000 年 4-16、2024 年 4-17、
+    /// 2100 年 4-18。与本模块注释里「实测落在 4 月 16 或 17 日」一致；2100 年漂到 18，
+    /// 是平回归年简化式与真实岁差的差，本模块的 `profile()` 已声明这一点。
+    #[test]
+    fn the_year_number_jumps_on_the_day_it_has_always_jumped() {
+        for (year, want_day) in [(1900_i32, 16_u32), (1950, 17), (2000, 16), (2024, 17), (2100, 18)] {
+            let jump = (2..=30_u32)
+                .find(|&d| {
+                    myanmar_year(mingli_astro::civil_day_number(year, 4, d))
+                        != myanmar_year(mingli_astro::civil_day_number(year, 4, d - 1))
+                })
+                .expect("四月内应有且仅有一次跳变");
+            assert_eq!(jump, want_day, "{year} 年的年号跳变日");
+        }
+    }
+
     #[test]
     fn the_year_number_follows_the_era_epoch_across_two_centuries() {
         for year in 1900..=2100i32 {
