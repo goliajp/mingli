@@ -326,6 +326,16 @@ assert!((0.0..360.0).contains(&lagna));
 // 仅校验 Lagna rasi 落 Vrishchika(8) 或 Dhanu(9)(已知 Diana Asc=258.4° tropical
 // → minus ~23.3° ≈ 235.1° → 235.1/30 = 7.8 → rasi 7(Vrishchika))。
 assert!(matches!(chart.lagna_rasi, Some(7 | 8)));
+// 经度本身也要钉住。
+//
+// 只验落在 7 或 8 宫，是一个三十度宽的窗口——把本地恒星时里的
+// `sidereal_time + longitude` 改成减号，上升点只挪一度多，宫位不变，于是没人红。
+// 235.0879° 与上面按 Lahiri 推算的 ~235.1° 一致；这里钉的是转写，
+// 「Lahiri 对不对」由本文件前面几条对公开表的比对守着。
+assert!(
+    (lagna - 235.087_912).abs() < 1e-5,
+    "Diana 那张盘的 Lagna 应是 235.0879°，实得 {lagna}"
+);
 }
 
 // ── Antardaśā（bhukti）：BPHS 51.1–51.2 的比例细分 ──────────────────
@@ -903,4 +913,33 @@ fn the_vimshottari_timeline_digest_is_unchanged() {
         "整条 Vimshottari 时间线的摘要变了——算式动过了。\n\
          若确是有意的，把新值写进来，并在 commit message 里说清楚改的是哪一步。"
     );
+}
+
+/// Bhakoot 的两向恒同吉凶——这是吉位集合自带的对称性。
+///
+/// `ok(d1) && ok(d2)` 改成 `||` 没有测试红，起初看着像缺口。逐对枚举十二宫之后
+/// 才明白它是**等价变异**：d1 + d2 恒为 14（同宫时两者都是 1），而吉的位次
+/// {1, 3, 4, 7, 10, 11} 在 d ↦ 14 − d 之下自对称（3↔11、4↔10、7↔7），
+/// 于是两向要么同吉、要么同不吉，合取与析取给同一个答案。
+///
+/// 这条断言的正是那个对称性——它是 Bhakoot 之所以能当作「一对宫位」的判据的原因，
+/// 而不是实现细节。哪天吉位表改了、对称性破了，这里会红，那时 `&&` 与 `||` 才真的分家。
+#[test]
+fn the_two_bhakoot_directions_always_agree() {
+    let ok = |d: usize| matches!(d, 1 | 3 | 4 | 7 | 10 | 11);
+    let mut pairs = 0_u32;
+    for br in 0..12_usize {
+        for gr in 0..12_usize {
+            let d1 = (gr + 12 - br) % 12 + 1;
+            let d2 = (br + 12 - gr) % 12 + 1;
+            assert_eq!(d1 + d2, if br == gr { 2 } else { 14 }, "两向位次之和");
+            assert_eq!(
+                ok(d1),
+                ok(d2),
+                "女宫 {br} 男宫 {gr}：相隔 {d1}/{d2} 吉凶不同——吉位表的对称性破了"
+            );
+            pairs += 1;
+        }
+    }
+    assert_eq!(pairs, 144, "十二宫两两配对应有 144 组");
 }
