@@ -238,3 +238,9 @@ mingli-wuge engine.rs  replace || with && in <impl WordEngine for WugeEngine>::c
 # —— 共享层 ——
 mingli-core cyclic.rs replace || with && in lcm|1|任一为零时另一支也算出零：(0/gcd(0,b))*b = 0、(a/gcd(a,0))*0 = 0
 mingli-core gf2.rs replace | with ^ in pack|1|每个位置只被置一次（i 来自 enumerate），或与异或只在该位已为 1 时分家
+mingli-ganzhi wuxing.rs replace > with >= in nayin_element|1|n 为 5 时不减也落 `_ => Earth`，减成 0 后同样落 `_`
+mingli-ganzhi cycle.rs replace % with + in month_pillar_stem|1|五虎遁 2(s−5k) ≡ 2s (mod 10)，末尾还要模 10
+mingli-ganzhi shensha.rs delete match arm 2 | 6 | 10 in sanhe_group_index|1|该支与兜底 `_ => 0` 同值（函数自己的 allow 理由已说明）
+mingli-gua lib.rs replace | with ^ in Hexagram::from_trigrams|1|两操作数占不相交位段（0–2 与 3–5）
+mingli-gua lib.rs replace | with ^ in Hexagram::mutual|1|同上
+mingli-gua lib.rs replace | with ^ in value_from_full_name|2|同上
