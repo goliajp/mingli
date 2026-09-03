@@ -97,6 +97,8 @@ pub fn year_ganzhi(solar_year: i32) -> GanZhi {
 /// 用于月柱天干，以及紫微「命宫天干」。
 #[must_use]
 pub fn month_pillar_stem(year_stem: u8, branch: u8) -> u8 {
+    // `year_stem % 5` 写成 `+ 5` 是等价变异：`2(s − 5k) ≡ 2s (mod 10)`，
+    // 而末尾还要模 10。同一族恒等式也出现在四柱与奇门的时干推算里。
     let base = ((year_stem % 5) * 2 + 2) % 10; // 寅之干（甲己→丙…）
     let pos = (i32::from(branch) - 2).rem_euclid(12) as u8; // 距寅步数
     (base + pos) % 10
