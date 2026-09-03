@@ -112,3 +112,41 @@ mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_n
 mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with None|1|同上
 mingli-liuren transmission.rs replace == with != in resolve_kede|1|复等那一层的 `pool.len() == 1`：else 分支恒等于 pool[0].up，两支同解
 mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::bearings -> Vec<Bearing> with vec![]|1|下游 registry 的方位测试拦住（只跑本包时才冒出来）
+
+# —— mingli-taiyi ——
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::principal -> Option<Principal> with None|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-yijing engine.rs  delete match arm "yarrow_stalks" in chart|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-numerology engine.rs  delete match arm "whole_sum" in chart|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::profile -> &'static[DetItem] with Vec::leak(Vec::new())|1|registry 拦住
