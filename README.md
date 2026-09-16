@@ -265,6 +265,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | Route | What it does |
 |---|---|
 | `GET  /api/health` | Health check |
+| `GET  /api/build` | Compiled source and build identity; calculation responses carry `x-mingli-build-id` |
 | `POST /api/cast` | Parallel fan-out — one input, every system cast at once |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | Four Pillars chart / luck-layer strength overlay |
 | `POST /api/ziwei` | Zi Wei Dou Shu chart |
