@@ -23,10 +23,12 @@
     reason = "天文/历法系数沿用 Meeus 等权威文献的原始字面，加数字分隔符反而失真、难对照"
 )]
 
+mod chinese_year;
 mod lunar;
 mod moon;
 mod sun;
 
+pub use chinese_year::{chinese_year, ChineseYear, ChineseMonth, ChineseYearError, CivilDate};
 pub use lunar::{solar_to_lunar, LunarDate};
 pub use mingli_core::quantizer::{norm180, norm360};
 pub use moon::new_moon_jd_ut;

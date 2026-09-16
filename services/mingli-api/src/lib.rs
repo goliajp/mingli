@@ -55,6 +55,7 @@ pub fn router() -> Router {
 pub fn router_with(interpret: backend::Interpret) -> Router {
     Router::new()
         .route("/api/build", get(build_identity::identity))
+        .route("/api/calendar/chinese-year", get(routes::calendar::chinese_year))
         .route("/api/health", get(routes::meta::health))
         .route("/api/intents", get(routes::meta::intents_handler))
         .route("/api/route", post(routes::meta::route_handler))

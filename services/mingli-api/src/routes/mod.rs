@@ -2,6 +2,7 @@
 //!
 //! 「它有没有多做第四步」不靠人读——`tests/no_drift.rs` 把用例层直出与端点 body 逐字节比。
 
+pub mod calendar;
 pub mod election;
 pub mod event;
 pub mod locative;
