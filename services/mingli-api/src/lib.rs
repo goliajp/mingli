@@ -22,6 +22,7 @@ use std::sync::OnceLock;
 use tower_http::cors::CorsLayer;
 
 pub mod backend;
+pub mod build_identity;
 pub mod dto;
 pub mod error;
 pub mod routes;
@@ -53,6 +54,7 @@ pub fn router() -> Router {
 /// [`backend::Interpret::Offline`]，测的才是这条路本身。
 pub fn router_with(interpret: backend::Interpret) -> Router {
     Router::new()
+        .route("/api/build", get(build_identity::identity))
         .route("/api/health", get(routes::meta::health))
         .route("/api/intents", get(routes::meta::intents_handler))
         .route("/api/route", post(routes::meta::route_handler))
@@ -76,6 +78,7 @@ pub fn router_with(interpret: backend::Interpret) -> Router {
         .route("/api/synastry/interpret", post(routes::synastry::interpret_handler))
         .route("/api/mundane", post(routes::mundane::handler))
         .route("/api/mundane/interpret", post(routes::mundane::interpret_handler))
+        .layer(axum::middleware::from_fn(build_identity::stamp))
         .layer(CorsLayer::permissive())
         .with_state(interpret)
 }

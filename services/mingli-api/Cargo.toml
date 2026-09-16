@@ -27,3 +27,6 @@ tracing-subscriber = "0.3"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 mingli-wasm = { path = "../../crates/mingli-wasm" }
+
+[build-dependencies]
+sha2 = "0.10"
