@@ -246,6 +246,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 |---|---|
 | `GET  /api/health` | 健康检查 |
 | `GET  /api/build` | 编译内嵌源码与构建身份；计算响应附带 `x-mingli-build-id` |
+| `GET  /api/calendar/chinese-year` | 完整中国农历年表，参数 `year=1900..2099`，固定东八区月界；无需出生输入 |
 | `POST /api/cast` | 全叶并行 fan-out——一次输入，所有术数同时排盘 |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | 四柱盘 / 运层旺衰叠加 |
 | `POST /api/ziwei` | 紫微斗数盘 |
