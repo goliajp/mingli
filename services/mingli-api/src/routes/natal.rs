@@ -103,3 +103,12 @@ pub(crate) async fn bazi_report_utc_handler(Json(req): Json<ChartRequest>) -> Re
         Err(e)=>bad_request(e.to_string()),
     }
 }
+
+/// Recorded-minute report alternatives, with explicit interval assumptions.
+pub(crate) async fn bazi_report_utc_minute_handler(Json(req): Json<ChartRequest>) -> Response {
+    if let Err(e)=validate(&req) {return bad_request(e);}
+    match mingli_app::bazi::report_utc_minute(&birth(&req)) {
+        Ok(report)=>Json(report).into_response(),
+        Err(e)=>bad_request(e.to_string()),
+    }
+}

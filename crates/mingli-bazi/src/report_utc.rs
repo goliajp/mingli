@@ -347,6 +347,12 @@ pub fn compute_report_utc(input: BirthInput) -> Result<BaziUtcReport, UtcReportE
         input.tz,
     );
     let birth = report_utc_instant(jd)?;
+    compute_report_utc_at(input, birth)
+}
+
+/// Internal representative calculation: civil day/hour remain the recorded minute.
+pub(crate) fn compute_report_utc_at(input: BirthInput, birth: UtcInstant) -> Result<BaziUtcReport, UtcReportError> {
+    let jd = birth.jd_civil;
     let lam = report_solar_longitude(birth.jde_tt);
     let k = ((lam - 15.0) / 30.0).floor();
     let previous = 15.0 + 30.0 * k;
