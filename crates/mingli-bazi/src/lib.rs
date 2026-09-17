@@ -63,3 +63,13 @@ mod tests;
 
 #[cfg(all(test, feature = "port"))]
 mod report_tests;
+
+#[cfg(feature="report-vsop")]
+mod report_utc_data;
+#[cfg(feature="report-vsop")]
+mod report_utc;
+#[cfg(feature="report-vsop")]
+pub use report_utc::*;
+
+#[cfg(all(test,feature="report-vsop",feature="port"))]
+mod report_utc_tests;

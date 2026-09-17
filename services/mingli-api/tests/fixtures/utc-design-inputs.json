@@ -1,0 +1,132 @@
+[
+  {
+    "name": "jie_recorded_minute",
+    "input": {
+      "day": 5,
+      "gender": "female",
+      "hour": 8,
+      "minute": 18,
+      "month": 5,
+      "true_solar_time": false,
+      "tz": 0.0,
+      "year": 2013
+    }
+  },
+  {
+    "name": "jie_following_minute",
+    "input": {
+      "day": 5,
+      "gender": "female",
+      "hour": 8,
+      "minute": 19,
+      "month": 5,
+      "true_solar_time": false,
+      "tz": 0.0,
+      "year": 2013
+    }
+  },
+  {
+    "name": "rounding_recorded_minute",
+    "input": {
+      "day": 30,
+      "gender": "female",
+      "hour": 20,
+      "minute": 18,
+      "month": 4,
+      "true_solar_time": false,
+      "tz": 0.0,
+      "year": 2013
+    }
+  },
+  {
+    "name": "rounding_following_minute",
+    "input": {
+      "day": 30,
+      "gender": "female",
+      "hour": 20,
+      "minute": 19,
+      "month": 4,
+      "true_solar_time": false,
+      "tz": 0.0,
+      "year": 2013
+    }
+  },
+  {
+    "name": "normal",
+    "input": {
+      "year": 1990,
+      "month": 6,
+      "day": 15,
+      "hour": 14,
+      "minute": 30,
+      "tz": 8,
+      "gender": "female",
+      "true_solar_time": false
+    }
+  },
+  {
+    "name": "jie_recorded_minute_male",
+    "input": {
+      "year": 2013,
+      "month": 5,
+      "day": 5,
+      "hour": 8,
+      "minute": 18,
+      "tz": 0,
+      "gender": "male",
+      "true_solar_time": false
+    }
+  },
+  {
+    "name": "jie_following_minute_male",
+    "input": {
+      "year": 2013,
+      "month": 5,
+      "day": 5,
+      "hour": 8,
+      "minute": 19,
+      "tz": 0,
+      "gender": "male",
+      "true_solar_time": false
+    }
+  },
+  {
+    "name": "utc_drift_minute",
+    "input": {
+      "year": 1961,
+      "month": 6,
+      "day": 15,
+      "hour": 12,
+      "minute": 0,
+      "tz": 0,
+      "gender": "female",
+      "true_solar_time": false
+    }
+  },
+  {
+    "name": "utc_leap_last_minute",
+    "input": {
+      "year": 2016,
+      "month": 12,
+      "day": 31,
+      "hour": 23,
+      "minute": 59,
+      "tz": 0,
+      "gender": "female",
+      "true_solar_time": false
+    }
+  },
+  {
+    "name": "utc_leap_following_minute",
+    "input": {
+      "year": 2017,
+      "month": 1,
+      "day": 1,
+      "hour": 0,
+      "minute": 0,
+      "tz": 0,
+      "gender": "female",
+      "true_solar_time": false
+    }
+  }
+]
