@@ -58,3 +58,74 @@ pub fn chinese_year(year: i32) -> Result<ChineseYear, CalendarError> {
         ends_before: date(y.ends_before),
     })
 }
+
+/// Annual Tibetan cycle attributes, without a date conversion or personal chart.
+///
+/// `year` labels the cycle year; it does not assert that a particular civil date
+/// falls after Losar. There are intentionally no day-parkha fields: the leaf's
+/// year-only calculation fills those with a placeholder, not a computed day.
+#[derive(Debug, Serialize)]
+pub struct TibetanYear {
+    /// Public response schema version.
+    pub schema_version: u32,
+    /// Distinguishes this record from a natal chart or complete calendar.
+    pub kind: &'static str,
+    /// Cycle-year label, not an inferred birth year.
+    pub year: i32,
+    /// Interpretation of the requested year.
+    pub year_basis: &'static str,
+    /// Annual animal name from the leaf.
+    pub animal: &'static str,
+    /// Annual power element (dbang thang), not all personal elements.
+    pub element: &'static str,
+    /// Traditional annual polarity, not the user's gender.
+    pub male: bool,
+    /// Position in the 60-year cycle beginning with Wood-Male-Rat.
+    pub sexagenary: i64,
+    /// Rabjung number, with the first beginning in 1027.
+    pub rabjung: i64,
+    /// Position within that rabjung (a different origin from `sexagenary`).
+    pub year_in_rabjung: i64,
+    /// Annual nine-number cycle, moving backward each year.
+    pub mewa: i64,
+    /// Traditional colour associated with the annual number.
+    pub mewa_color: &'static str,
+    /// No Losar boundary or civil-to-Tibetan date conversion was performed.
+    pub calendar_conversion: &'static str,
+    /// Frozen method/projection version for consumers storing snapshots.
+    pub method_version: &'static str,
+    /// Source identifiers for the annual formulas.
+    pub source_ids: [&'static str; 1],
+}
+
+/// Query annual cycle attributes without inventing a birthday or a day trigram.
+///
+/// The 1900–2099 window is the reviewed delivery range, not a mathematical limit
+/// of the underlying cycles. Formula reference: Svante Janson, *Tibetan Calendar
+/// Mathematics*, Appendix E.1; see the leaf for cycle origins and source notes.
+///
+/// # Errors
+/// Rejects years outside the reviewed delivery range; never substitutes a year.
+pub fn tibetan_year(year: i32) -> Result<TibetanYear, &'static str> {
+    if !(1900..=2099).contains(&year) {
+        return Err("tibetan annual cycle year must be between 1900 and 2099");
+    }
+    let c = mingli_tibetan::compute_year(i64::from(year));
+    Ok(TibetanYear {
+        schema_version: 1,
+        kind: "tibetan_annual_cycle",
+        year,
+        year_basis: "cycle_year_label",
+        animal: c.animal,
+        element: c.element,
+        male: c.male,
+        sexagenary: c.sexagenary,
+        rabjung: c.rabjung,
+        year_in_rabjung: c.year_in_rabjung,
+        mewa: c.mewa,
+        mewa_color: c.mewa_color,
+        calendar_conversion: "not_computed",
+        method_version: "tibetan-annual-v1",
+        source_ids: ["janson-tibetan-calendar-E1"],
+    })
+}
