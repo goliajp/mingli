@@ -73,13 +73,32 @@ pub(crate) enum SolarModel {
     Meeus,
     #[cfg(feature = "report-vsop")]
     Vsop,
+    #[cfg(feature = "report-vsop")]
+    PreparedUtc {
+        li_chun_tt: f64,
+        previous_tt: f64,
+        next_tt: f64,
+        next_target: f64,
+    },
 }
 impl SolarModel {
+    pub(crate) fn coordinate(self, civil: f64, tt: f64) -> f64 {
+        match self {
+            #[cfg(feature = "report-vsop")]
+            Self::PreparedUtc { .. } => tt,
+            _ => {
+                let _ = tt;
+                civil
+            }
+        }
+    }
     pub(crate) fn id(self) -> &'static str {
         match self {
             Self::Meeus => "meeus25-delta-t-v1",
             #[cfg(feature = "report-vsop")]
             Self::Vsop => REPORT_SOLAR_MODEL,
+            #[cfg(feature = "report-vsop")]
+            Self::PreparedUtc { .. } => REPORT_UTC_MODEL,
         }
     }
     pub(crate) fn term(self, year: i32, target: f64) -> f64 {
@@ -87,6 +106,8 @@ impl SolarModel {
             Self::Meeus => solar_term_jd(year, target),
             #[cfg(feature = "report-vsop")]
             Self::Vsop => report_solar_term_jd(year, target),
+            #[cfg(feature = "report-vsop")]
+            Self::PreparedUtc { li_chun_tt, .. } => li_chun_tt,
         }
     }
     pub(crate) fn near(self, jd: f64, target: f64) -> f64 {
@@ -94,6 +115,19 @@ impl SolarModel {
             Self::Meeus => solar_term_time_near(jd, target),
             #[cfg(feature = "report-vsop")]
             Self::Vsop => report_solar_term_time_near(jd, target),
+            #[cfg(feature = "report-vsop")]
+            Self::PreparedUtc {
+                previous_tt,
+                next_tt,
+                next_target,
+                ..
+            } => {
+                if target.rem_euclid(360.0) == next_target {
+                    next_tt
+                } else {
+                    previous_tt
+                }
+            }
         }
     }
 }

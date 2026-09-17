@@ -378,3 +378,11 @@ pub fn report(b: &Birth) -> Result<mingli_bazi::BaziReport,String> {
     if b.true_solar_time { return Err("report requires clock time (true_solar_time=false)".into()); }
     mingli_bazi::compute_report_vsop(birth_input(b)).ok_or_else(|| "report requires calculation gender".into())
 }
+
+/// UTC-aware report with frozen published time data and typed coverage errors.
+#[cfg(feature = "bazi-report")]
+pub fn report_utc(b: &Birth) -> Result<mingli_bazi::BaziUtcReport,mingli_bazi::UtcReportError> {
+    b.validate().map_err(|_|mingli_bazi::UtcReportError::InvalidInput)?;
+    if b.true_solar_time {return Err(mingli_bazi::UtcReportError::InvalidInput);}
+    mingli_bazi::compute_report_utc(birth_input(b))
+}

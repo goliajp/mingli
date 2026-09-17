@@ -94,3 +94,12 @@ pub(crate) async fn bazi_report_handler(Json(req): Json<ChartRequest>) -> Respon
         Err(e) => bad_request(e),
     }
 }
+
+/// V2 UTC-aware report; unsupported table coverage is a client error.
+pub(crate) async fn bazi_report_utc_handler(Json(req): Json<ChartRequest>) -> Response {
+    if let Err(e)=validate(&req) {return bad_request(e);}
+    match mingli_app::bazi::report_utc(&birth(&req)) {
+        Ok(report)=>Json(report).into_response(),
+        Err(e)=>bad_request(e.to_string()),
+    }
+}

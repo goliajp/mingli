@@ -121,7 +121,7 @@ pub(crate) fn compute_at_with_evidence(m: &Moment, gender: Option<Gender>, schoo
 
 pub(crate) fn compute_at_model(m: &Moment, gender: Option<Gender>, school: BaziSchool, model: SolarModel) -> (BaziChart, Option<CycleBasis>) {
     let zi = school.zi_hour;
-    let (jd, lam) = (m.jd_ut, m.sun_longitude);
+    let (jd, lam) = (model.coordinate(m.jd_ut, m.jde), m.sun_longitude);
 
     // 年柱：换岁流派——主流立春（节气黄经 315°）；少数派春节（农历正月初一）。
     let solar_year = match school.year_break {
