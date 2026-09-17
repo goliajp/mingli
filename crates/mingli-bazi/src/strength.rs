@@ -42,11 +42,11 @@ pub struct Strength {
     pub got_di: u32,
     /// 得势（干头）0–30。
     pub got_shi: u32,
-    /// 五行力量分布（百分比，合 100）。
+    /// 五行力量分布（各项独立四舍五入的百分比约数，合计允许 98–102）。
     pub wuxing: WuxingPower,
 }
 
-/// 五行力量分布（百分比，合 100）。
+/// 五行力量分布（各项独立四舍五入的百分比约数，合计允许 98–102）。
 ///
 /// 权重：天干 10、地支本气 12、中气 6、余气 3；月支×1.5（得令加成）。
 #[derive(Debug, Clone, Copy)]
@@ -151,7 +151,7 @@ pub(crate) fn compute_strength_inner(
         "强"
     } else if score >= 60 {
         "偏强"
-    } else if score >= 40 {
+    } else if score > 40 {
         "中和"
     } else if score >= 25 {
         "偏弱"

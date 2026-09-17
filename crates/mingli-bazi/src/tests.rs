@@ -533,7 +533,7 @@ fn strength_oracle_1987_male_yin_earth() {
     assert_eq!(c.strength.got_shi, 20, "丁印10+己比10");
     assert_eq!(c.strength.score, 61);
     assert_eq!(c.strength.level, "偏强");
-    // 五行分布合 100（整数 round 凑巧；允差 1）。
+    // 此例五行分布凑巧合 100；独立舍入的一般合计范围为 98–102。
     let s = c.strength.wuxing;
     let sum = s.wood + s.fire + s.earth + s.metal + s.water;
     assert!((99..=101).contains(&sum), "wuxing 合 ≈ 100，实 {sum}");
@@ -680,7 +680,7 @@ fn strength_score_bounds() {
         assert!(s.got_shi <= 30);
         assert!(s.score <= 100);
         let sum = s.wuxing.wood + s.wuxing.fire + s.wuxing.earth + s.wuxing.metal + s.wuxing.water;
-        assert!((99..=101).contains(&sum));
+        assert!((98..=102).contains(&sum));
     }
 }
 
@@ -1297,4 +1297,85 @@ fn hidden_stems_oracle() {
     assert_eq!(c.month.day_twelve, "长生");
     assert_eq!(c.day.day_twelve, "帝旺");
     assert_eq!(c.hour.day_twelve, "沐浴");
+}
+
+#[test]
+fn score_40_has_one_consistent_weak_classification() {
+    // Observed API counterexample: formerly level=中和 but method=身弱宜扶.
+    let c = compute(BirthInput { year:1991, month:3, day:20, hour:14, minute:30, tz:5.75, gender:None });
+    assert_eq!(c.strength.score, 40);
+    assert_eq!(c.strength.level, "偏弱");
+    assert_eq!(c.yongshen.method, "扶抑 · 身弱宜扶");
+    assert!(!c.yongshen.reasoning.contains("中和"));
+}
+
+#[test]
+fn peer_qi_revealed_does_not_become_an_eight_pattern() {
+    // Both actual dates used to return 比肩格 / 劫财格 with is_lu_ren=false.
+    for (month, day, name, stem) in [(5,15,"暗七杀格","丙"),(3,5,"暗正官格","甲")] {
+        let c = compute(BirthInput { year:1990, month, day, hour:14, minute:30, tz:5.75, gender:None });
+        assert_eq!(c.pattern.name, name);
+        assert_eq!(c.pattern.qi_stem, stem);
+        assert!(!c.pattern.revealed);
+        assert!(!c.pattern.is_lu_ren);
+        assert_eq!(c.pattern.revealed_in, None);
+        assert!(c.pattern.source.contains("无可取八正格的透干"));
+    }
+    // 辰藏戊乙癸，日主甲：中气乙劫财虽在年柱透出，仍继续找余气癸正印。
+    let p = determine_pattern(GanZhi{stem:1,branch:1},GanZhi{stem:6,branch:4},GanZhi{stem:0,branch:0},GanZhi{stem:9,branch:1});
+    assert_eq!(p.name,"正印格");
+    assert_eq!(p.qi_kind,"余气");
+    assert_eq!(p.revealed_in.as_deref(),Some("时柱"));
+}
+
+#[test]
+fn every_pattern_symbol_combination_has_consistent_attribution() {
+    // Exhaust all 120,000 relevant inputs: day stem × month branch × three revealed stems.
+    // Other branches and civil-calendar correlations do not enter determine_pattern.
+    let eight=["正官","七杀","正财","偏财","正印","偏印","食神","伤官"];
+    for dm in 0..10 { for mb in 0..12 { for year in 0..10 { for month in 0..10 { for hour in 0..10 {
+        let p=determine_pattern(GanZhi{stem:year,branch:year%2},GanZhi{stem:month,branch:mb},GanZhi{stem:dm,branch:dm%2},GanZhi{stem:hour,branch:hour%2});
+        let hidden=hidden_stems(mb);
+        let qi=STEMS.iter().position(|s|*s==p.qi_stem).unwrap() as u8;
+        assert!(hidden.contains(&qi));
+        assert_eq!(p.ten_god,ten_god(dm,qi));
+        if p.is_lu_ren {
+            assert!(matches!(p.name.as_str(),"建禄格"|"月刃格"));
+            assert!(matches!(p.ten_god.as_str(),"比肩"|"劫财"));
+            assert_eq!(qi,hidden[0]);assert!(!p.revealed);assert!(p.revealed_in.is_none());
+        } else {
+            assert!(eight.contains(&p.ten_god.as_str()));
+            if p.revealed {
+                let stem=match p.revealed_in.as_deref(){Some("年柱")=>year,Some("月柱")=>month,Some("时柱")=>hour,_=>panic!("missing source")};
+                assert_eq!(stem,qi);
+                assert_eq!(p.name,format!("{}格",p.ten_god));
+            } else {
+                assert_eq!(qi,hidden[0]);assert!(p.revealed_in.is_none());
+                assert_eq!(p.name,format!("暗{}格",p.ten_god));
+                // Falling back never overlooks a revealed non-peer monthly stem.
+                for &h in hidden { if [year,month,hour].contains(&h) { assert!(matches!(ten_god(dm,h),"比肩"|"劫财")); } }
+            }
+        }
+    }}}}}
+}
+
+#[test]
+fn all_sixty_pillar_combinations_keep_strength_and_method_consistent() {
+    // All 60^4 = 12,960,000 symbol charts; civil-calendar feasibility is not assumed.
+    // This is an arithmetic contract check, not an independent calendar oracle.
+    for y in 0..60 { for d in 0..60 { for m in 0..60 { for h in 0..60 {
+        let gz=|n:u8|GanZhi{stem:n%10,branch:n%12};
+        let (year,month,day,hour)=(gz(y),gz(m),gz(d),gz(h));
+        let s=compute_strength(year,month,day,hour);
+        let y=determine_yongshen(day.stem,month.branch,&s);
+        assert!(s.got_ling<=30 && s.got_di<=30 && s.got_shi<=30 && s.score<=100);
+        assert_eq!(s.score,(s.got_ling+s.got_di+s.got_shi)*100/90);
+        match s.score {
+            0..=40=>{assert!(matches!(s.level.as_str(),"弱"|"偏弱"));assert_eq!(y.method,"扶抑 · 身弱宜扶");},
+            41..=59=>{assert_eq!(s.level,"中和");assert_eq!(y.method,"调候为主");},
+            _=>{assert!(matches!(s.level.as_str(),"偏强"|"强"));assert_eq!(y.method,"扶抑 · 身强宜耗");},
+        }
+        let sum=s.wuxing.wood+s.wuxing.fire+s.wuxing.earth+s.wuxing.metal+s.wuxing.water;
+        assert!((98..=102).contains(&sum));
+    }}}}
 }
