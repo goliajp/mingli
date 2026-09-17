@@ -636,6 +636,7 @@ dependencies = [
  "mingli-luoshu",
  "mingli-registry",
  "mingli-taiyi",
+ "mingli-tibetan",
  "mingli-zeri",
  "mingli-ziwei",
  "serde",

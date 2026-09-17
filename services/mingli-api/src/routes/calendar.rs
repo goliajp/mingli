@@ -23,3 +23,19 @@ pub async fn chinese_year(Query(q): Query<ChineseYearQuery>) -> Response {
         Err(e @ CalendarError::InconsistentSequence) => server_error(e.to_string()),
     }
 }
+
+/// Cycle-year label only; birth fields and date/time assumptions are rejected.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TibetanYearQuery {
+    /// Reviewed delivery range: 1900 through 2099.
+    pub year: i32,
+}
+
+/// Annual cycle projection, without a placeholder day trigram or Losar inference.
+pub async fn tibetan_year(Query(q): Query<TibetanYearQuery>) -> Response {
+    match mingli_app::calendar::tibetan_year(q.year) {
+        Ok(year) => Json(year).into_response(),
+        Err(e) => bad_request(e),
+    }
+}

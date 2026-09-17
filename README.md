@@ -267,6 +267,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `GET  /api/health` | Health check |
 | `GET  /api/build` | Compiled source and build identity; calculation responses carry `x-mingli-build-id` |
 | `GET  /api/calendar/chinese-year` | Complete Chinese lunisolar year (`year=1900..2099`), fixed UTC+8 month boundaries; no birth inputs |
+| `GET  /api/calendar/tibetan-year` | Tibetan annual cycle attributes (`year=1900..2099`); no Losar/date conversion, day trigram, or personal forecast |
 | `POST /api/cast` | Parallel fan-out — one input, every system cast at once |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | Four Pillars chart / luck-layer strength overlay |
 | `POST /api/bazi/report` | Clock-time chart + unrounded cycle calculation evidence; gender required ([contract](services/mingli-api/BAZI-REPORT.md)) |
