@@ -28,6 +28,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [features]
+bazi-report = ["mingli-bazi/report-vsop"]
 default = ["astrology", "jyotish"]
 # 与 mingli-registry 的同名 feature 对齐：关掉即不连带 VSOP87 星历，用于轻量构建。
 # 用例层若无条件依赖这两片，registry 那边关了也白关——星历照样被拉进来。

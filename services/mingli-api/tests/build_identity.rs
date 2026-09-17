@@ -26,7 +26,7 @@ async fn identity_is_compiled_and_every_calculation_response_is_stamped() {
     assert_eq!(value["build_id"], header);
     assert_eq!(value["source_sha256"], env!("MINGLI_SOURCE_SHA256"));
     assert_eq!(header, env!("MINGLI_BUILD_ID"));
-    for path in ["/api/bazi", "/api/ziwei"] {
+    for path in ["/api/bazi", "/api/bazi/report", "/api/ziwei"] {
         let response=app.clone().oneshot(Request::builder().method("POST").uri(path).header("content-type","application/json").body(Body::from(r#"{"year":1990,"month":6,"day":15,"hour":14,"minute":30,"tz":8,"gender":"male"}"#)).unwrap()).await.unwrap();
         assert_eq!(response.status(), 200);
         assert_eq!(response.headers()["x-mingli-build-id"], header);

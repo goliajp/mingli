@@ -370,3 +370,11 @@ mod dasha_tests {
         assert_eq!(z["annual"]["branch"], "午", "流年宫不依赖性别，应照常给");
     }
 }
+
+/// Clock-time full report inputs and exact cycle calculation evidence.
+#[cfg(feature = "bazi-report")]
+pub fn report(b: &Birth) -> Result<mingli_bazi::BaziReport,String> {
+    b.validate()?;
+    if b.true_solar_time { return Err("report requires clock time (true_solar_time=false)".into()); }
+    mingli_bazi::compute_report_vsop(birth_input(b)).ok_or_else(|| "report requires calculation gender".into())
+}

@@ -1,6 +1,7 @@
 //! 排盘主链：由共享时刻定四柱，再挂上藏干、十神、神煞、大运与各层结论。
 
 use super::*;
+use crate::report::SolarModel;
 
 pub(crate) fn pillar(gz: GanZhi, day_master: u8, is_day: bool, year_branch: u8, day_gz: GanZhi) -> Pillar {
     // 神煞落到该柱（日干锚 + 年支锚 + 日柱魁罡）
@@ -111,13 +112,21 @@ pub fn compute_at(m: &Moment, gender: Option<Gender>) -> BaziChart {
 }
 
 pub(crate) fn compute_at_impl(m: &Moment, gender: Option<Gender>, school: BaziSchool) -> BaziChart {
+    compute_at_with_evidence(m, gender, school).0
+}
+
+pub(crate) fn compute_at_with_evidence(m: &Moment, gender: Option<Gender>, school: BaziSchool) -> (BaziChart, Option<CycleBasis>) {
+    compute_at_model(m, gender, school, SolarModel::Meeus)
+}
+
+pub(crate) fn compute_at_model(m: &Moment, gender: Option<Gender>, school: BaziSchool, model: SolarModel) -> (BaziChart, Option<CycleBasis>) {
     let zi = school.zi_hour;
     let (jd, lam) = (m.jd_ut, m.sun_longitude);
 
     // 年柱：换岁流派——主流立春（节气黄经 315°）；少数派春节（农历正月初一）。
     let solar_year = match school.year_break {
         YearBreakMethod::LiChun => {
-            let lichun = solar_term_jd(m.year, 315.0);
+            let lichun = model.term(m.year, 315.0);
             if jd < lichun { m.year - 1 } else { m.year }
         }
         // 春节换岁要的就是农历年号本身——[`mingli_astro::LunarDate::year`] 的定义
@@ -155,13 +164,16 @@ pub(crate) fn compute_at_impl(m: &Moment, gender: Option<Gender>, school: BaziSc
 
     let dm = day_gz.stem;
     let lunar = m.lunar;
-    let dayun = gender.map(|g| compute_dayun(jd, lam, year_gz.stem, g, month_gz));
+    let (dayun, cycle_basis) = match gender {
+        Some(g) => { let (d,b) = compute_dayun_with_basis(jd, m.jde, lam, year_gz.stem, g, month_gz, model); (Some(d),Some(b)) },
+        None => (None,None),
+    };
     let strength = compute_strength(year_gz, month_gz, day_gz, hour_gz);
     let pattern = determine_pattern(year_gz, month_gz, day_gz, hour_gz);
     let yongshen = determine_yongshen(day_gz.stem, month_gz.branch, &strength);
     let three_houses = determine_three_houses(year_gz, month_gz, hb);
 
-    BaziChart {
+    let chart = BaziChart {
         input: BirthInput {
             year: m.year,
             month: m.month,
@@ -193,11 +205,12 @@ pub(crate) fn compute_at_impl(m: &Moment, gender: Option<Gender>, school: BaziSc
         yongshen,
         three_houses,
         dayun,
-    }
+    };
+    (chart,cycle_basis)
 }
 
 /// 大运：阳男阴女顺行、阴男阳女逆行；起运 = 到前/后一「节」的天数 ÷ 3 年。
-pub(crate) fn compute_dayun(jd: f64, lam: f64, year_stem: u8, gender: Gender, month_gz: GanZhi) -> DaYun {
+fn compute_dayun_with_basis(jd: f64, jde: f64, lam: f64, year_stem: u8, gender: Gender, month_gz: GanZhi, model: SolarModel) -> (DaYun,CycleBasis) {
     let year_yang = year_stem.is_multiple_of(2); // 甲丙戊庚壬 为阳年
     let forward = match gender {
         Gender::Male => year_yang,
@@ -209,9 +222,9 @@ pub(crate) fn compute_dayun(jd: f64, lam: f64, year_stem: u8, gender: Gender, mo
     let next_target = 15.0 + 30.0 * (k + 1.0);
     let prev_target = 15.0 + 30.0 * k;
     let next_jd =
-        solar_term_time_near(jd + (next_target - lam).rem_euclid(360.0) / 0.98565, next_target);
+        model.near(jd + (next_target - lam).rem_euclid(360.0) / 0.98565, next_target);
     let prev_jd =
-        solar_term_time_near(jd - (lam - prev_target).rem_euclid(360.0) / 0.98565, prev_target);
+        model.near(jd - (lam - prev_target).rem_euclid(360.0) / 0.98565, prev_target);
 
     let days = if forward { next_jd - jd } else { jd - prev_jd };
     // 到节的天数必须落在一个节气间隔内。
@@ -241,9 +254,18 @@ pub(crate) fn compute_dayun(jd: f64, lam: f64, year_stem: u8, gender: Gender, mo
         });
     }
 
-    DaYun {
+    let dayun = DaYun {
         forward,
         start_age_years: (start_age_years * 100.0).round() / 100.0,
         pillars,
-    }
+    };
+    let basis = CycleBasis {
+        schema_version: 1, model_id: model.id(),
+        birth_jd_ut: jd, birth_jde_tt: jde, birth_longitude_deg: lam,
+        previous_jie: JieBasis { target_longitude_deg: prev_target.rem_euclid(360.0), jd_ut: prev_jd },
+        next_jie: JieBasis { target_longitude_deg: next_target.rem_euclid(360.0), jd_ut: next_jd },
+        selected: if forward { "next" } else { "previous" }, interval_days: days,
+        unrounded_start_age_years: start_age_years, days_per_year: 3,
+    };
+    (dayun,basis)
 }

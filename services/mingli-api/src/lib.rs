@@ -61,6 +61,7 @@ pub fn router_with(interpret: backend::Interpret) -> Router {
         .route("/api/route", post(routes::meta::route_handler))
         .route("/api/analysis", get(routes::meta::analysis_handler))
         .route("/api/bazi", post(routes::natal::bazi_handler))
+        .route("/api/bazi/report", post(routes::natal::bazi_report_handler))
         .route("/api/bazi/overlay-strength", post(routes::natal::overlay_strength_handler))
         .route("/api/ziwei", post(routes::natal::ziwei_handler))
         .route("/api/cast", post(routes::natal::cast_handler))

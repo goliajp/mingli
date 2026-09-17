@@ -249,6 +249,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `GET  /api/calendar/chinese-year` | 完整中国农历年表，参数 `year=1900..2099`，固定东八区月界；无需出生输入 |
 | `POST /api/cast` | 全叶并行 fan-out——一次输入，所有术数同时排盘 |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | 四柱盘 / 运层旺衰叠加 |
+| `POST /api/bazi/report` | 钟面时间四柱盘及未舍入起运计算依据；须提供计算性别（[契约](services/mingli-api/BAZI-REPORT.md)） |
 | `POST /api/ziwei` | 紫微斗数盘 |
 | `POST /api/fortune` | 某时刻的岁运聚合 + 百年供给时序 |
 | `POST /api/word` | 字词类叶（数字学 / gematria / abjad / 五格） |
