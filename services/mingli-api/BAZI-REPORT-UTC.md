@@ -45,3 +45,31 @@ Solar roots are solved in TT without restricting trial guesses to the civil data
 At an exact drift-segment effective midnight, inverse floating-point subtraction can lose one JD unit in the last place. The inverse anchors only exact equality with the segment start's forward TT value. This preserves real leap gaps and negative-adjustment overlaps.
 
 The v2 basis contains `time_scale_policy`, `birth_time_scale`, complete `li_chun`, `previous_jie`, `next_jie`, and `interval_scale: "tt_elapsed"`. Per-root evidence records the exact table segment and applied TT offset. These are calculation evidence, not user-facing fortune claims or a promise that modelled solar positions equal observations.
+
+## Recorded-minute alternatives
+
+`POST /api/bazi/report/utc/minute` accepts the same clock-time request but returns
+`schema_version: 1`, `model_id: vsop87d-iau1980-utc-minute-v1`. This is a separate
+envelope version; each nested report retains UTC cycle evidence schema 2.
+
+`recorded_input` preserves the supplied minute. `minute` and each candidate's
+`interval` contain `start` / `end` UTC instants, `[start,end)`, explicit inclusion
+booleans and physical `elapsed_tt_seconds`. Solar `boundaries` strictly inside
+the recorded minute split candidates into `before` and `after`; otherwise there
+is a `single` candidate. Every candidate has a full freshly computed `report`,
+an interior civil-midpoint `representative`, and an unrounded `start_age_range`
+with both endpoint-inclusion flags. The representative is an assumption for
+that interval, not inferred birth seconds. Nested chart input stays at the
+recorded minute while cycle evidence birth coordinates identify the actual
+representative. Day/hour remain those of the recorded local minute; year,
+month, direction, ten cycles and all chart-derived fields are independently
+recomputed on each side. At Li Chun the changed year can reverse cycle direction.
+
+Ranges use physical TT elapsed time: the 2016-12-31 UTC last minute spans 61
+seconds. The endpoint never invents an ordinary civil second 60. Negative
+historic UTC steps or ambiguous representative instants return HTTP 400, as do
+unsupported coverage, unavailable adjacent roots and true-solar input. A root
+exactly at the minute start belongs to that minute; an end root is excluded.
+Unrepresentably narrow floating-point intervals return a typed error rather
+than an empty or fabricated candidate. The service does not publish a textual
+reading or claim that a complete product report is ready.

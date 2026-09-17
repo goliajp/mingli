@@ -73,3 +73,8 @@ pub use report_utc::*;
 
 #[cfg(all(test,feature="report-vsop",feature="port"))]
 mod report_utc_tests;
+
+#[cfg(feature="report-vsop")]
+mod report_utc_minute;
+#[cfg(feature="report-vsop")]
+pub use report_utc_minute::*;

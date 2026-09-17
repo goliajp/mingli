@@ -386,3 +386,11 @@ pub fn report_utc(b: &Birth) -> Result<mingli_bazi::BaziUtcReport,mingli_bazi::U
     if b.true_solar_time {return Err(mingli_bazi::UtcReportError::InvalidInput);}
     mingli_bazi::compute_report_utc(birth_input(b))
 }
+
+/// Complete alternatives for one recorded minute; never changes the input minute.
+#[cfg(feature = "bazi-report")]
+pub fn report_utc_minute(b: &Birth) -> Result<mingli_bazi::BaziUtcMinuteReport,mingli_bazi::UtcReportError> {
+    b.validate().map_err(|_|mingli_bazi::UtcReportError::InvalidInput)?;
+    if b.true_solar_time {return Err(mingli_bazi::UtcReportError::InvalidInput);}
+    mingli_bazi::compute_report_utc_minute(birth_input(b))
+}

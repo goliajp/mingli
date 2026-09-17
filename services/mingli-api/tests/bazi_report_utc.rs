@@ -104,3 +104,59 @@ async fn actual_api_design_cases_preserve_jie_and_rounding_minute_differences() 
         std::fs::write(path, serde_json::to_string_pretty(&cases).unwrap()).unwrap();
     }
 }
+
+#[tokio::test]
+async fn recorded_minute_endpoint_returns_complete_alternatives_and_keeps_original_record() {
+    let mut dump=Vec::new();
+    for (id,input,count) in [
+        ("inside_jie_minute",json!({"year":2013,"month":5,"day":5,"hour":8,"minute":18,"tz":0,"gender":"female","true_solar_time":false}),2),
+        ("normal",json!({"year":1990,"month":6,"day":15,"hour":14,"minute":30,"tz":8,"gender":"female","true_solar_time":false}),1),
+        ("leap_minute",json!({"year":2016,"month":12,"day":31,"hour":23,"minute":59,"tz":0,"gender":"male","true_solar_time":false}),1),
+        ("li_chun_minute",json!({"year":2013,"month":2,"day":3,"hour":16,"minute":13,"tz":0,"gender":"female","true_solar_time":false}),2),
+    ] {
+        let (status,response)=post("/api/bazi/report/utc/minute",&input).await;
+        assert_eq!(status,200,"{id}: {response}");
+        let candidates=response["candidates"].as_array().unwrap();
+        assert_eq!(candidates.len(),count,"{id}");
+        assert_eq!(response["recorded_input"]["minute"],input["minute"]);
+        assert_eq!(response["minute"]["start_inclusive"],true);
+        assert_eq!(response["minute"]["end_inclusive"],false);
+        for c in candidates {
+            assert_eq!(c["report"]["cycle_basis"]["birth_jde_tt"],c["representative"]["jde_tt"]);
+            assert_eq!(c["report"]["chart"]["dayun"]["pillars"].as_array().unwrap().len(),10);
+        }
+        dump.push(json!({"id":id,"input":input,"response":response,"build":{"build_id":env!("MINGLI_BUILD_ID"),"source_sha256":env!("MINGLI_SOURCE_SHA256")}}));
+    }
+    if let Ok(path)=std::env::var("MINGLI_UTC_MINUTE_DUMP") {std::fs::write(path,serde_json::to_string_pretty(&dump).unwrap()).unwrap();}
+    for input in [
+        json!({"year":1961,"month":7,"day":31,"hour":23,"minute":59,"tz":0,"gender":"female"}),
+        json!({"year":2027,"month":7,"day":1,"hour":0,"minute":0,"tz":0,"gender":"female"}),
+        json!({"year":1990,"month":6,"day":15,"hour":14,"minute":30,"tz":8,"gender":"female","true_solar_time":true}),
+    ] {assert_eq!(post("/api/bazi/report/utc/minute",&input).await.0,400);}
+}
+
+#[tokio::test]
+async fn minute_boundary_matrix_uses_actual_api_roots_and_both_genders() {
+    let mut dump=Vec::new();
+    for year in [1900,1961,2013,2026] {
+        for month in 1..=12 {
+            let seed=json!({"year":year,"month":month,"day":15,"hour":0,"minute":0,"tz":0,"gender":"female","true_solar_time":false});
+            let (status,r)=post("/api/bazi/report/utc",&seed).await;
+            assert_eq!(status,200);
+            let root=r["cycle_basis"]["previous_jie"]["jd_civil"].as_f64().unwrap();
+            let mid=r["cycle_basis"]["birth_jd_civil"].as_f64().unwrap();
+            let minute=((root+0.5)*1440.0).floor() as i64;
+            let day=15+minute.div_euclid(1440)-(mid+0.5).floor() as i64;
+            let within=minute.rem_euclid(1440);
+            for gender in ["male","female"] {
+                let input=json!({"year":year,"month":month,"day":day,"hour":within/60,"minute":within%60,"tz":0,"gender":gender,"true_solar_time":false});
+                let (status,response)=post("/api/bazi/report/utc/minute",&input).await;
+                assert_eq!(status,200,"{input}: {response}");
+                assert_eq!(response["candidates"].as_array().unwrap().len(),2);
+                dump.push(json!({"id":format!("{year}-{month:02}-{gender}"),"input":input,"response":response,"build":{"build_id":env!("MINGLI_BUILD_ID"),"source_sha256":env!("MINGLI_SOURCE_SHA256")}}));
+            }
+        }
+    }
+    assert_eq!(dump.len(),96);
+    if let Ok(path)=std::env::var("MINGLI_UTC_MINUTE_BOUNDARIES_DUMP") {std::fs::write(path,serde_json::to_string_pretty(&dump).unwrap()).unwrap();}
+}
