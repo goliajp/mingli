@@ -269,6 +269,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `GET  /api/calendar/chinese-year` | Complete Chinese lunisolar year (`year=1900..2099`), fixed UTC+8 month boundaries; no birth inputs |
 | `POST /api/cast` | Parallel fan-out — one input, every system cast at once |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | Four Pillars chart / luck-layer strength overlay |
+| `POST /api/bazi/report` | Clock-time chart + unrounded cycle calculation evidence; gender required ([contract](services/mingli-api/BAZI-REPORT.md)) |
 | `POST /api/ziwei` | Zi Wei Dou Shu chart |
 | `POST /api/fortune` | Aggregate fortune at an instant, plus a century-long supply timeline |
 | `POST /api/word` | Word-driven leaves (numerology / gematria / abjad / wuge) |

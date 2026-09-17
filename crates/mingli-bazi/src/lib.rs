@@ -32,6 +32,12 @@ pub use mingli_ganzhi::parse_ganzhi;
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
+#[cfg(feature = "report-vsop")]
+mod report_sun;
+#[cfg(feature = "report-vsop")]
+pub use report_sun::*;
+mod report;
+pub use report::*;
 mod types;
 mod chart;
 mod pattern;
@@ -54,3 +60,6 @@ pub use fortune::*;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(test, feature = "port"))]
+mod report_tests;

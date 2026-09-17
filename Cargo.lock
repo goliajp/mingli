@@ -669,12 +669,14 @@ dependencies = [
 name = "mingli-bazi"
 version = "1.1.1"
 dependencies = [
+ "astro",
  "criterion",
  "mingli-astro",
  "mingli-contract",
  "mingli-ganzhi",
  "serde",
  "serde_json",
+ "vsop87",
 ]
 
 [[package]]

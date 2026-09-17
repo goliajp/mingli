@@ -85,3 +85,12 @@ pub(crate) async fn interpret_handler(State(backend): State<Interpret>, Json(req
         Err(_) => server_error("释义后端不可用"),
     }
 }
+
+/// Full chart with independently accessible cycle calculation evidence.
+pub(crate) async fn bazi_report_handler(Json(req): Json<ChartRequest>) -> Response {
+    if let Err(e) = validate(&req) { return bad_request(e); }
+    match mingli_app::bazi::report(&birth(&req)) {
+        Ok(report) => Json(report).into_response(),
+        Err(e) => bad_request(e),
+    }
+}

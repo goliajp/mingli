@@ -15,7 +15,11 @@ mingli-astro = { workspace = true }
 mingli-ganzhi = { workspace = true }
 serde = { workspace = true, optional = true }
 
+vsop87 = { version = "=3.0.0", optional = true }
+astro = { version = "=2.0.0", optional = true }
+
 [features]
+report-vsop = ["dep:vsop87", "dep:astro"]
 default = ["port"]
 # 作为一片叶接进注册表所需的一切：`CastingEngine` 实现与它的 JSON 出口。
 # 只想直接调 `compute` 拿类型化盘的人不需要它——关掉之后契约与 serde_json 都不进依赖图。
