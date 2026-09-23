@@ -8,7 +8,7 @@
 # 本脚本在仓库之外建两个临时工程——一个 cargo、一个 npm——只按版本号依赖，
 # 不走任何 path，然后跑起来对答案。
 #
-# 顺带核一件事：npm 包里那份 wasm 的字节数必须等于 scripts/wasm-budget.txt 里的数。
+# 顺带核一件事：npm 包里那份 wasm 的字节数必须落在 scripts/wasm-budget.txt 的上限内（含 1.5% 余量）。
 # 发出去的东西与预算表说的不是一回事，比预算表本身错了更难发现。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -79,10 +79,15 @@ EOF
   fi
   got_bytes=$(wc -c < "$work/js/node_modules/mingli-wasm-yijing/mingli_wasm_bg.wasm" | tr -d ' ')
   want_bytes=$(awk '$1=="chart-solo-yijing"{print $2}' "$ROOT/scripts/wasm-budget.txt")
-  if [ -n "$want_bytes" ] && [ "$got_bytes" != "$want_bytes" ]; then
-    printf '  ✗ 发出去的是 %s 字节，预算表写的是 %s\n' "$got_bytes" "$want_bytes"; fail=1
+  # 预算表是上限，不是相等契约（见 wasm-budget.txt 文件头）：npm-pack.sh 与 wasm-size.sh
+  # 都留 1.5% 余量，这里原先仍要求逐字节相等，于是 1.2.0 发出的 yijing 比预算小
+  # 298 字节也报红。与那两处取同一条界。
+  if [ -z "$want_bytes" ]; then
+    printf '  ✗ 预算表里没有 chart-solo-yijing 这一行\n'; fail=1
+  elif [ "$got_bytes" -gt "$(( want_bytes + want_bytes * 3 / 200 ))" ]; then
+    printf '  ✗ 发出去的是 %s 字节，超过预算 %s 的 1.5%% 余量\n' "$got_bytes" "$want_bytes"; fail=1
   else
-    printf '  ✓ %s 字节，与预算表一致\n' "$got_bytes"
+    printf '  ✓ %s 字节，在预算 %s 以内（含 1.5%% 余量）\n' "$got_bytes" "$want_bytes"
   fi
 fi
 
