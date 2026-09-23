@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp, reason = "report evidence must be bit-identical across paths, not approximately equal")]
+#![allow(clippy::cast_precision_loss, reason = "day numbers near 2.4e6 are exact in f64")]
 use super::*;
 use mingli_astro::{jd_ut_to_jde, julian_day, sun_apparent_longitude};
 fn verify(input: BirthInput) {
@@ -179,7 +181,7 @@ fn high_model_all_years_and_boundaries_use_one_model() {
             let term = report_solar_term_jd(y, f64::from(target));
             let tt = report_jd_ut_to_jde(term);
             let earth = vsop87::vsop87d::earth(tt);
-            let t = (tt - 2451545.0) / 36525.0;
+            let t = (tt - 2_451_545.0) / 36525.0;
             let p = earth.longitude() + std::f64::consts::PI
                 - (1.397 * t + 0.00031 * t * t).to_radians();
             let omitted = (0.03916 * (p.cos() + p.sin()) * (-earth.latitude()).tan()).abs();
@@ -222,7 +224,7 @@ fn high_model_all_years_and_boundaries_use_one_model() {
         }
     }
     println!("Maximum omitted general FK5 latitude contribution over 2412 jie: {max_lat_correction:.12} arcsec");
-    assert!(max_lat_correction < 0.000001);
+    assert!(max_lat_correction < 0.000_001);
     if let Ok(path) = std::env::var("MINGLI_VSOP_BOUNDARIES_DUMP") {
         std::fs::write(path, serde_json::to_string_pretty(&dump).unwrap()).unwrap();
     }

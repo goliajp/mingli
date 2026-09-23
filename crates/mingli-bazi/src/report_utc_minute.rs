@@ -76,6 +76,11 @@ fn interval(start: UtcInstant, end: UtcInstant) -> UtcMinuteInterval {
 /// Compute all complete chart alternatives within one recorded local civil minute.
 /// Positive leap seconds contribute physical duration; historical backward steps
 /// are refused because civil intervals then do not order physical instants uniquely.
+///
+/// # Errors
+/// Everything [`compute_report_utc`] returns, plus
+/// [`UtcReportError::AmbiguousCivilInstant`] when the minute overlaps a backward step and
+/// [`UtcReportError::UnrepresentableCivilInstant`] when a candidate's representative falls in a gap.
 pub fn compute_report_utc_minute(input: BirthInput) -> Result<BaziUtcMinuteReport, UtcReportError> {
     let initial = compute_report_utc(input)?; // canonical validation and covered adjacent roots
     let start = report_utc_instant(initial.cycle_basis.birth_jd_civil)?;
@@ -106,7 +111,7 @@ pub fn compute_report_utc_minute(input: BirthInput) -> Result<BaziUtcMinuteRepor
         if a.jd_civil >= b.jd_civil || a.jde_tt >= b.jde_tt {
             return Err(UtcReportError::AmbiguousCivilInstant);
         }
-        let representative = report_utc_instant((a.jd_civil + b.jd_civil) * 0.5)?;
+        let representative = report_utc_instant(f64::midpoint(a.jd_civil, b.jd_civil))?;
         if representative.jde_tt <= a.jde_tt || representative.jde_tt >= b.jde_tt {
             return Err(UtcReportError::UnrepresentableCivilInstant);
         }
@@ -158,6 +163,8 @@ pub fn compute_report_utc_minute(input: BirthInput) -> Result<BaziUtcMinuteRepor
 }
 
 #[cfg(all(test, feature = "port"))]
+#[allow(clippy::float_cmp, reason = "adjacent candidates must share the exact boundary instant")]
+#[allow(clippy::cast_precision_loss, reason = "day numbers near 2.4e6 are exact in f64")]
 mod tests {
     use super::*;
     use mingli_astro::julian_day;
@@ -166,7 +173,7 @@ mod tests {
         let mut count = 0;
         for year in 1900..=2026 {
             for target in (15..360).step_by(30) {
-                let tt = report_utc_solar_term_tt(year, target as f64).unwrap();
+                let tt = report_utc_solar_term_tt(year, f64::from(target)).unwrap();
                 let root = report_tt_to_civil(tt).unwrap();
                 let minute = ((root.jd_civil + 0.5) * 1440.0).floor() as i64;
                 let jd = minute.div_euclid(1440) as f64 - 0.5;

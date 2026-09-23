@@ -110,6 +110,10 @@ impl SolarModel {
             Self::PreparedUtc { li_chun_tt, .. } => li_chun_tt,
         }
     }
+    #[allow(
+        clippy::float_cmp,
+        reason = "targets are whole multiples of 15 degrees, exact in f64; picks the prepared root"
+    )]
     pub(crate) fn near(self, jd: f64, target: f64) -> f64 {
         match self {
             Self::Meeus => solar_term_time_near(jd, target),

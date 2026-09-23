@@ -62,6 +62,10 @@ fn coverage() -> (f64, f64) {
     (julian_day(1899, 1, 1.0), julian_day(2027, 7, 1.0))
 }
 /// Convert a covered ordinary civil JD, rejecting dates beyond the fixed bulletin policy.
+///
+/// # Errors
+/// [`UtcReportError::InvalidInput`] for a nonfinite `jd`;
+/// [`UtcReportError::UnsupportedCoverage`] outside the published tables.
 pub fn report_utc_instant(jd: f64) -> Result<UtcInstant, UtcReportError> {
     let (start, end) = coverage();
     if !jd.is_finite() {
@@ -87,7 +91,7 @@ pub fn report_utc_instant(jd: f64) -> Result<UtcInstant, UtcReportError> {
         .rev()
         .find(|(y, m, _, _, _)| jd >= julian_day(*y, *m, 1.0))
         .ok_or(UtcReportError::UnsupportedCoverage)?;
-    let seconds = base + (jd - 2400000.5 - ref_mjd) * rate + 32.184;
+    let seconds = base + (jd - 2_400_000.5 - ref_mjd) * rate + 32.184;
     Ok(UtcInstant {
         jd_civil: jd,
         jde_tt: jd + seconds / 86400.0,
@@ -104,6 +108,16 @@ pub fn report_utc_instant(jd: f64) -> Result<UtcInstant, UtcReportError> {
 }
 /// Invert TT over explicit UTC segments. Leap-second gaps and historical backward
 /// steps have zero or multiple ordinary-civil solutions and receive typed errors.
+///
+/// # Errors
+/// [`UtcReportError::InvalidInput`] for a nonfinite `tt`;
+/// [`UtcReportError::UnsupportedCoverage`] outside the published tables;
+/// [`UtcReportError::UnrepresentableCivilInstant`] inside a leap or offset gap;
+/// [`UtcReportError::AmbiguousCivilInstant`] where a backward step gives two solutions.
+#[allow(
+    clippy::float_cmp,
+    reason = "bisection stops on adjacent f64; a segment start is anchored only on exact forward equality"
+)]
 pub fn report_tt_to_civil(tt: f64) -> Result<UtcInstant, UtcReportError> {
     if !tt.is_finite() {
         return Err(UtcReportError::InvalidInput);
@@ -115,7 +129,7 @@ pub fn report_tt_to_civil(tt: f64) -> Result<UtcInstant, UtcReportError> {
     let mut hi = julian_day(1960, 1, 1.0);
     if tt >= report_jd_ut_to_jde(lo) && tt < report_jd_ut_to_jde(hi) {
         for _ in 0..48 {
-            let mid = (lo + hi) * 0.5;
+            let mid = f64::midpoint(lo, hi);
             if mid == lo || mid == hi {
                 break;
             }
@@ -125,7 +139,7 @@ pub fn report_tt_to_civil(tt: f64) -> Result<UtcInstant, UtcReportError> {
                 lo = mid;
             }
         }
-        let x = (lo + hi) * 0.5;
+        let x = f64::midpoint(lo, hi);
         if x < julian_day(1960, 1, 1.0) {
             found.push(report_utc_instant(x)?);
         }
@@ -138,14 +152,14 @@ pub fn report_tt_to_civil(tt: f64) -> Result<UtcInstant, UtcReportError> {
         // Select the mathematical TT half-open interval before floating-point
         // inversion, so rounding near a continuous step cannot admit an old segment.
         let segment_tt =
-            |civil: f64| civil + (base + (civil - 2400000.5 - ref_mjd) * rate + 32.184) / 86400.0;
+            |civil: f64| civil + (base + (civil - 2_400_000.5 - ref_mjd) * rate + 32.184) / 86400.0;
         let a_tt = segment_tt(a);
         if tt < a_tt || tt >= segment_tt(b) {
             continue;
         }
-        let reference = if rate == 0.0 { a } else { 2400000.5 + ref_mjd };
+        let reference = if rate == 0.0 { a } else { 2_400_000.5 + ref_mjd };
         let ref_tt =
-            reference + (base + (reference - 2400000.5 - ref_mjd) * rate + 32.184) / 86400.0;
+            reference + (base + (reference - 2_400_000.5 - ref_mjd) * rate + 32.184) / 86400.0;
         let mut civil = reference + (tt - ref_tt) / (1.0 + rate / 86400.0);
         // Algebraic inversion around a distant drift reference can lose one JD
         // ULP at an exact effective midnight. Anchor only exact forward equality;
@@ -174,6 +188,11 @@ pub fn report_tt_to_civil(tt: f64) -> Result<UtcInstant, UtcReportError> {
     }
 }
 /// Solve solely in TT; trial guesses are not restricted by UTC table coverage.
+///
+/// # Errors
+/// [`UtcReportError::InvalidInput`] for a nonfinite `guess` or `target`;
+/// [`UtcReportError::UnbracketedSolarRoot`] if the crossing is not bracketed around `guess`.
+#[allow(clippy::float_cmp, reason = "bisection stops once the midpoint equals an endpoint: no f64 lies between")]
 pub fn report_utc_solar_term_tt_near(guess: f64, target: f64) -> Result<f64, UtcReportError> {
     if !guess.is_finite() || !target.is_finite() {
         return Err(UtcReportError::InvalidInput);
@@ -184,7 +203,7 @@ pub fn report_utc_solar_term_tt_near(guess: f64, target: f64) -> Result<f64, Utc
         return Err(UtcReportError::UnbracketedSolarRoot);
     }
     for _ in 0..48 {
-        let mid = (lo + hi) * 0.5;
+        let mid = f64::midpoint(lo, hi);
         if mid == lo || mid == hi {
             break;
         }
@@ -194,9 +213,12 @@ pub fn report_utc_solar_term_tt_near(guess: f64, target: f64) -> Result<f64, Utc
             lo = mid;
         }
     }
-    Ok((lo + hi) * 0.5)
+    Ok(f64::midpoint(lo, hi))
 }
 /// TT solar-term root seeded in the Gregorian year, without assuming future UTC.
+///
+/// # Errors
+/// As [`report_utc_solar_term_tt_near`].
 pub fn report_utc_solar_term_tt(year: i32, target: f64) -> Result<f64, UtcReportError> {
     let jan1 = julian_day(year, 1, 1.0);
     report_utc_solar_term_tt_near(
@@ -309,6 +331,11 @@ pub struct BaziUtcReport {
     pub cycle_basis: UtcCycleBasis,
 }
 /// Default-school UTC/historical-UT report with bounded published time data.
+///
+/// # Errors
+/// [`UtcReportError::InvalidInput`] for a missing gender or an invalid civil date,
+/// time or zone; otherwise any error from resolving the birth instant or the
+/// adjacent solar-term roots (coverage, gap, overlap, bracketing).
 pub fn compute_report_utc(input: BirthInput) -> Result<BaziUtcReport, UtcReportError> {
     let leap = input.year % 4 == 0 && (input.year % 100 != 0 || input.year % 400 == 0);
     let month_days = [
