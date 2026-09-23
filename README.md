@@ -272,6 +272,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | Four Pillars chart / luck-layer strength overlay |
 | `POST /api/bazi/report` | Clock-time chart + unrounded cycle calculation evidence; gender required ([contract](services/mingli-api/BAZI-REPORT.md)) |
 | `POST /api/bazi/report/utc` | UTC-aware report with frozen historical/leap-second data ([v2](services/mingli-api/BAZI-REPORT-UTC.md)) |
+| `POST /api/bazi/report/utc/minute` | Same request; if a solar-term boundary falls strictly inside the recorded birth minute, returns a full report for each side of it, otherwise a single one ([contract](services/mingli-api/BAZI-REPORT-UTC.md#recorded-minute-alternatives)) |
 | `POST /api/ziwei` | Zi Wei Dou Shu chart |
 | `POST /api/fortune` | Aggregate fortune at an instant, plus a century-long supply timeline |
 | `POST /api/word` | Word-driven leaves (numerology / gematria / abjad / wuge) |
@@ -286,6 +287,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/interpret` | Interpretation layer (🔮 INT, not a computed result) |
 
 Request fields: `year month day hour` (required), `minute` (default 0), `tz` (default +8), `gender` (`male` / `female`, or `男` / `女`; omit to skip luck cycles — anything else is rejected rather than quietly ignored). Supported range 1900–2100.
+`/api/election` and `/api/locative` accept a `category` (the kind of matter, or what is being sought), but only echo it back: it changes neither the ranking of days nor the bearings. Which rules apply to which matter differs between traditions and is left to the interpretation layer.
 Bind address is overridable with `MINGLI_API_BIND`.
 
 ---
