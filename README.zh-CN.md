@@ -252,6 +252,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | 四柱盘 / 运层旺衰叠加 |
 | `POST /api/bazi/report` | 钟面时间四柱盘及未舍入起运计算依据；须提供计算性别（[契约](services/mingli-api/BAZI-REPORT.md)） |
 | `POST /api/bazi/report/utc` | 采用固定历史UTC/闰秒表的独立v2报告 ([v2](services/mingli-api/BAZI-REPORT-UTC.md)) |
+| `POST /api/bazi/report/utc/minute` | 请求同上；节气交界严格落在所记出生分钟之内时，交界前后各给一份完整报告，否则只给一份（[契约](services/mingli-api/BAZI-REPORT-UTC.md#recorded-minute-alternatives)） |
 | `POST /api/ziwei` | 紫微斗数盘 |
 | `POST /api/fortune` | 某时刻的岁运聚合 + 百年供给时序 |
 | `POST /api/word` | 字词类叶（数字学 / gematria / abjad / 五格） |
@@ -266,6 +267,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/interpret` | 释义层（🔮 INT，非计算产物） |
 
 　　请求字段：`year month day hour`（必填）、`minute`（默认 0）、`tz`（默认 +8）、`gender`（`male` / `female`，也收 `男` / `女`；缺省不算大运，写别的会被拒而不是默默忽略）。支持 1900–2100。
+`/api/election` 与 `/api/locative` 收 `category`（事类 / 所寻），但只原样回显：既不改变择日的排序，也不改变方位结果。什么事取什么规则各家不同，交释义层。
 端口可用 `MINGLI_API_BIND` 覆盖。
 
 ---
