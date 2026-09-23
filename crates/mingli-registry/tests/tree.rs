@@ -178,7 +178,8 @@ fn every_leaf_reports_the_principal_it_is_supposed_to() {
         ("zeri", "建除", "定"),
         ("maya", "Tzolkʼin 数", "12"),
         ("pawukon", "Pancawara", "Pon"),
-        ("mahabote", "本命宫", "Binga"),
+        // 2024-06-15 是周六（1 月 1 日周一，相隔 166 天），周六配土星。
+        ("mahabote", "出生行星", "Saturn"),
         ("liuren", "日支", "10"),
         ("qimen", "局数", "6"),
         ("taiyi", "太乙宫", "2"),
