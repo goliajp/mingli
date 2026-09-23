@@ -372,6 +372,9 @@ mod dasha_tests {
 }
 
 /// Clock-time full report inputs and exact cycle calculation evidence.
+///
+/// # Errors
+/// An invalid birth, `true_solar_time` set, or a missing calculation gender.
 #[cfg(feature = "bazi-report")]
 pub fn report(b: &Birth) -> Result<mingli_bazi::BaziReport,String> {
     b.validate()?;
@@ -380,6 +383,10 @@ pub fn report(b: &Birth) -> Result<mingli_bazi::BaziReport,String> {
 }
 
 /// UTC-aware report with frozen published time data and typed coverage errors.
+///
+/// # Errors
+/// [`mingli_bazi::UtcReportError::InvalidInput`] for an invalid birth or `true_solar_time`;
+/// otherwise as [`mingli_bazi::compute_report_utc`].
 #[cfg(feature = "bazi-report")]
 pub fn report_utc(b: &Birth) -> Result<mingli_bazi::BaziUtcReport,mingli_bazi::UtcReportError> {
     b.validate().map_err(|_|mingli_bazi::UtcReportError::InvalidInput)?;
@@ -388,6 +395,10 @@ pub fn report_utc(b: &Birth) -> Result<mingli_bazi::BaziUtcReport,mingli_bazi::U
 }
 
 /// Complete alternatives for one recorded minute; never changes the input minute.
+///
+/// # Errors
+/// [`mingli_bazi::UtcReportError::InvalidInput`] for an invalid birth or `true_solar_time`;
+/// otherwise as [`mingli_bazi::compute_report_utc_minute`].
 #[cfg(feature = "bazi-report")]
 pub fn report_utc_minute(b: &Birth) -> Result<mingli_bazi::BaziUtcMinuteReport,mingli_bazi::UtcReportError> {
     b.validate().map_err(|_|mingli_bazi::UtcReportError::InvalidInput)?;

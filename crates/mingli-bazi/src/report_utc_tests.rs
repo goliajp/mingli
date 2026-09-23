@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp, reason = "report evidence must be bit-identical across paths, not approximately equal")]
+#![allow(clippy::cast_precision_loss, reason = "day numbers near 2.4e6 are exact in f64")]
 use super::*;
 use mingli_astro::{jd_from_local, julian_day};
 #[test]
@@ -9,7 +11,7 @@ fn utc_steps_drift_and_inverse_do_not_invent_civil_times() {
             match report_tt_to_civil(instant.jde_tt) {
                 Ok(back) => assert!((back.jd_civil - instant.jd_civil).abs() < 1e-8),
                 Err(UtcReportError::AmbiguousCivilInstant) => {
-                    assert!(offset == 0.0 && [(1961, 8), (1968, 2)].contains(&(y, m)))
+                    assert!(offset == 0.0 && [(1961, 8), (1968, 2)].contains(&(y, m)));
                 }
                 Err(e) => panic!("unexpected inverse {y}-{m}/{offset}: {e}"),
             }

@@ -7,11 +7,11 @@ use mingli_astro::{delta_t_seconds, julian_day};
 /// Decimal-year mapping matches the existing engine; this is not observed UT1.
 #[must_use]
 pub fn report_jd_ut_to_jde(jd: f64) -> f64 {
-    let year = 2000.0 + (jd - 2451545.0) / 365.25;
+    let year = 2000.0 + (jd - 2_451_545.0) / 365.25;
     let dt = if year < 1900.0 {
         let t = year - 1860.0;
-        7.62 + 0.5737 * t - 0.251754 * t.powi(2) + 0.01680668 * t.powi(3) - 0.0004473624 * t.powi(4)
-            + t.powi(5) / 233174.0
+        7.62 + 0.5737 * t - 0.251_754 * t.powi(2) + 0.016_806_68 * t.powi(3) - 0.000_447_362_4 * t.powi(4)
+            + t.powi(5) / 233_174.0
     } else {
         delta_t_seconds(year)
     };
@@ -32,7 +32,11 @@ fn residual(jd: f64, target: f64) -> f64 {
 }
 /// Solve a nearby solar crossing in UT using the report model. Caller supplies
 /// a guess within eight days, satisfied by the mean-motion year/jie guesses.
+///
+/// # Panics
+/// If the root is not bracketed within eight days either side of `guess`.
 #[must_use]
+#[allow(clippy::float_cmp, reason = "bisection stops once the midpoint equals an endpoint: no f64 lies between")]
 pub fn report_solar_term_time_near(guess: f64, target: f64) -> f64 {
     let mut lo = guess - 8.0;
     let mut hi = guess + 8.0;
@@ -42,7 +46,7 @@ pub fn report_solar_term_time_near(guess: f64, target: f64) -> f64 {
     );
     // ~40 microseconds is the f64 JD grid near this epoch. Stop on adjacency.
     for _ in 0..48 {
-        let mid = (lo + hi) * 0.5;
+        let mid = f64::midpoint(lo, hi);
         if mid == lo || mid == hi {
             break;
         }
@@ -52,7 +56,7 @@ pub fn report_solar_term_time_near(guess: f64, target: f64) -> f64 {
             lo = mid;
         }
     }
-    (lo + hi) * 0.5
+    f64::midpoint(lo, hi)
 }
 /// Solar-term root in the requested Gregorian year (15-degree term targets).
 #[must_use]
