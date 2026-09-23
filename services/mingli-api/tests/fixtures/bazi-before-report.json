@@ -1,0 +1,226 @@
+{
+  "input": {
+    "year": 1990,
+    "month": 6,
+    "day": 15,
+    "hour": 14,
+    "minute": 30,
+    "tz": 8,
+    "gender": "female",
+    "true_solar_time": false
+  },
+  "raw": {
+    "input": {
+      "year": 1990,
+      "month": 6,
+      "day": 15,
+      "hour": 14,
+      "minute": 30,
+      "tz": 8.0,
+      "gender": "female"
+    },
+    "lunar": {
+      "year": 1990,
+      "month": 5,
+      "leap": false,
+      "day": 23
+    },
+    "year": {
+      "ganzhi": "庚午",
+      "stem": "庚",
+      "branch": "午",
+      "stem_wuxing": "金",
+      "branch_wuxing": "火",
+      "nayin": "土",
+      "ten_god": "劫财",
+      "hidden": [
+        {
+          "stem": "丁",
+          "ten_god": "七杀"
+        },
+        {
+          "stem": "己",
+          "ten_god": "偏印"
+        }
+      ],
+      "day_twelve": "病",
+      "shensha": [
+        "将星"
+      ]
+    },
+    "month": {
+      "ganzhi": "壬午",
+      "stem": "壬",
+      "branch": "午",
+      "stem_wuxing": "水",
+      "branch_wuxing": "火",
+      "nayin": "木",
+      "ten_god": "伤官",
+      "hidden": [
+        {
+          "stem": "丁",
+          "ten_god": "七杀"
+        },
+        {
+          "stem": "己",
+          "ten_god": "偏印"
+        }
+      ],
+      "day_twelve": "病",
+      "shensha": [
+        "将星"
+      ]
+    },
+    "day": {
+      "ganzhi": "辛亥",
+      "stem": "辛",
+      "branch": "亥",
+      "stem_wuxing": "金",
+      "branch_wuxing": "水",
+      "nayin": "金",
+      "ten_god": "日主",
+      "hidden": [
+        {
+          "stem": "壬",
+          "ten_god": "伤官"
+        },
+        {
+          "stem": "甲",
+          "ten_god": "正财"
+        }
+      ],
+      "day_twelve": "沐浴",
+      "shensha": []
+    },
+    "hour": {
+      "ganzhi": "乙未",
+      "stem": "乙",
+      "branch": "未",
+      "stem_wuxing": "木",
+      "branch_wuxing": "土",
+      "nayin": "金",
+      "ten_god": "偏财",
+      "hidden": [
+        {
+          "stem": "己",
+          "ten_god": "偏印"
+        },
+        {
+          "stem": "乙",
+          "ten_god": "偏财"
+        },
+        {
+          "stem": "丁",
+          "ten_god": "七杀"
+        }
+      ],
+      "day_twelve": "衰",
+      "shensha": []
+    },
+    "day_master": "辛",
+    "day_master_wuxing": "金",
+    "xunkong": [
+      "寅",
+      "卯"
+    ],
+    "strength": {
+      "score": 36,
+      "level": "偏弱",
+      "got_ling": 9,
+      "got_di": 14,
+      "got_shi": 10,
+      "wuxing": {
+        "wood": 18,
+        "fire": 27,
+        "earth": 22,
+        "metal": 16,
+        "water": 18
+      }
+    },
+    "pattern": {
+      "name": "暗七杀格",
+      "source": "月令本气暗藏（年/月/时三干头无可取八正格的透干）",
+      "qi_stem": "丁",
+      "qi_kind": "本气",
+      "revealed_in": null,
+      "ten_god": "七杀",
+      "revealed": false,
+      "is_lu_ren": false
+    },
+    "yongshen": {
+      "method": "扶抑 · 身弱宜扶",
+      "primary_wuxing": "土",
+      "primary_role": "印星",
+      "secondary_wuxing": "金",
+      "secondary_role": "比劫",
+      "avoid_wuxing": [
+        "火",
+        "木"
+      ],
+      "reasoning": "日主辛偏弱（综合 36），宜以助身五行扶之；印星土双重作用（生身+化杀）优先，比劫金副选。忌官杀火克身、财木损印。"
+    },
+    "three_houses": {
+      "ming_gong": "丁亥",
+      "shen_gong": "己丑",
+      "tai_yuan": "癸酉"
+    },
+    "dayun": {
+      "forward": false,
+      "start_age_years": 3.11,
+      "pillars": [
+        {
+          "start_age": 3,
+          "ganzhi": "辛巳"
+        },
+        {
+          "start_age": 13,
+          "ganzhi": "庚辰"
+        },
+        {
+          "start_age": 23,
+          "ganzhi": "己卯"
+        },
+        {
+          "start_age": 33,
+          "ganzhi": "戊寅"
+        },
+        {
+          "start_age": 43,
+          "ganzhi": "丁丑"
+        },
+        {
+          "start_age": 53,
+          "ganzhi": "丙子"
+        },
+        {
+          "start_age": 63,
+          "ganzhi": "乙亥"
+        },
+        {
+          "start_age": 73,
+          "ganzhi": "甲戌"
+        },
+        {
+          "start_age": 83,
+          "ganzhi": "癸酉"
+        },
+        {
+          "start_age": 93,
+          "ganzhi": "壬申"
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "local real mingli API /api/bazi",
+    "date": "2026-09-17",
+    "subject": "synthetic birth inputs, not a real person",
+    "build": {
+      "schema_version": 1,
+      "service": "mingli-api",
+      "build_id": "mingli-v1-67991b24c7bba72ce53a2b6ff9a15e65a00236c24471f3adf0e5916f14a51eb7",
+      "source_sha256": "e171257191c15155750b845eb7d09f5752b77c3ba44b12766362f8a57f596a4a",
+      "package_version": "1.1.1"
+    }
+  }
+}

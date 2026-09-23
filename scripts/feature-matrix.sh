@@ -79,8 +79,21 @@ fi
 
 # 「关掉即裁掉」不能只验编译得过——编译永远过，星历照样被拉进来。
 # 这一条直接查依赖图：轻量构建里 vsop87 必须不在。
-printf '\n=== 轻量构建真的裁掉了星历\n'
-if cargo tree -p mingli-wasm --no-default-features -e normal 2>/dev/null | grep -q vsop87; then
+# 拿一个**真的装着叶**的轻量档位来验，不是空壳。
+#
+# 从前这里查的是 `--no-default-features`：一片叶都不装，当然没有 vsop87——
+# 那句「轻量构建裁掉了星历」对一个什么也算不出的空壳成立，等于没验。
+# 同一形状的洞让 `mingli-wasm-astrology-thin@1.1.0` 带着空注册表发了出去。
+printf '\n=== 轻量构建真的裁掉了星历（且叶还在）\n'
+LIGHT="bazi,ziwei,yijing,meihua,qimen"
+light_tree=$(cargo tree -p mingli-wasm --no-default-features --features "$LIGHT" -e normal --prefix none 2>/dev/null | awk '{print $1}' | sort -u)
+for want in mingli-bazi mingli-ziwei mingli-yijing mingli-meihua mingli-qimen; do
+  grep -qx "$want" <<<"$light_tree" || {
+    printf '  ✗ 轻量档位里没有 %s——这一档装到手什么也算不出，而下面那句「没有星历」是白拿的\n' "$want"
+    fail=1
+  }
+done
+if grep -qx vsop87 <<<"$light_tree"; then
   printf '  ✗ 关掉 feature 后 vsop87 仍在依赖图里——「轻量构建」这句话不成立\n'
   printf '    多半是某个消费者按默认把星历叶全开了：继承来的依赖不许写 default-features=false，\n'
   printf '    要在根 manifest 把它设成 opt-in，再由各消费者显式声明要哪几片\n'
@@ -135,8 +148,11 @@ else
   while read -r name raw gz; do
     case "$name" in ''|'#'*) continue;; esac
     n_row=$((n_row+1))
-    kb_raw=$(python3 -c "print(f'{$raw/1024:.0f} KB')")
-    kb_gz=$(python3 -c "print(f'{$gz/1024:.0f} KB')")
+    # 与 crates/mingli-registry/tests/readme.rs 用同一条换算：整数的四舍五入，
+    # `(b + 512) / 1024`。从前这里用的是 Python 的 `:.0f`，它在 .5 上取偶——
+    # 166400 字节正好是 162.5 KB，一边得 162、一边得 163，两个守卫对着同一张预算表吵架。
+    kb_raw="$(( (raw + 512) / 1024 )) KB"
+    kb_gz="$(( (gz + 512) / 1024 )) KB"
     for md in README.md README.zh-CN.md; do
       if ! grep -q "| $kb_raw | $kb_gz |" "$md"; then
         printf '  ✗ %s 少了 %s 那一行（应是 %s / %s）\n' "$md" "$name" "$kb_raw" "$kb_gz"; fail=1

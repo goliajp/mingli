@@ -8,7 +8,7 @@ Divination systems, implemented as **algorithms**: deterministic casting engines
 
 The organizing principle is a strict split between **computing a chart, interpreting it, and talking about it**. This repository only does the first. What a chart *means* is quarantined behind `mingli-interpret` and is always marked as a non-computed artifact.
 
-> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 807 tests green
+> 39 crates · 24 leaves (21 time-driven leaves fan out in parallel, 4 word-driven leaves go through `/api/word`, one of them both) · 8 intents, over HTTP and wasm alike · 847 tests green
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -151,13 +151,13 @@ Measured, release wasm32:
 
 | npm package | Build | Module | gzipped |
 |---|---|---:|---:|
-| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 229 KB | 119 KB |
+| `mingli-wasm-astrology-thin` | Natal charts, truncated ephemeris built in | 230 KB | 120 KB |
 | `mingli-wasm-yijing` | Yi Jing only | 156 KB | 72 KB |
 | `mingli-wasm-astrology-lite` | Natal charts, you supply the positions | 162 KB | 73 KB |
-| `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |
-| `mingli-wasm-chinese` | The ten Chinese systems | 341 KB | 143 KB |
-| `mingli-wasm-chart` | All twenty-four, charts only | 1237 KB | 712 KB |
-| `mingli-wasm` | All twenty-four plus use cases | 1443 KB | 789 KB |
+| `mingli-wasm-bazi` | Four Pillars only | 195 KB | 89 KB |
+| `mingli-wasm-chinese` | The ten Chinese systems | 342 KB | 143 KB |
+| `mingli-wasm-chart` | All twenty-four, charts only | 1238 KB | 713 KB |
+| `mingli-wasm` | All twenty-four plus use cases | 1444 KB | 790 KB |
 
 
 ### Bring your own ephemeris
@@ -202,7 +202,7 @@ or payload -- it exists because one did, once.
 Guards need guarding too. A test that can never fail and a test that is really holding
 something up look identical on a green run; the only way to tell them apart is to put the
 fault back and see whether it gets caught. `guard-probe.sh` turns that from something
-someone once did by hand into a command anyone can re-run: it plants 117 known faults
+someone once did by hand into a command anyone can re-run: it plants 122 known faults
 and asks, for each, whether the guard that should catch it goes red. It has already found
 one guard that did not do what its name said -- "the composition root is the only place
 that lists leaves" never looked at the interpretation layer at all.
@@ -211,17 +211,39 @@ that lists leaves" never looked at the interpretation layer at all.
 ## Tests and cross-checks
 
 ```bash
-cargo test --workspace     # 807 tests
+cargo test --workspace     # 847 tests
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # fully documented
 ./scripts/coverage.sh      # 98%+ regions; every file below the line has a written reason
 ./scripts/api-snapshot.sh check snap.txt   # 43 requests, byte for byte
 ./scripts/test-count.sh    # the count in this README, against a real run
 ./scripts/feature-matrix.sh  # every leaf built alone, every crate tested alone, wasm32, one dependency-graph check
-./scripts/guard-probe.sh   # plants 117 known faults, checks the guard that should catch each one does
+./scripts/guard-probe.sh   # plants 122 known faults, checks the guard that should catch each one does
 ```
 
 All of the above, plus the screenshot pass, run on every push — see the badge at the top.
+
+One check is deliberately not among them:
+
+```bash
+./scripts/mutants.sh mingli-astro   # break every spot in a crate, one at a time; see which breaks nothing
+```
+
+`guard-probe.sh` plants faults we chose, and asks whether the guard meant to
+catch each one does. This asks the opposite question — is there anywhere in a
+crate that nobody is watching — and it answers by breaking every spot in turn.
+A run takes hours, so it stays a hand tool rather than a gate. What it found
+here is the kind of thing a passing suite hides: coefficients too small to
+observe over the dates this project supports, loops that answered a wrong input
+by never returning, and tolerances wider than the wobble they were meant to
+catch.
+
+Not every survivor is a gap. Some are equivalent mutants — `+ 180` and `- 180`
+agree under a mod 360, a quadrant's formula turns out to equal its neighbour's.
+Proving that costs more than the scan does, so the conclusions are kept in
+`scripts/mutants-known.txt` with their reasons, and each run reconciles against
+it: only survivors nobody has explained yet are reported, and entries that stop
+appearing are flagged so the list cannot quietly go stale.
 
 Every authoritative reference value is **confirmed against multiple independent sources** and lives in a `#[test]` in the relevant crate. For example:
 
@@ -243,8 +265,14 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | Route | What it does |
 |---|---|
 | `GET  /api/health` | Health check |
+| `GET  /api/build` | Compiled source and build identity; calculation responses carry `x-mingli-build-id` |
+| `GET  /api/calendar/chinese-year` | Complete Chinese lunisolar year (`year=1900..2099`), fixed UTC+8 month boundaries; no birth inputs |
+| `GET  /api/calendar/tibetan-year` | Tibetan annual cycle attributes (`year=1900..2099`); no Losar/date conversion, day trigram, or personal forecast |
 | `POST /api/cast` | Parallel fan-out — one input, every system cast at once |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | Four Pillars chart / luck-layer strength overlay |
+| `POST /api/bazi/report` | Clock-time chart + unrounded cycle calculation evidence; gender required ([contract](services/mingli-api/BAZI-REPORT.md)) |
+| `POST /api/bazi/report/utc` | UTC-aware report with frozen historical/leap-second data ([v2](services/mingli-api/BAZI-REPORT-UTC.md)) |
+| `POST /api/bazi/report/utc/minute` | Same request; if a solar-term boundary falls strictly inside the recorded birth minute, returns a full report for each side of it, otherwise a single one ([contract](services/mingli-api/BAZI-REPORT-UTC.md#recorded-minute-alternatives)) |
 | `POST /api/ziwei` | Zi Wei Dou Shu chart |
 | `POST /api/fortune` | Aggregate fortune at an instant, plus a century-long supply timeline |
 | `POST /api/word` | Word-driven leaves (numerology / gematria / abjad / wuge) |
@@ -259,6 +287,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/interpret` | Interpretation layer (🔮 INT, not a computed result) |
 
 Request fields: `year month day hour` (required), `minute` (default 0), `tz` (default +8), `gender` (`male` / `female`, or `男` / `女`; omit to skip luck cycles — anything else is rejected rather than quietly ignored). Supported range 1900–2100.
+`/api/election` and `/api/locative` accept a `category` (the kind of matter, or what is being sought), but only echo it back: it changes neither the ranking of days nor the bearings. Which rules apply to which matter differs between traditions and is left to the interpretation layer.
 Bind address is overridable with `MINGLI_API_BIND`.
 
 ---

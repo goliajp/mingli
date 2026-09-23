@@ -460,3 +460,109 @@ fn every_arm_of_every_enum_says_something_distinct() {
     }
     assert_eq!(Subject::from_str_opt("没有这种主体"), None);
 }
+
+// ── 入参取值域：这一层是对外契约，不是内部细节 ────────────────────────
+
+/// 每个月的天数，逐月钉住；闰年四条规则各取一年。
+///
+/// 这张表此前在本 crate 内没有一条测试。变异扫描下它整个可以返回常数、
+/// 三条 match 分支可以逐个删掉、闰年那句 guard 可以恒真恒假、
+/// 里面五个 `%` 与三个比较可以任意改——十七个变异体全部活着。
+///
+/// 闰年规则（格里历）：四年一闰、百年不闰、四百年再闰。四条各取一年：
+/// 2024 闰、1900 不闰（百年）、2000 闰（四百年）、2023 不闰（平年）。
+#[test]
+fn the_month_lengths_and_the_leap_rule() {
+    use crate::validate::days_in_month;
+    for (m, want) in [
+        (1_u32, 31_u32), (3, 31), (5, 31), (7, 31), (8, 31), (10, 31), (12, 31),
+        (4, 30), (6, 30), (9, 30), (11, 30),
+    ] {
+        assert_eq!(days_in_month(2023, m), want, "{m} 月");
+        assert_eq!(days_in_month(2024, m), want, "闰年不改变二月以外的月长（{m} 月）");
+    }
+    assert_eq!(days_in_month(2024, 2), 29, "2024 能被 4 整除 → 闰");
+    assert_eq!(days_in_month(2023, 2), 28, "2023 不能被 4 整除 → 平");
+    assert_eq!(days_in_month(1900, 2), 28, "1900 能被 100 整除而不能被 400 → 平");
+    assert_eq!(days_in_month(2000, 2), 29, "2000 能被 400 整除 → 闰");
+    assert_eq!(days_in_month(2100, 2), 28, "2100 同 1900 → 平");
+}
+
+/// 时刻的每一道界，两侧各取一点。
+///
+/// `validate_instant` 此前可以整个返回 `Ok(())` 而没有测试红——它是两扇门
+/// （HTTP 与 wasm）共用的那段判断，也是「2 月 31 日不会被悄悄挪成 3 月 3 日」的唯一保证。
+#[test]
+fn every_bound_on_an_instant_is_checked_from_both_sides() {
+    use crate::validate::validate_instant;
+    let ok = |y, mo, d, h, mi, tz| validate_instant(y, mo, d, h, mi, tz).is_ok();
+
+    // 年：1900–2100
+    assert!(ok(1900, 1, 1, 0, 0, 8.0));
+    assert!(ok(2100, 1, 1, 0, 0, 8.0));
+    assert!(!ok(1899, 1, 1, 0, 0, 8.0));
+    assert!(!ok(2101, 1, 1, 0, 0, 8.0));
+
+    // 月：1–12
+    assert!(ok(2024, 1, 1, 0, 0, 8.0));
+    assert!(ok(2024, 12, 1, 0, 0, 8.0));
+    assert!(!ok(2024, 0, 1, 0, 0, 8.0));
+    assert!(!ok(2024, 13, 1, 0, 0, 8.0));
+
+    // 日：按当月实际长度收，不是一律 31
+    assert!(ok(2024, 2, 29, 0, 0, 8.0), "闰年二月有 29 日");
+    assert!(!ok(2023, 2, 29, 0, 0, 8.0), "平年二月没有 29 日");
+    assert!(!ok(2024, 2, 31, 0, 0, 8.0), "二月没有 31 日——这正是这条校验存在的理由");
+    assert!(ok(2024, 4, 30, 0, 0, 8.0));
+    assert!(!ok(2024, 4, 31, 0, 0, 8.0), "四月没有 31 日");
+    assert!(!ok(2024, 1, 0, 0, 0, 8.0), "没有 0 日");
+
+    // 时分：0–23 / 0–59
+    assert!(ok(2024, 1, 1, 23, 59, 8.0));
+    assert!(!ok(2024, 1, 1, 24, 0, 8.0));
+    assert!(!ok(2024, 1, 1, 0, 60, 8.0));
+
+    // 时区：−12 到 +14（+14 是 Kiritimati）
+    assert!(ok(2024, 1, 1, 0, 0, -12.0));
+    assert!(ok(2024, 1, 1, 0, 0, 14.0));
+    assert!(!ok(2024, 1, 1, 0, 0, -12.5));
+    assert!(!ok(2024, 1, 1, 0, 0, 14.5));
+
+    // 报错要说清是哪一项，不是一句「参数错误」。
+    let msg = validate_instant(2023, 2, 30, 0, 0, 8.0).expect_err("平年二月没有 30 日");
+    assert!(msg.contains("2023") && msg.contains("28"), "错误里要带上年份与实际天数：{msg}");
+}
+
+/// 坐标的两道界，各取两侧；`None` 一律放行。
+#[test]
+fn coordinates_are_bounded_and_optional() {
+    use crate::validate::validate_coords;
+    assert!(validate_coords(None, None).is_ok(), "不给坐标应放行");
+    assert!(validate_coords(Some(90.0), Some(180.0)).is_ok());
+    assert!(validate_coords(Some(-90.0), Some(-180.0)).is_ok());
+    assert!(validate_coords(Some(90.1), None).is_err());
+    assert!(validate_coords(Some(-90.1), None).is_err());
+    assert!(validate_coords(None, Some(180.1)).is_err());
+    assert!(validate_coords(None, Some(-180.1)).is_err());
+    // 只给一个也要各自收。
+    assert!(validate_coords(Some(31.23), None).is_ok());
+    assert!(validate_coords(None, Some(121.47)).is_ok());
+}
+
+/// `validate_query` 是上面两条的合取，两侧各错一次都要被拒。
+#[test]
+fn a_query_is_rejected_for_either_half() {
+    use crate::validate::validate_query;
+    let base = crate::Query {
+        latitude: Some(31.23),
+        longitude: Some(121.47),
+        ..Query::at(1990, 6, 15, 14, 30, 8.0)
+    };
+    assert!(validate_query(&base).is_ok());
+
+    let bad_time = crate::Query { month: 13, ..base.clone() };
+    assert!(validate_query(&bad_time).is_err(), "时刻越界应被拒");
+
+    let bad_geo = crate::Query { latitude: Some(91.0), ..base.clone() };
+    assert!(validate_query(&bad_geo).is_err(), "坐标越界应被拒");
+}

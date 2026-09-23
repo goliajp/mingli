@@ -124,6 +124,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 
 [[package]]
+name = "block-buffer"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -210,6 +219,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
+name = "cpufeatures"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "criterion"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -272,6 +290,26 @@ name = "crunchy"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
+
+[[package]]
+name = "crypto-common"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
+dependencies = [
+ "generic-array",
+ "typenum",
+]
+
+[[package]]
+name = "digest"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+dependencies = [
+ "block-buffer",
+ "crypto-common",
+]
 
 [[package]]
 name = "either"
@@ -347,6 +385,16 @@ dependencies = [
  "futures-task",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "generic-array"
+version = "0.14.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
+dependencies = [
+ "typenum",
+ "version_check",
 ]
 
 [[package]]
@@ -522,7 +570,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mingli"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "mingli-contract",
  "mingli-engine",
@@ -531,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-abjad"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -541,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-analysis"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -551,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-api"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "axum",
  "http-body-util",
@@ -563,6 +611,7 @@ dependencies = [
  "mingli-wasm",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tower",
  "tower-http",
@@ -572,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-app"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "mingli-analysis",
  "mingli-astro",
@@ -587,6 +636,7 @@ dependencies = [
  "mingli-luoshu",
  "mingli-registry",
  "mingli-taiyi",
+ "mingli-tibetan",
  "mingli-zeri",
  "mingli-ziwei",
  "serde",
@@ -595,8 +645,9 @@ dependencies = [
 
 [[package]]
 name = "mingli-astro"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
+ "astro",
  "mingli-core",
  "proptest",
  "serde",
@@ -604,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-astrology"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -617,19 +668,21 @@ dependencies = [
 
 [[package]]
 name = "mingli-bazi"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
+ "astro",
  "criterion",
  "mingli-astro",
  "mingli-contract",
  "mingli-ganzhi",
  "serde",
  "serde_json",
+ "vsop87",
 ]
 
 [[package]]
 name = "mingli-cartomancy"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -640,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-contract"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "mingli-astro",
  "proptest",
@@ -650,7 +703,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-core"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -658,7 +711,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-engine"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "mingli-contract",
  "rayon",
@@ -667,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ephemeris"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "astro",
  "criterion",
@@ -678,7 +731,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ganzhi"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-core",
@@ -687,7 +740,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-gematria"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -697,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-geomancy"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -708,7 +761,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-gua"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-core",
@@ -717,7 +770,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ifa"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -728,7 +781,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-interpret"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -740,7 +793,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-jyotish"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -752,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-liuren"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -764,7 +817,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-luoshu"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-core",
@@ -772,7 +825,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-mahabote"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -783,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-maya"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -795,7 +848,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-meihua"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -807,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-numerology"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -819,7 +872,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-pawukon"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -831,7 +884,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-qimen"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -844,7 +897,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-qizhengsiyu"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -857,7 +910,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-registry"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-abjad",
@@ -892,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-sikidy"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -903,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-taiyi"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -915,7 +968,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-tibetan"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -926,7 +979,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-wasm"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "mingli-app",
  "mingli-contract",
@@ -940,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-wuge"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -951,7 +1004,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-xiaoliuren"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -964,7 +1017,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-yijing"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-contract",
@@ -976,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-zeri"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -989,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "mingli-ziwei"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "criterion",
  "mingli-astro",
@@ -1327,6 +1380,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1552,6 +1616,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typenum"
+version = "1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+
+[[package]]
 name = "unarray"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1568,6 +1638,12 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "version_check"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vsop87"

@@ -72,7 +72,7 @@ pub struct Cast {
 }
 
 /// 时柱地支（子时寄前夜 23：00）：奇门用「夜子归次日」（主流）。
-fn time_branch(hour: u32, minute: u32) -> u8 {
+pub(crate) fn time_branch(hour: u32, minute: u32) -> u8 {
     let h = (hour + minute / 60) % 24;
     if h == 23 {
         0

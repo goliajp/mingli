@@ -19,6 +19,12 @@ pub fn sun_apparent_longitude(jde: f64) -> f64 {
 }
 
 /// 求给定公历年内，太阳视黄经达到 `target`（度）的唯一时刻 JD(UT)。
+///
+/// 「落在给定年内」对二十四节气（15° 的整数倍）成立，由
+/// `every_solar_term_lands_inside_the_year_it_was_asked_for` 逐年逐角守着。
+/// 对任意 `target` 不成立：元旦那天太阳黄经在 280.1°–280.4° 之间，`target` 落在这条缝
+/// 附近时交点骑在年界上，可能落进隔壁年（实测 `solar_term_jd(1981, 280.3959)`
+/// 给出 1982-01-01 03:36 UT）。
 /// 例：`solar_term_jd(2024, 315.0)` → 2024 立春；`solar_term_jd(2024, 270.0)` → 2024 冬至。
 #[must_use]
 pub fn solar_term_jd(year: i32, target: f64) -> f64 {

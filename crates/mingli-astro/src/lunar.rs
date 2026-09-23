@@ -28,10 +28,22 @@ pub struct LunarDate {
     pub day: u32,
 }
 
+/// 一次朔搜索允许走多少步。
+///
+/// 平朔估算与真朔相差不超过 ~0.6 天，所以起点至多偏一格，正常一到两步就落位。
+/// 给到 8 是让真实情况有足够余量，同时把「走不完」与「走得久」分开：超过它就不是
+/// 慢，是不动了。
+///
+/// 上限本身也是守卫。没有它，任何把 [`new_moon_jd_ut`] 或 `local_civil_day_of`
+/// 算错的改动都不会让调用方拿到错答案——而是让它**永远拿不到答案**。
+/// 变异扫描里这一族有十二个变异是这样超时的：既没被拦住，也没被记成漏网，
+/// 只是把测试挂在那儿。挂死比答错难查得多，因为它不给你任何可读的东西。
+const MAX_NEW_MOON_STEPS: u32 = 8;
+
 /// 返回「本地民用日序号 <= cdn」的最大朔所在民用日 cdn，及其朔序号 k。
 fn new_moon_on_or_before(cdn: i64, tz: f64) -> (i64, i64) {
     let mut k = new_moon_k_near(cdn as f64 - 0.5);
-    loop {
+    for _ in 0..MAX_NEW_MOON_STEPS {
         let c = local_civil_day_of(new_moon_jd_ut(k), tz);
         let c_next = local_civil_day_of(new_moon_jd_ut(k + 1), tz);
         if c <= cdn && cdn < c_next {
@@ -40,10 +52,18 @@ fn new_moon_on_or_before(cdn: i64, tz: f64) -> (i64, i64) {
             k -= 1;
         } else {
             // 估算式取的是最近一个朔，真朔与平朔相差不超过 ~0.6 天，
-            // 因此估算至多偏大一格、不会偏小。这一支是搜索循环的安全网，实测不进。
+            // 因此估算至多偏大一格、不会偏小。这一支是搜索循环的安全网。
+            //
+            // 「实测不进」由 [`the_new_moon_estimate_is_never_too_low`] 守着，
+            // 不再只是这里的一句话。它此前确实只是一句话——本文件的注释这么写了很久，
+            // 而验证它的办法（把这支改成 panic 跑一遍全量扫描）从没有人跑过。
             k += 1;
         }
     }
+    panic!(
+        "朔搜索在 {MAX_NEW_MOON_STEPS} 步内没有收敛（民用日 {cdn}，时区 {tz}）——\
+         朔的时刻或民用日换算算错了"
+    );
 }
 
 /// 含某年冬至之月的初一（子月初一）的民用日 cdn 与朔序号。
@@ -53,6 +73,12 @@ fn month11(year: i32, tz: f64) -> (i64, i64) {
 }
 
 /// 公历 → 农历。`tz` 为时区偏移小时（中国 +8，日本 +9）。
+///
+/// # Panics
+///
+/// 朔的时刻或冬至时刻算错到「搜索走不到位」时会 panic，而不是返回一个凑出来的日期。
+/// 正常输入下走不到那里：搜索的步数上限是按天文事实定的（一岁至多 13 个月、
+/// 平朔与真朔相差不超过 ~0.6 天），够用还有余量。
 #[must_use]
 pub fn solar_to_lunar(year: i32, month: u32, day: u32, tz: f64) -> LunarDate {
     let cdn = civil_day_number(year, month, day);
@@ -64,15 +90,21 @@ pub fn solar_to_lunar(year: i32, month: u32, day: u32, tz: f64) -> LunarDate {
 
     // 枚举本岁内每个朔（农历月初一），记录其所在民用日 cdn
     let mut nm_cdn: Vec<i64> = Vec::new();
-    let mut k = start_k;
-    loop {
-        let c = local_civil_day_of(new_moon_jd_ut(k), tz);
+    // 一岁 12 或 13 个月，加上两端的边界共 14 个朔就该到；16 留两格余量。
+    // 同 [`MAX_NEW_MOON_STEPS`]：没有上限，冬至或朔算错时这里是转不完，不是答错。
+    for i in 0..16 {
+        let c = local_civil_day_of(new_moon_jd_ut(start_k + i), tz);
         nm_cdn.push(c);
         if c >= next11_cdn {
             break;
         }
-        k += 1;
     }
+    assert!(
+        nm_cdn.last().is_some_and(|&c| c >= next11_cdn),
+        "{start_year} 岁内枚举了 {} 个朔仍未到下一个子月（{next11_cdn}）——\
+         冬至时刻或朔的时刻算错了",
+        nm_cdn.len()
+    );
     let n_months = nm_cdn.len() - 1; // 12（平） 或 13（闰）
     let is_leap_year = n_months == 13;
 
@@ -127,5 +159,42 @@ pub fn solar_to_lunar(year: i32, month: u32, day: u32, tz: f64) -> LunarDate {
         month: mnum,
         leap,
         day: lday,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{new_moon_k_near, new_moon_on_or_before};
+    use crate::civil_day_number;
+
+    /// 朔序号的估算只会偏大，不会偏小。
+    ///
+    /// `new_moon_on_or_before` 的搜索有两支：估大了往回退，估小了往前进。前一支正常走，
+    /// 后一支按 [`new_moon_k_near`] 的构造应当永远不进——它取的是最近一个平朔，
+    /// 而真朔与平朔相差不超过 ~0.6 天。
+    ///
+    /// 这条把那个「应当」变成检查：若估算真的偏小过一次，返回的 k 就会大于估算值。
+    /// 实测（2026-09-01）1900–2100 全程无一例；另一种验法是把那一支改成 panic
+    /// 跑一遍全量扫描，同样不触发，但那种验法留不进仓库。
+    ///
+    /// 它也解释了变异扫描在那一支上留下的两个漏网（`k += 1` 改成 `-=` 或 `*=`）：
+    /// 走不到的代码改了不会有人知道，这是等价变异，不是守卫的缺口。
+    #[test]
+    fn the_new_moon_estimate_is_never_too_low() {
+        let mut checked = 0_u32;
+        for year in 1900..=2100 {
+            for (month, day) in [(1_u32, 15_u32), (4, 10), (7, 20), (10, 5)] {
+                let cdn = civil_day_number(year, month, day);
+                let (_, k) = new_moon_on_or_before(cdn, 8.0);
+                let est = new_moon_k_near(cdn as f64 - 0.5);
+                assert!(
+                    k == est || k == est - 1,
+                    "{year}-{month:02}-{day:02}：搜索落在 k={k}，估算是 {est}——\
+                     估算偏小了，那支「安全网」不再是死代码"
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 804, "取样数变了，上面那句实测结论要跟着重验");
     }
 }

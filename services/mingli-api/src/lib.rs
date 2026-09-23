@@ -22,6 +22,7 @@ use std::sync::OnceLock;
 use tower_http::cors::CorsLayer;
 
 pub mod backend;
+pub mod build_identity;
 pub mod dto;
 pub mod error;
 pub mod routes;
@@ -53,11 +54,17 @@ pub fn router() -> Router {
 /// [`backend::Interpret::Offline`]，测的才是这条路本身。
 pub fn router_with(interpret: backend::Interpret) -> Router {
     Router::new()
+        .route("/api/build", get(build_identity::identity))
+        .route("/api/calendar/chinese-year", get(routes::calendar::chinese_year))
+        .route("/api/calendar/tibetan-year", get(routes::calendar::tibetan_year))
         .route("/api/health", get(routes::meta::health))
         .route("/api/intents", get(routes::meta::intents_handler))
         .route("/api/route", post(routes::meta::route_handler))
         .route("/api/analysis", get(routes::meta::analysis_handler))
         .route("/api/bazi", post(routes::natal::bazi_handler))
+        .route("/api/bazi/report", post(routes::natal::bazi_report_handler))
+        .route("/api/bazi/report/utc", post(routes::natal::bazi_report_utc_handler))
+        .route("/api/bazi/report/utc/minute", post(routes::natal::bazi_report_utc_minute_handler))
         .route("/api/bazi/overlay-strength", post(routes::natal::overlay_strength_handler))
         .route("/api/ziwei", post(routes::natal::ziwei_handler))
         .route("/api/cast", post(routes::natal::cast_handler))
@@ -76,6 +83,7 @@ pub fn router_with(interpret: backend::Interpret) -> Router {
         .route("/api/synastry/interpret", post(routes::synastry::interpret_handler))
         .route("/api/mundane", post(routes::mundane::handler))
         .route("/api/mundane/interpret", post(routes::mundane::interpret_handler))
+        .layer(axum::middleware::from_fn(build_identity::stamp))
         .layer(CorsLayer::permissive())
         .with_state(interpret)
 }

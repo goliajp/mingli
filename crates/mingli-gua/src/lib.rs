@@ -61,6 +61,8 @@ impl Hexagram {
     /// 由上卦、下卦组成重卦。
     #[must_use]
     pub fn from_trigrams(upper: Trigram, lower: Trigram) -> Self {
+        // `|` 与 `^` 在这里同解：两个操作数占的是不相交的位段（0–2 与 3–5）。
+        // 本文件另外三处拼位同理，变异扫描会一并报成漏网，都是等价变异。
         Hexagram((lower.0 & 0b111) | ((upper.0 & 0b111) << 3))
     }
     /// 下卦（初/二/三爻）。

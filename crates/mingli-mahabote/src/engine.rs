@@ -31,28 +31,27 @@ impl CastingEngine for MahaboteEngine {
     }
     fn reading_notes(&self) -> Option<&'static str> {
         Some("\n【字段语义提示（缅甸 Mahabote）】\n\
-            - `core`：本命核心数 =（缅历年 − 星期）mod 7，落七宫之一。\n\
-            - `house`：核心数所落之宫（Binga / Atun / Yaza / Adipati / Marana / Thike / Puti）。\n\
             - `planet` / `weekday` / `weekday_index`：出生星期及其对应行星。\
-              缅历用八天週（周三按午前午后分 Mercury / Rahu），`weekday_index` 已按八天週编号。\n\
+              缅历用八天週（周三按午前午后分 Mercury / Rahu）；`weekday_index` 是七日星期下标（0=Sat … 6=Fri），\
+              周三的早晚之分只体现在 `planet` 上。\n\
             - `myanmar_year`：缅历年，由儒略日折算。\n\
-            - 🟡 七宫的含义两系互证的只有三宫，其余各家说法不一（Thike 一宫更是两说相反），\
-              宫间几何关系（Grand Trine 等）真单源，均见确定性谱。**故此处只给宫名不给宫义**。\n\
-            - **读法**：说清核心数、所落之宫与出生行星即可；宫义的部分要明说依据薄。")
+            - 🟡 本命宫的取法只有单源，另一实现与之大面积不合，**盘上不给本命宫**；\
+              七宫含义与宫间关系也没有两个独立出处，均见确定性谱。\n\
+            - **读法**：说清缅历年、出生星期与对应行星即可；不要自行推算本命宫。")
     }
     fn answers(&self) -> &'static [Intent] {
         &[Intent::Natal]
     }
     fn principal(&self, m: &Moment, q: &Query) -> Option<Principal> {
-        // 本命核心数所落之宫。
+        // 出生行星（八天週）。本命宫取法未定，不作主判据。
         let c = chart(self, m, q);
-        Some(Principal { label: "本命宫", value: c.house.to_string() })
+        Some(Principal { label: "出生行星", value: c.planet.to_string() })
     }
     fn profile(&self) -> &'static [DetItem] {
         use Determinism::{Det, Und};
         const { &[
             d(
-                "本命宫的取法（与第二实现不合，未定）",
+                "本命宫的取法：核心数与宫名（与第二实现不合，未定）",
                 Und,
                 "🟡 本叶取 `核心数 =（缅历年 − 星期）mod 7`，宫名按 Binga…Puti 直接索引，\
                  依据是 cool-emerald 的逐字算例（单源）。为找第二源取了 Guru-ThutaSann/py-mahahote，\
@@ -61,10 +60,11 @@ impl CastingEngine for MahaboteEngine {
                  把它转录后逐日比对 858 天，**754 天给出不同的宫**。\
                  但这个比对含两处未能从源码确证的假设（Rahu 如何并入只有七个行星位的图、\
                  本命宫是否即出生行星所落之宫），故只能说「第二源未确认本叶，且很可能冲突」，\
-                 不能据此断定谁对。要定下来须取到缅文原典或 lo tho 实体年历的算例",
+                 不能据此断定谁对。要定下来须取到缅文原典或 lo tho 实体年历的算例。\
+                 未定期间 `core` 与 `house` 不进输出",
             ),
 
-            d("核心数·七宫·八天週行星", Det, "（缅历年−星期） mod 7，校验 2000-01-01=Adipati"),
+            d("缅历年·星期·八天週行星", Det, "缅历年由纪元公元 638 年与缅甸新年落四月两源定出，逐年钉在 1900–2100（见测试）；星期由 JDN 取模；八天週周三按正午拆 Mercury / Rahu"),
             d("宫间关系", Und, "🟡 真单源。Grand Trine / Minor Trine / Square / Core / Cardinal Points 五套几何只见于 Barbara Cameron《MaHaBote, the Little Key》一脉：其学生 Sage Asita 的教学页与所附五图、荷兰 DIRAH 函授课、Scribd 两份转抄——四家英文名逐字相同、示例盘同构，判为同源。缅语侧查过缅文维基《မဟာဘုတ်》（只给三行盘面与顺时针盘序、不涉关系）与六个缅甸开源实现（一律只算宫位），一条都没有。另注：Cameron 讲的「友敌生克」是**行星之间**，不是宫之间"),
             d("七宫含义", Und, "🟡 两系互证的只有三宫：Adipati（领袖 / 善言辞）、Atun（声誉 / 勤勉）、Marana（极端 / 无中间地带）。**Thike 一宫两说相反**——Cameron 作 House of Wealth，而缅文 zatas.ts 的 သိုက်ဖွား 条通篇讲缺钱负债劳而无获（သိုက် 字面即「埋在地下的宝藏」）。Binga 与 Yaza 两系交集过小，缅文维基则不给任何含义。故整体不出"),
             d("盘面几何与吉凶二分", Det, "缅文维基的三行 wikitable（顶 အဓိပတိ；中 အထွန်း|သိုက်|ရာဇ；底 မရဏ|ဘင်္ဂ|ပုတိ）与 Cameron 盘图（顶 7；中 3|4|5；底 2|1|6，上两排绿底、底排橙底）逐格重合，两条源流互不相干。吉凶二分另有巴利词源独立佐证：bhaṅga 坏灭 / maraṇa 死 / pūti 腐归凶，rāja 王 / adhipati 主宰 / htun 光耀 / thike 埋藏之宝归吉"),
@@ -89,5 +89,18 @@ mod tests {
         assert!(!e.profile().is_empty(), "每片叶都要显式声明确定性谱");
         let defaults = e.schools().iter().filter(|s| s.default).count();
         assert!(e.schools().is_empty() || defaults == 1, "有流派的叶应恰有一个默认");
+    }
+
+    /// 取法未定的本命宫不上盘：`core` 与 `house` 都不出现，其余四个字段照出。
+    ///
+    /// 只断言「没有」会被一张空盘骗过，所以同时点名该有的字段。
+    #[test]
+    fn the_undetermined_house_stays_off_the_chart() {
+        let e = MahaboteEngine;
+        let m = Moment::new(1990, 6, 15, 14, 30, 8.0);
+        let q = Query::at(1990, 6, 15, 14, 30, 8.0);
+        let v = e.cast(&m, &q);
+        let keys: Vec<&str> = v.as_object().expect("盘面是 JSON 对象").keys().map(String::as_str).collect();
+        assert_eq!(keys, ["myanmar_year", "planet", "weekday", "weekday_index"]);
     }
 }

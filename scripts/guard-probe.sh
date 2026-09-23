@@ -73,6 +73,8 @@ restore() {
     fi
   done
   BACKUPS=()
+  [ -n "${SENTINEL:-}" ] && : > "$SENTINEL"
+  return 0
 }
 
 # 把种错落到一个文件或一整棵目录上。目录是给前端用的：一个字段名散在
@@ -80,6 +82,7 @@ restore() {
 plant() {
   local target=$1 expr=$2
   local bak="$BACKUP_DIR/$(printf '%s' "$target" | tr / _)"
+  printf '%s\t%s\n' "$target" "$bak" >> "$SENTINEL"
   if [ -d "$target" ]; then
     cp -R "$target" "$bak"; BACKUPS+=("$target"$'\t'"$bak")
     while IFS= read -r f; do sedi "$expr" "$f"; done < <(
@@ -95,7 +98,45 @@ plant() {
 # 往 Cargo.toml 里种依赖时，cargo 会顺手改写 Cargo.lock —— 它从不进 BACKUPS，
 # 于是一旦中途被打断，锁文件就留着种进去的那条依赖。始终单独兜住它。
 cp Cargo.lock "$BACKUP_DIR/Cargo.lock"
-trap 'restore; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"' EXIT INT TERM
+
+# 跨轮次的哨兵。
+#
+# trap 兜得住 EXIT/INT/TERM，兜不住 SIGKILL 与断电——那时种下的错就**留在工作区里**。
+# 光留着还算好办，坏在下一轮：下一轮 `cp` 备份的是那份已经带错的文件，把它当成
+# 「原始」，跑完再忠实地还原回去。错就这样在一次次「已还原」的汇报里活下来。
+#
+# 实测代价：一个留在 `year_of_jd` 里的 `* 365.25` 这样传了四轮。ΔT 的自变量被放大
+# 365 倍，节气往返测试失败、农历扫描跑不完——两样都被当成刚发现的真 bug 查了很久，
+# 而它们只是那一个残留。**测量装置坏掉的样子，跟数据长得一模一样。**
+#
+# 所以要一个 trap 之外的证据：种错之前把「哪个文件、备份在哪」写进哨兵，还原后删掉。
+# 下一轮开工先看它——它还在，说明上一轮没能还原，此时**拒绝开跑**，因为这一轮的
+# 备份会把错固化下来。
+SENTINEL=target/.guard-probe-in-flight
+mkdir -p target
+if [ -e "$SENTINEL" ]; then
+  printf '上一轮探测没能还原就结束了。它当时种在：\n' >&2
+  sed 's/^/  /' "$SENTINEL" >&2
+  printf '\n先确认这些文件是干净的（git diff / git checkout --），再删掉 %s 重跑。\n' "$SENTINEL" >&2
+  printf '现在直接跑会把残留的错当成原始内容备份下来，然后还原回去。\n' >&2
+  exit 1
+fi
+: > "$SENTINEL"
+
+# 种下的错会让 proptest 失败，而 proptest 失败会把种子写进 `proptest-regressions/`。
+# 那份文件是给**真**失败留的：下次运行先重放它。可这里的失败是我们自己种的，
+# 留下来只会让下一个人以为发现了什么——它跟真失败的记录长得一模一样。
+# 记下开跑前有哪些，收尾时把新长出来的删掉，原有的一个不动。
+PROPTEST_BEFORE=$(find crates -type d -name proptest-regressions 2>/dev/null | sort)
+clean_proptest() {
+  local now
+  now=$(find crates -type d -name proptest-regressions 2>/dev/null | sort)
+  comm -13 <(printf '%s\n' "$PROPTEST_BEFORE") <(printf '%s\n' "$now") |
+    while IFS= read -r d; do [ -n "$d" ] && rm -rf "$d"; done
+  return 0
+}
+
+trap 'restore; clean_proptest; cp "$BACKUP_DIR/Cargo.lock" Cargo.lock; rm -rf "$BACKUP_DIR"; rm -f "$SENTINEL"' EXIT INT TERM
 
 # probe <组名> <crate> <测试名> <文件> <sed 表达式>
 probe() {
@@ -295,6 +336,21 @@ probe "数值：日柱错一位" mingli-registry natal_cast_path_unchanged_regre
 
 
 # ── 契约面：改了不报错、只是答得不一样的那类 ────────────────────
+# 下面三条守的是「远历元钉住」那一族。它们钉的是转写而非权威值，所以更容易被当成
+# 可有可无——恰恰相反：那些高阶项在 1900–2100 内小到 0.001″ 量级，段内任何取样都
+# 看不见，测试要是不真守着，改掉系数照样全绿。
+probe "数值：黄赤交角的三次项被改了" mingli-astro \
+  obliquity_higher_order_terms_are_pinned_at_far_epochs \
+  crates/mingli-astro/src/lib.rs 's/0.001813 \* t \* t \* t/0.001913 * t * t * t/'
+
+probe "数值：恒星时的二次项符号翻了" mingli-astro \
+  sidereal_and_year_helpers_are_pinned_across_epochs \
+  crates/mingli-astro/src/lib.rs 's/+ 0.000387933/- 0.000387933/'
+
+probe "数值：太阳中心差的一次系数被改了" mingli-astro \
+  sun_longitude_coefficients_are_pinned_across_epochs \
+  crates/mingli-astro/src/sun.rs 's/1.914602/1.914702/'
+
 probe "契约：认不出的 subject 又被当成人盘" mingli-api an_unrecognised_subject_is_refused_rather_than_read_as_a_person \
   services/mingli-api/src/routes/natal.rs \
   's|None => return bad_request(format!("subject 认不出|None => mingli_interpret::Subject::Person, #[allow(unreachable_code)] _ => return bad_request(format!("subject 认不出|'
@@ -333,7 +389,7 @@ probe "自陈：认领了「字」却不在字词注册表里" mingli-app every_
 
 probe "自陈：README 的体积表与预算表对不上" mingli-registry the_wasm_size_table_and_the_budget_agree \
   README.md \
-  's:| `mingli-wasm-bazi` | Four Pillars only | 194 KB | 89 KB |:| `mingli-wasm-bazi` | Four Pillars only | 777 KB | 89 KB |:'
+  's:| `mingli-wasm-bazi` | Four Pillars only | 195 KB | 89 KB |:| `mingli-wasm-bazi` | Four Pillars only | 777 KB | 89 KB |:'
 
 probe "跨叶：冒出一对没人解释的完全冗余" mingli-analysis the_only_perfectly_redundant_pairs_are_the_ones_we_can_explain \
   crates/mingli-analysis/src/lib.rs \
@@ -453,7 +509,7 @@ probe "四柱：经度不再按一度四分钟" mingli-bazi one_degree_of_longit
 
 probe "四柱：起运折算不再除以三" mingli-bazi the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three \
   crates/mingli-bazi/src/chart.rs \
-  's|    let start_age_years = (days / 3.0).max(0.0);|    let start_age_years = (days / 4.0).max(0.0);|'
+  's|    let start_age_years = days / 3.0;|    let start_age_years = days / 4.0;|'
 
 probe "四柱：起运数到中气而非节" mingli-bazi the_starting_age_is_the_days_to_the_adjacent_jie_divided_by_three \
   crates/mingli-bazi/src/chart.rs \
@@ -526,7 +582,7 @@ probe_script "浏览器：四柱与 lunar-javascript 不再一致" \
 probe_script "发版：发出去的字节与预算表对不上" \
   "bash scripts/npm-pack.sh" \
   scripts/wasm-budget.txt \
-  's@^chart-solo-yijing 159557@chart-solo-yijing 159558@'
+  's@^chart-solo-yijing 160208@chart-solo-yijing 160209@'
 
 probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_leaves_the_composition_root_registers \
   crates/mingli/Cargo.toml \
@@ -543,6 +599,16 @@ probe_script "装配：类型化出口又拖上了 serde" \
   "bash scripts/leaf-deps.sh yijing" \
   crates/mingli-yijing/Cargo.toml \
   's@^serde = { workspace = true, optional = true }$@serde = { workspace = true }@'
+
+probe_script "可裁：轻量档位其实是个空壳" \
+  "./scripts/feature-matrix.sh" \
+  crates/mingli-wasm/Cargo.toml \
+  's@^bazi = \["mingli-registry/bazi"\]$@bazi = []@'
+
+probe_script "装配：单叶档连自己那片都没有" \
+  "bash scripts/leaf-isolation.sh yijing" \
+  crates/mingli-wasm/Cargo.toml \
+  's@^yijing = \["mingli-registry/yijing"\]$@yijing = []@'
 
 probe_script "装配：单叶档混进了别的叶" \
   "bash scripts/leaf-isolation.sh yijing" \
@@ -720,9 +786,14 @@ probe "成本：一片叶重新驮上百年推运" mingli-registry no_single_lea
   crates/mingli-astrology/src/engine.rs \
   's|        serde_json::to_value(chart(self, m, q)).unwrap_or(Value::Null)|        let c = chart(self, m, q);\n        let mut v = serde_json::to_value(\&c).unwrap_or(Value::Null);\n        v["progression"] = serde_json::to_value(crate::progression::progression(m.jde, \&c.planets, 100, 1)).unwrap_or(Value::Null);\n        v|'
 
+# 种的活要跟它代表的真实风险同量级。
+#
+# 从前种 4 万次开方，恰好落在旧阈值 20 倍附近；阈值挪到 50 之后它就拦不住了——
+# 这条探测因此变红，正是它该做的事。而它要代表的事故是「一片叶顺手走了星历」，
+# 那在本仓实测是中位数的三百多倍，不是二十倍。加到 30 万次，量级对得上。
 probe "成本：一片普通叶开始干重活" mingli-registry the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris \
   crates/mingli-yijing/src/engine.rs \
-  's|    crate::cast(method, effective_seed(m, q))|    let mut w = 0f64;\n    for i in 0..40_000u32 { w += f64::from(i).sqrt(); }\n    crate::cast(method, effective_seed(m, q).wrapping_add(u64::from(w < 0.0)))|'
+  's|    crate::cast(method, effective_seed(m, q))|    let mut w = 0f64;\n    for i in 0..300_000u32 { w += f64::from(i).sqrt(); }\n    crate::cast(method, effective_seed(m, q).wrapping_add(u64::from(w < 0.0)))|'
 
 # ── 流派 ──────────────────────────────────────────────────────────
 probe "流派：选项收下了却不改盘" mingli-registry every_school_option_actually_changes_the_chart \

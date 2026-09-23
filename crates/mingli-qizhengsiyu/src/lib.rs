@@ -380,6 +380,7 @@ fn star_position(star: Star, jde: f64) -> StarPosition {
         Star::Jupiter => geocentric_ecliptic_longitude(Body::Jupiter, jde),
         Star::Saturn => geocentric_ecliptic_longitude(Body::Saturn, jde),
         Star::Luohou => mean_lunar_node(jde),
+        // `+ 180` 改成 `- 180` 是等价变异：模 360 下两者相同。
         Star::Jidu => (mean_lunar_node(jde) + 180.0).rem_euclid(360.0),
         Star::Yuebo => mean_lunar_apogee(jde),
     };

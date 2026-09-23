@@ -59,10 +59,30 @@ jobs:
         run: ./scripts/leaf-deps.sh
       - name: 发版彩排（清单 / 元数据 / 打包内容 / 拓扑序）
         run: ./scripts/publish-rehearsal.sh
-      - name: 装 binaryen（wasm-opt，体积闸要用）
-        run: sudo apt-get update && sudo apt-get install -y binaryen
+      # 版本要跟开发机一致，不能用 apt 那一版。
+      #
+      # apt 上的 binaryen 旧到会把 wasm-bindgen 那张 externref 表的上限压成初始大小，
+      # 于是打出来的包一加载就抛 `RangeError: Table.grow(): failed to grow table by 4`——
+      # 字节数正常、体积闸也过，只是它不能用。加 --enable-reference-types 也救不回来。
+      #
+      # 而且预算表记的是开发机上量的字节，两边工具链不同，量出来的数也就对不上。
+      # 直接取上游发布的 132（与开发机同版），两个问题一起没了。
+      - name: 装 binaryen（wasm-opt，体积闸与发包都要用）
+        run: |
+          v=version_132
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/${v}/binaryen-${v}-x86_64-linux.tar.gz" \
+            | tar xz -C /tmp
+          echo "/tmp/binaryen-${v}/bin" >> "$GITHUB_PATH"
       - name: 各发布档位的体积没超预算
         run: ./scripts/wasm-size.sh
+
+      # 这两条从前挂在前端那个 job 上，可它没装 wasm-bindgen 与 binaryen——
+      # 于是每次都停在「缺 wasm-bindgen」。它们要的是 wasm 工具链与 node，不是浏览器，
+      # 所以搬到这里，跟上面的体积闸共用同一套已经装好的工具。
+      - name: 打出各发布档位（npm）
+        run: ./scripts/npm-pack.sh
+      - name: 浏览器形态：与当地最强的 JS 实现比一遍并计时
+        run: ./scripts/perf-vs-js.sh
 
       # 两件事，都不是同义反复：
       # 1. 没有一个请求把服务打崩、也没有一个连不上（`000` 是连不上——
@@ -172,10 +192,6 @@ jobs:
 
       # 服务都还在应答，正好在这里把前端那两条守卫也反过来验一遍：
       # 种回「渲染里读时钟」那一行，看静止三秒的那条断言拦不拦。
-      - name: 浏览器形态：与当地最强的 JS 实现对拍并计时
-        run: |
-          ./scripts/npm-pack.sh
-          ./scripts/perf-vs-js.sh
       - name: 守卫自检 · 前端那一族
         run: ./scripts/guard-probe.sh 前端
 
