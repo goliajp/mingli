@@ -26,6 +26,8 @@ pub fn is_even(f: Figure) -> bool {
 pub fn pack(bits: &[bool]) -> Figure {
     bits.iter()
         .enumerate()
+        // `|` 改成 `^` 是等价变异：每个位置只被置一次（`i` 来自 `enumerate`），
+        // 而按位或与异或只在「该位已经是 1」时才分家。
         .fold(0u16, |acc, (i, &b)| if b { acc | (1 << i) } else { acc })
 }
 

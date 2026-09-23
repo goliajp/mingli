@@ -137,7 +137,7 @@ fn the_port_layer_stays_thin() {
 /// 点名而不是数个数：数字容易被悄悄加一，名单要动就得改这张表，改的人得说清为什么。
 /// 判据是「用例需要那片叶的**强类型产物**」，而不只是「一张能算的盘」——
 /// 后者应经装配根注入、走 `CastingEngine`。
-const APP_MAY_KNOW: [(&str, &str); 6] = [
+const APP_MAY_KNOW: [(&str, &str); 7] = [
     ("mingli-bazi", "本命 / 岁运叠加 / 团队合盘要 BaziChart 的旺衰与用神，不是 JSON"),
     ("mingli-ziwei", "本命用例要 ZiweiChart 的宫位与四化"),
     ("mingli-zeri", "择吉用例要 DayGrade 的分档来排序"),
@@ -146,6 +146,8 @@ const APP_MAY_KNOW: [(&str, &str); 6] = [
     ("mingli-jyotish", "运势用例要 Mahadasha 的起讫年龄逐段比对，好定出目标时刻落在哪一段；\
      那是强类型的时间序列，解 JSON 会把 f64 的年龄比较变成字符串活儿"),
     ("mingli-taiyi", "国运用例要沿年份取 TaiyiPalace 的宫 / 卦 / 三才；从前是解析它的输出 JSON 再按名找回字面量"),
+    ("mingli-tibetan", "藏历年表用例只给年份、不给时刻，要 compute_year 的年度要素；\
+     走 CastingEngine 就得虚构一个时刻，盘上还会带出按日算的卦位占位"),
 ];
 
 #[test]
@@ -397,12 +399,16 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
     let layers = layers();
     let root = workspace_root();
     let mut violations = Vec::new();
+    // 数一下真扫了多少个文件。「没有违规」对一个空集合永远成立——路径改了、
+    // 层表读不出来、glob 匹配不上，这条检查都会安静地通过而不再看任何东西。
+    let mut scanned = 0_usize;
     for (name, manifest) in manifests() {
         if !matches!(layers.get(name.as_str()), Some(0..=5)) {
             continue;
         }
         let src_dir = manifest.parent().expect("manifest 应有目录").join("src");
         for file in rust_files(&src_dir) {
+            scanned += 1;
             let text = std::fs::read_to_string(&file).expect("源文件应可读");
             let rel = file.strip_prefix(&root).unwrap_or(&file).to_string_lossy().replace('\\', "/");
             for (line_no, line) in text.lines().enumerate() {
@@ -418,6 +424,7 @@ fn the_inner_layers_do_not_mention_the_delivery_layer() {
             }
         }
     }
+    assert!(scanned > 60, "只扫了 {scanned} 个源文件，扫描面怕是失效了");
     assert!(
         violations.is_empty(),
         "内层的说明不该引用交付层——这一层单独拿出去用时，那些话指向不存在的东西：\n  {}",

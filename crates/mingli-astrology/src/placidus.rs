@@ -38,12 +38,19 @@ fn asc2(x: f64, f: f64, sine: f64, cose: f64) -> f64 {
     }
     let mut out;
     if sin_x == 0.0 {
+        // 这个 `<` 松成 `<=` 会把结果从 ~0 翻到 180°——两支同时退化时它是唯一的分水岭。
+        // 由 `asc1_is_pinned_branch_by_branch` 里 `f = 90 − ε` 那几格钉住。
         out = if ass < 0.0 { -VERY_SMALL } else { VERY_SMALL };
     } else if ass == 0.0 {
+        // `sin_x < 0.0` 在本函数的契约下走不到：`asc1` 只用象限一的 x（0..=90），
+        // 那里 sin 非负。变异扫描会把这一支的比较与那个负号列成漏网，
+        // 它们是**走不到的代码**上的变异，不是守卫的缺口。保留是为了跟 swehouse.c 逐行对得上。
         out = if sin_x < 0.0 { -90.0 } else { 90.0 };
     } else {
         out = (sin_x / ass).atan().to_degrees();
     }
+    // 这里的 `<` 松成 `<=` 是等价变异：`out` 取不到 0——`sin_x == 0` 那支给 ±VERY_SMALL，
+    // 另外两支给 ±90 或一个 atan 的非零值。
     if out < 0.0 {
         out += 180.0;
     }
@@ -54,12 +61,21 @@ fn asc2(x: f64, f: f64, sine: f64, cose: f64) -> f64 {
 pub(crate) fn asc1(mut x1: f64, f: f64, sine: f64, cose: f64) -> f64 {
     x1 = norm360(x1);
     let n = (x1 / 90.0).floor() as i32 + 1; // 1..=4
+    // 这两条是极点的**捷径**，不是分岔：`f → ±90` 时 `tan f` 发散，下面的通式本来
+    // 就趋向同一个 180 / 0。所以把它们的比较放宽、甚至把 `90.0 - f` 写成 `90.0 / f`，
+    // 结果只差 1e-14 量级——变异扫描列出的那几条是近似等价，不是没人守。
+    // 由 `the_pole_guards_short_circuit_before_the_quadrants` 钉住它们确实短路。
     if (90.0 - f).abs() < VERY_SMALL {
         return 180.0;
     }
     if (90.0 + f).abs() < VERY_SMALL {
         return 0.0;
     }
+    // 第三象限那一支与第四象限那条**恒等**：把 asc2 的定义代进去可得
+    // `asc2(180 − u, f) = 180 − asc2(u, −f)`，于是 `180 + asc2(x−180, −f)`
+    // 与 `360 − asc2(360 − x, f)` 处处相同（实测差 0 与 5.7e-14）。
+    // 所以变异扫描把「删掉第三支」与「`x1 - 180` 改成 `x1 + 180`」（后者模 360 同值）
+    // 报成漏网，两条都是等价变异。保留三支是为了跟 swehouse.c 的分发一一对应。
     let mut ass = match n {
         1 => asc2(x1, f, sine, cose),
         2 => 180.0 - asc2(180.0 - x1, -f, sine, cose),
@@ -113,6 +129,8 @@ fn solve_cusp(
     // 第一步初值
     let first_lambda = asc1(rectasc, pole_main, sine, cose);
     let tant = (sine * first_lambda.to_radians().sin()).asin().tan();
+    // 这个 `<` 与循环里那个同款的，松成 `<=` 都是等价变异：差别只在
+    // `tant.abs()` 恰好等于 1e-10 的那一个比特上，本域内取不到。
     if tant.abs() < VERY_SMALL {
         return Some(rectasc);
     }
@@ -121,10 +139,17 @@ fn solve_cusp(
     if !(-1.0..=1.0).contains(&inner) {
         return None;
     }
+    // 这一行与 `cusps` 里的 fh1/fh2 同理：只是迭代的**起点**，循环每轮都从收敛中的
+    // cusp 重算极高。改这里的算术不改变答案，只改变迭代次数——等价变异。
+    // 由 `the_iteration_forgets_the_pole_it_started_from` 钉住。
     let f_pole = ((inner.asin() / denom).sin() / tant).atan().to_degrees();
     let mut cusp = asc1(rectasc, f_pole, sine, cose);
-    let mut cusp_sv = 0.0_f64;
-    for i in 1..=NITER_MAX {
+    // 上一轮的值。头一轮没有上一轮——从前这里是个 0.0 的哨兵配一个 `i > 1`，
+    // 于是「哨兵恰好像个真值」成了可能：宫尖若落在 0° 前 0.01 角秒内，
+    // 把 `i > 1` 松成 `i >= 1` 就会在第一轮提前收工，而没有测试够得着那个角落。
+    // 用 `Option` 说出本意后，那个比较连同它的变异体一起不存在了。
+    let mut previous: Option<f64> = None;
+    for _ in 1..=NITER_MAX {
         let tant = (sine * cusp.to_radians().sin()).asin().tan();
         if tant.abs() < VERY_SMALL {
             return Some(rectasc);
@@ -135,10 +160,12 @@ fn solve_cusp(
         }
         let f_pole = ((inner.asin() / denom).sin() / tant).atan().to_degrees();
         let cusp_new = asc1(rectasc, f_pole, sine, cose);
-        if i > 1 && signed_diff_deg(cusp_new, cusp_sv).abs() < ITER_TOL_DEG {
+        // 比的是隔一轮的值（不是上一轮），这样两步一循环的振荡也能收住。
+        // 这里的 `<` 松成 `<=` 只在差值恰等于阈值的那一个比特上不同，是等价变异。
+        if previous.is_some_and(|prev| signed_diff_deg(cusp_new, prev).abs() < ITER_TOL_DEG) {
             return Some(cusp_new);
         }
-        cusp_sv = cusp;
+        previous = Some(cusp);
         cusp = cusp_new;
     }
     None
@@ -153,6 +180,8 @@ pub(crate) fn pack(asc: f64, mc: f64, c11: f64, c12: f64, c2: f64, c3: f64) -> P
     cusps[12] = c12;
     cusps[2] = c2;
     cusps[3] = c3;
+    // 下面六行的 `+ 180.0` 改成 `- 180.0` 不会有任何测试红，那不是缺口：
+    // 模 360 之下两者恒等。变异扫描会把这六条列成漏网，它们是等价变异。
     cusps[4] = norm360(mc + 180.0);
     cusps[5] = norm360(c11 + 180.0);
     cusps[6] = norm360(c12 + 180.0);
@@ -182,7 +211,7 @@ pub fn equal_cusps(asc: f64, mc: f64) -> PlacidusCusps {
 pub fn porphyry_cusps(asc: f64, mc: f64) -> PlacidusCusps {
     let asc = norm360(asc);
     let mc = norm360(mc);
-    let ic = norm360(mc + 180.0);
+    let ic = norm360(mc + 180.0); // `- 180.0` 与它模 360 恒等，是等价变异
     // MC→Asc 弧（逆时针，黄经增大方向）。
     let mc_to_asc = norm360(asc - mc);
     let third_top = mc_to_asc / 3.0;
@@ -201,7 +230,11 @@ pub fn porphyry_cusps(asc: f64, mc: f64) -> PlacidusCusps {
 /// 极区(`|φ| ≥ 90° − ε`) 或迭代不收敛时返回 [`None`]，上层应回退到整宫制。
 #[must_use]
 pub fn cusps(ramc_deg: f64, obliquity_deg: f64, lat_deg: f64, asc: f64, mc: f64) -> Option<PlacidusCusps> {
-    // 极区保护（swehouse.c 同款）
+    // 极区保护（swehouse.c 同款）。
+    //
+    // 它与下面那道 `a_aux` 非有限的判据是**同一条界**：`tan φ · tan ε > 1`
+    // 等价于 `|φ| > 90° − ε`。所以把这里的减号改成加号（门槛跳到 113°，形同虚设）
+    // 不会有测试红——`a_aux` 那道会接住。是等价变异，不是缺口；这里留着是快路径。
     if lat_deg.abs() >= 90.0 - obliquity_deg {
         return None;
     }
@@ -331,6 +364,133 @@ mod singularities {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 极区门槛就在 `|φ| = 90° − ε` 上，两侧各验一次。
+    ///
+    /// `cusps` 用 `lat_deg.abs() >= 90.0 - obliquity_deg` 挡极区。把那个减号改成加号，
+    /// 门槛从 66.56° 跳到 113.44°——再没有一个纬度够得着，保护形同虚设，而所有测试照常绿：
+    /// 它们取的纬度都在温带，离门槛十几度远。
+    ///
+    /// 所以在门槛两侧各取一点：里面要给得出十二宫，外面要 `None`（上层据此回落 Porphyry）。
+    #[test]
+    fn the_polar_cutoff_sits_where_the_obliquity_puts_it() {
+        const EPS: f64 = 23.44;
+        let cutoff = 90.0 - EPS; // 66.56°
+        for &(lat, want_some) in &[
+            (cutoff - 0.5, true),
+            (-(cutoff - 0.5), true),
+            (cutoff + 0.5, false),
+            (-(cutoff + 0.5), false),
+            (89.0_f64, false),
+        ] {
+            let (asc, mc) = crate::asc_mc(120.0, EPS, lat);
+            let got = cusps(120.0, EPS, lat, asc, mc);
+            assert_eq!(
+                got.is_some(),
+                want_some,
+                "纬度 {lat}° 在门槛 {cutoff}° 的{}侧，应{}给出宫尖",
+                if want_some { "内" } else { "外" },
+                if want_some { "" } else { "不" }
+            );
+        }
+    }
+
+    /// `asc1` 的每个分支，逐点钉住。
+    ///
+    /// 这里此前只有性质：绕一圈不倒退、宫尖有序。性质拦不住把算式改坏——变异扫描下
+    /// `asc1` 与 `asc2` 共留二十个漏网，其中一个把**第三象限那条分支整个删掉**
+    /// （`n == 3` 落到第四象限的公式上）都没有一条测试红。
+    ///
+    /// 取样按分支铺开：四个象限各两点、`f` 取正负（`asc2` 的第二/三象限调用会翻 `f` 的号）、
+    /// 以及 `x = 0/90/180/270` 这四个退化点——`sin x == 0` 与 `ass == 0` 那两支只在那里走到，
+    /// 而绕圈测试的步长恰好跨过它们。
+    ///
+    /// 期望值由 `swehouse.c` 的 `Asc1`/`Asc2` 算式逐点算出（那两条算式已在函数注释里引用），
+    /// 钉的是转写：它答的是「有没有人改过这些分支」，不是「Placidus 对不对」——
+    /// 后者由下面对 pyswisseph 十二宫尖的比对守着。
+    #[test]
+    fn asc1_is_pinned_branch_by_branch() {
+        let (sine, cose) = (23.44_f64.to_radians().sin(), 23.44_f64.to_radians().cos());
+        for &(x, f, want) in &[
+            (0.0_f64, 0.0_f64, 0.000_000_000_1_f64),
+            (45.0, 0.0, 47.464_329_561_9),
+            (90.0, 0.0, 90.0),
+            (135.0, 0.0, 132.535_670_438_1),
+            (180.0, 0.0, 180.0),
+            (225.0, 0.0, 227.464_329_561_9),
+            (270.0, 0.0, 270.0),
+            (315.0, 0.0, 312.535_670_438_1),
+            (30.0, 52.0, 60.281_200_276_1),
+            (120.0, 52.0, 138.179_062_254_0),
+            (200.0, 52.0, 194.004_661_551_2),
+            (300.0, 52.0, 266.668_825_057_6),
+            (30.0, -52.0, 20.982_941_111_6),
+            (120.0, -52.0, 86.668_825_057_6),
+            (200.0, -52.0, 224.094_887_805_7),
+            (300.0, -52.0, 318.179_062_254_0),
+            (0.0, 40.0, 0.000_000_000_1),
+            (180.0, 40.0, 180.0),
+            (90.0, 66.0, 131.779_118_868_7),
+            (270.0, -66.0, 311.779_118_868_7),
+            // `f = 90 − ε` 上 `tan f · sin ε` 恰好等于 `cos ε`，于是 x=0 处 `ass` 与
+            // `sin x` 同时落到零附近（实测 ass = −2.2e-16）。这一格是 `asc2` 里
+            // 「两支都退化」的唯一入口：`ass` 靠上面那条吸附归零，`ass < 0.0` 才判假、
+            // 才走到 `+VERY_SMALL`。吸附去掉、或那个 `<` 松成 `<=`，结果都会翻到 180°。
+            (0.0, 66.56, 0.000_000_000_1),
+            (180.0, -66.56, 180.0),
+            (90.0, 66.56, 132.535_670_438_098),
+            (270.0, 66.56, 227.464_329_561_902),
+        ] {
+            let got = asc1(x, f, sine, cose);
+            assert!(
+                (got - want).abs() < 1e-9,
+                "asc1({x}, {f}) = {got}，应为 {want}——分支或算式动过了"
+            );
+        }
+    }
+
+    /// 边界吸附之后，落在 90/180/270 上的必须是**恰好**那个数。
+    ///
+    /// `asc1` 末尾那个循环把 1e-10 以内的抖动收成整数。上面那张表用的是 1e-9 的容差，
+    /// 盖得住这点残差——于是把吸附条件写成 `(ass + k).abs()`（`ass` 落在 [0,360)，
+    /// 那个条件永不成立，吸附形同虚设）也照样绿。
+    ///
+    /// 所以这里用相等而不是容差：吸附要的就是「恰好」，那就照它的本意断言。
+    /// x=180、f=0 走第三象限，`180 + asc2(0, 0)` 给出 180 + VERY_SMALL，正是它该收的那种。
+    #[test]
+    #[allow(
+        clippy::float_cmp,
+        reason = "相等就是被测的性质本身：吸附要的是恰好落在整数上，容差会把它盖掉"
+    )]
+    fn the_boundary_snap_lands_exactly_on_the_quadrant_angles() {
+        let (sine, cose) = (23.44_f64.to_radians().sin(), 23.44_f64.to_radians().cos());
+        assert_eq!(
+            asc1(180.0, 0.0, sine, cose),
+            180.0,
+            "第三象限在 x=180 处给出 180+1e-10，吸附后应恰好是 180"
+        );
+        assert_eq!(asc1(90.0, 0.0, sine, cose), 90.0);
+        assert_eq!(asc1(270.0, 0.0, sine, cose), 270.0);
+    }
+
+    /// 极高恰在 ±90° 时，`asc1` 直接给出 180 或 0，不进象限分发。
+    ///
+    /// 这两支（`(90 − f).abs() < VERY_SMALL` 与 `(90 + f).abs() < …`）是 swehouse.c 的极点保护。
+    /// 上面那张表走不到它们：表里 `f` 最大 66°，而这两支只在正好 ±90 时开。
+    #[test]
+    fn the_pole_guards_short_circuit_before_the_quadrants() {
+        let (sine, cose) = (23.44_f64.to_radians().sin(), 23.44_f64.to_radians().cos());
+        for &x in &[0.0_f64, 45.0, 123.4, 200.0, 359.9] {
+            assert!(
+                (asc1(x, 90.0, sine, cose) - 180.0).abs() < 1e-12,
+                "f=90° 时 asc1({x}) 应恒为 180"
+            );
+            assert!(
+                asc1(x, -90.0, sine, cose).abs() < 1e-12,
+                "f=−90° 时 asc1({x}) 应恒为 0"
+            );
+        }
+    }
 
     // —— Diana, Princess of Wales (Rodden AA): 1961-07-01 19:45 BST=UT 18:45 ——
     // Sandringham 52°50′N 0°30′E。

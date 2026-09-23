@@ -1,0 +1,248 @@
+# 已经查明、并且**不是守卫缺口**的漏网。
+#
+# 变异扫描每轮都会把它们重新报一遍，而判断它们要花的功夫远超扫描本身：
+# 一条 `+ 180` 改成 `- 180` 看起来像缺口，证明它在模 360 下恒等要另花一段时间。
+# 这份清单把那段功夫存下来，`mutants.sh` 拿它对账，只报没见过的。
+#
+# 它**不隐藏**任何东西：每轮仍然完整扫，清单只负责把已知的挪到一边，
+# 并且反过来查——清单里的条目若不再出现（被真正拦住了，或代码没了），也会报出来，
+# 免得它变成一份越攒越旧的免罪符。
+#
+# 每行：<crate> <文件> <变异描述>|<条数>|<理由>
+# 描述取扫描输出去掉行号列号的那一段，故改代码不会让清单失效。
+
+# —— mingli-astrology / placidus.rs ——
+# 三条几何恒等 + 一批浮点阈值。逐条的证明写在 placidus.rs 相应位置的注释里。
+mingli-astrology placidus.rs replace + with - in pack|6|十二宫尖里六个对宫是 +180，模 360 下与 -180 恒等
+mingli-astrology placidus.rs replace + with - in porphyry_cusps|1|同上，IC = MC + 180
+mingli-astrology placidus.rs replace - with + in cusps|1|极区门槛 |φ|≥90−ε 与下面的 asin(tanφ·tanε) 判据是同一条界
+mingli-astrology placidus.rs replace / with % in cusps|4|fh1/fh2 只是迭代初值，循环每轮重算极高
+mingli-astrology placidus.rs replace / with * in cusps|4|同上
+mingli-astrology placidus.rs replace * with + in cusps|1|同上
+mingli-astrology placidus.rs replace * with / in cusps|1|同上
+mingli-astrology placidus.rs replace / with % in solve_cusp|2|同上，循环外那个 f_pole 也只是起点
+mingli-astrology placidus.rs replace / with * in solve_cusp|2|同上
+mingli-astrology placidus.rs replace - with + in asc1|1|x1−180 与 x1+180 模 360 同值
+mingli-astrology placidus.rs replace - with / in asc1|1|f→±90 的极点捷径，通式本来就趋向同一个值，差 1e-14
+mingli-astrology placidus.rs replace < with <= in asc1|3|浮点阈值上的松紧，只差恰等于阈值的那一个比特
+mingli-astrology placidus.rs replace < with == in asc1|1|同上
+mingli-astrology placidus.rs replace < with <= in asc2|4|同上
+mingli-astrology placidus.rs replace < with == in asc2|1|同上
+mingli-astrology placidus.rs replace < with > in asc2|1|sin_x<0 那支经 asc1 走不到（只喂象限一的角）
+mingli-astrology placidus.rs delete - in asc2|1|同上，那支里的 −90 走不到
+mingli-astrology placidus.rs replace < with <= in solve_cusp|3|浮点阈值上的松紧
+mingli-astrology placidus.rs replace < with == in solve_cusp|1|同上
+
+# —— mingli-astrology / 本包测试够不着、由依赖它的包拦住 ——
+# 这些在「只跑本包」的第一趟里会冒出来，第二趟（本包 + 依赖方）里没有。
+mingli-astrology lib.rs replace sun_sign_at -> &'static str with "xyzzy"|1|registry 的自陈测试拦住
+mingli-astrology lib.rs replace sun_sign_at -> &'static str with ""|1|同上
+mingli-astrology lib.rs replace compute_aspects -> Vec<Aspect> with vec![]|1|同上（本包也已加相位条数下限）
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::id -> &'static str with "xyzzy"|1|registry 的注册表测试拦住
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::principal -> Option<Principal> with None|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上（哪片叶有几个流派已钉住）
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-astrology engine.rs replace <impl CastingEngine for AstrologyEngine>::reading_notes -> Option<&'static str> with None|1|同上
+
+# —— mingli-bazi ——
+mingli-bazi solar.rs replace < with <= in add_days_civil|1|d==1 时向前借一个月，紧接着的归一化循环又还回来，落回同一天
+mingli-bazi chart.rs replace < with <= in compute_at_impl|1|生辰恰在立春那一瞬才有分别，浮点上取不到
+mingli-bazi chart.rs replace % with + in compute_at_impl|1|五鼠遁 (stem%5)*2 与 (stem+5)*2 模 10 恒等
+mingli-bazi chart.rs replace + with - in compute_dayun|1|求节的迭代初值；节相距 30°，初值误差被这个间隔卡住，收敛到同一个节
+mingli-bazi chart.rs replace - with + in compute_dayun|1|同上
+mingli-bazi chart.rs replace - with / in compute_dayun|2|同上
+mingli-bazi chart.rs replace / with % in compute_dayun|2|同上
+mingli-bazi chart.rs replace / with * in compute_dayun|2|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::id -> &'static str with "xyzzy"|1|registry 的注册表测试拦住（只跑本包时才冒出来）
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上（哪片叶有几个流派已钉住）
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::subject_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::subject_notes -> Option<&'static str> with Some("")|1|同上
+mingli-bazi engine.rs replace <impl CastingEngine for BaziEngine>::subject_notes -> Option<&'static str> with None|1|同上
+mingli-bazi engine.rs replace leaf_gender -> Option<crate::Gender> with None|1|同上
+mingli-bazi engine.rs delete match arm "early_lichun" in chart|1|流派选项的接线由 registry 的 every_school_option_actually_changes_the_chart 拦住
+mingli-bazi engine.rs delete match arm "early_sf" in chart|1|同上
+mingli-bazi engine.rs delete match arm "late_sf" in chart|1|同上
+
+# —— 各叶的 engine.rs 元数据 ——
+# 形状都一样：`CastingEngine` 的 id/name/answers/principal/schools/reading_notes/subject_notes
+# 以及流派分派的 match 分支。它们由 mingli-registry 的注册表与自陈测试拦住，
+# 只在「只跑本包」的第一趟里冒出来。这里按叶登记，省得每片叶再推一遍。
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::principal -> Option<Principal> with None|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-ziwei engine.rs replace <impl CastingEngine for ZiweiEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-ziwei engine.rs replace leaf_gender -> Option<crate::Gender> with None|1|同上
+
+# —— mingli-qimen ——
+# 五条同一个形状：先加一个模数，后面再取模时正好消掉。
+mingli-qimen cast.rs replace % with + in time_branch|1|h 只经 div_ceil(2) % 12 用，+24 让商加 12、模 12 消掉；h==23 那支两边同得 0
+mingli-qimen cast.rs replace % with + in time_ganzhi|1|五鼠遁 (stem%5)*2 与 (stem+5)*2 模 10 恒等
+mingli-qimen earth.rs replace % with + in earth_plate|1|start 只以 (start ± i) % 9 使用，+9 消掉
+mingli-qimen vigor.rs replace % with + in month_branch_of_term|1|k 加 12，末尾 (k+2) % 12 消掉
+mingli-qimen gates.rs replace * with / in gate_plate|1|乘以 ±1 与除以 ±1 同值
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::principal -> Option<Principal> with None|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-qimen engine.rs replace <impl CastingEngine for QimenEngine>::reading_notes -> Option<&'static str> with None|1|同上
+
+# —— mingli-liuren ——
+mingli-liuren transmission.rs replace == with != in resolve_kede|1|涉害第三层（复等）：全枚举 17280 组里被走到 936 次，两种写法结果一次都没变——前两层筛完后池里两课共用同一上神
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::principal -> Option<Principal> with None|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-liuren transmission.rs replace == with != in resolve_kede|1|复等那一层的 `pool.len() == 1`：else 分支恒等于 pool[0].up，两支同解
+mingli-liuren engine.rs replace <impl CastingEngine for LiurenEngine>::bearings -> Vec<Bearing> with vec![]|1|下游 registry 的方位测试拦住（只跑本包时才冒出来）
+
+# —— mingli-taiyi ——
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::name -> &'static str with "xyzzy"|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::principal -> Option<Principal> with None|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::reading_notes -> Option<&'static str> with Some("")|1|同上
+mingli-taiyi engine.rs replace <impl CastingEngine for TaiyiEngine>::reading_notes -> Option<&'static str> with None|1|同上
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-meihua engine.rs  replace <impl CastingEngine for MeihuaEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-yijing engine.rs  delete match arm "yarrow_stalks" in chart|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-yijing engine.rs  replace <impl CastingEngine for YijingEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-numerology engine.rs  delete match arm "whole_sum" in chart|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-numerology engine.rs  replace <impl CastingEngine for NumerologyEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-numerology engine.rs  replace <impl WordEngine for NumerologyEngine>::profile -> &'static[DetItem] with Vec::leak(Vec::new())|1|registry 拦住
+
+# —— mingli-jyotish ——
+mingli-jyotish kuta.rs replace && with || in ashtakuta|1|Bhakoot 两向恒同吉凶：d1+d2 恒为 14，吉位集 {1,3,4,7,10,11} 在 d↦14−d 下自对称（由 the_two_bhakoot_directions_always_agree 钉住）
+mingli-jyotish graha.rs replace + with - in graha_position|1|Ketu = 交点 + 180，模 360 下与 −180 恒等
+mingli-jyotish dasha.rs replace % with + in vimshottari_timeline_with|1|naks 只用于 `naks % 9`，而 27 ≡ 0 (mod 9)，加 27 不改起步
+
+# —— 以下四片：只剩 engine.rs 元数据（registry 拦住）与两条已证等价 ——
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-qizhengsiyu engine.rs  replace <impl CastingEngine for QizhengsiyuEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-geomancy engine.rs  replace <impl CastingEngine for GeomancyEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-maya engine.rs  replace <impl CastingEngine for MayaEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-tibetan engine.rs  replace <impl CastingEngine for TibetanEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-maya lib.rs replace < with <= in haab|1|doy 恰为 360 时两支同解：(360%20, 360/20) = (0, 18) = (360−360, 18)
+mingli-qizhengsiyu lib.rs replace + with - in star_position|1|计都 = 交点 + 180，模 360 下与 −180 恒等
+
+# —— pawukon / mahabote / ifa / sikidy ——
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-pawukon engine.rs  replace <impl CastingEngine for PawukonEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-mahabote engine.rs  replace <impl CastingEngine for MahaboteEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-ifa engine.rs  replace <impl CastingEngine for IfaEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-sikidy engine.rs  replace <impl CastingEngine for SikidyEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-pawukon lib.rs replace - with + in caturwara_index|1|(day−2) 与 (day+2) 相差 4，模 4 为零
+
+# —— abjad / cartomancy / gematria / wuge ——
+mingli-abjad engine.rs  replace <impl WordEngine for AbjadEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::id -> &'static str with "xyzzy"|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::schools -> &'static[SchoolItem] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::reading_notes -> Option<&'static str> with None|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::reading_notes -> Option<&'static str> with Some("")|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::reading_notes -> Option<&'static str> with Some("xyzzy")|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::answers -> &'static[Intent] with Vec::leak(Vec::new())|1|registry 拦住
+mingli-cartomancy engine.rs  replace <impl CastingEngine for TarotEngine>::principal -> Option<Principal> with None|1|registry 拦住
+mingli-cartomancy engine.rs  replace % with / in <impl CastingEngine for TarotEngine>::principal|1|registry 拦住
+mingli-cartomancy engine.rs  replace % with + in <impl CastingEngine for TarotEngine>::principal|1|registry 拦住
+mingli-gematria engine.rs  replace <impl WordEngine for GematriaEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-wuge engine.rs  replace <impl WordEngine for WugeEngine>::name -> &'static str with "xyzzy"|1|registry 拦住
+mingli-wuge engine.rs  replace || with && in <impl WordEngine for WugeEngine>::compute|1|registry 拦住
+
+# —— 共享层 ——
+mingli-core cyclic.rs replace || with && in lcm|1|任一为零时另一支也算出零：(0/gcd(0,b))*b = 0、(a/gcd(a,0))*0 = 0
+mingli-core gf2.rs replace | with ^ in pack|1|每个位置只被置一次（i 来自 enumerate），或与异或只在该位已为 1 时分家
+mingli-ganzhi wuxing.rs replace > with >= in nayin_element|1|n 为 5 时不减也落 `_ => Earth`，减成 0 后同样落 `_`
+mingli-ganzhi cycle.rs replace % with + in month_pillar_stem|1|五虎遁 2(s−5k) ≡ 2s (mod 10)，末尾还要模 10
+mingli-ganzhi shensha.rs delete match arm 2 | 6 | 10 in sanhe_group_index|1|该支与兜底 `_ => 0` 同值（函数自己的 allow 理由已说明）
+mingli-gua lib.rs replace | with ^ in Hexagram::from_trigrams|1|两操作数占不相交位段（0–2 与 3–5）
+mingli-gua lib.rs replace | with ^ in Hexagram::mutual|1|同上
+mingli-gua lib.rs replace | with ^ in value_from_full_name|2|同上
+mingli-engine lib.rs replace map_leaves -> Vec<T> with vec![]|1|被改的是 #[cfg(target_arch = "wasm32")] 那一份，本机不编译（同 eph-lite 那类档位假象）
+mingli-engine lib.rs replace map_leaves -> Vec<T> with vec![Default::default()]|1|同上

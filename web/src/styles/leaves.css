@@ -410,14 +410,6 @@
 .wn i { color: var(--kin); margin-left: 4px; font-style: normal; }
 .wew b { font-size: 14px; color: var(--washi-dim); }
 
-/* Mahabote */
-.mhb-houses { display: flex; gap: 8px; flex-wrap: wrap; }
-.mhb { flex: 1; min-width: 78px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 6px; text-align: center; background: rgba(0,0,0,.2); }
-.mhb.hi { border-color: var(--shu); background: rgba(216,57,46,.12); }
-.mhb-i { display: block; font-family: var(--mono); font-size: 14px; color: var(--washi-faint); }
-.mhb-n { display: block; font-size: 16px; font-weight: 700; margin-top: 4px; }
-.mhb.hi .mhb-n { color: var(--shu-soft); }
-
 /* 藏历 */
 .tib-big { font-size: 30px; font-weight: 800; color: var(--kin-bright); text-align: center; padding: 10px 0; letter-spacing: .04em; }
 .mewa-show { display: flex; align-items: center; gap: 14px; }

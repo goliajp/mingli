@@ -944,3 +944,117 @@ fn every_palace_number_on_a_chart_is_in_range() {
     assert_eq!(taken(&zs), vec![1, 2, 3, 4, 6, 7, 8, 9], "值使宫不该出现中 5");
     assert_eq!(taken(&cp), vec![1, 2, 3, 4, 6, 7, 8, 9], "中宫之干的落宫不该是中 5");
 }
+
+
+/// 时支、月支两张换算表，逐格钉住。
+///
+/// 两处形状相同：一行整数算式，而测试只在个别时刻上间接走过。变异扫描因此报出
+/// `(h.div_ceil(2) % 12)` 里的 `%` 改成 `+`、`div_ceil` 的除号改成乘或取模、
+/// 以及月支里 `(term_index + 3) % 24` 的 `%` 改成 `+` 都没人红。
+///
+/// 时支这张还带一个「分钟满 60」的取样：`hour + minute / 60` 那一步只有在分钟
+/// 真的溢出时才看得见。奇门用「夜子归次日」，故 23 点归子（0）。
+#[test]
+fn the_branch_conversion_tables_are_pinned() {
+    const TERM_TO_MONTH: [u8; 24] = [
+        3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 0, 0, 1, 1, 2, 2, 3,
+    ];
+    const HOUR_TO_BRANCH: [u8; 24] = [
+        0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 0,
+    ];
+    for (h, want) in HOUR_TO_BRANCH.iter().enumerate() {
+        let h = u32::try_from(h).expect("0..24");
+        assert_eq!(crate::cast::time_branch(h, 0), *want, "{h} 点的时支");
+        assert_eq!(crate::cast::time_branch(h, 59), *want, "{h} 点 59 分仍是同一个时支");
+    }
+    // 分钟满 60 要进位到下一个小时。
+    assert_eq!(crate::cast::time_branch(1, 60), crate::cast::time_branch(2, 0), "60 分应进位");
+    assert_eq!(crate::cast::time_branch(23, 60), crate::cast::time_branch(0, 0), "23 点 60 分绕回 0 点");
+
+    for (i, want) in TERM_TO_MONTH.iter().enumerate() {
+        assert_eq!(crate::vigor::month_branch_of_term(i), *want, "第 {i} 个节气的月支");
+    }
+    // 立春在 21 位开寅月（寅 = 2）。
+    assert_eq!(crate::vigor::month_branch_of_term(21), 2, "立春应开寅月");
+}
+
+/// 地盘九宫，九个局数 × 阴阳遁逐宫钉住。
+///
+/// 起宫是 `(ju + 8) % 9`，把那个 `%` 改成 `+` 就越界到别处；而此前没有一条测试
+/// 逐宫看过地盘的排布。这张表钉的是转写——「地盘排得对不对」由下面对古例的比对守着。
+#[test]
+fn the_earth_plate_is_pinned_for_every_bureau() {
+    for ju in 1_u8..=9 {
+        let yang = crate::earth::earth_plate(ju, true);
+        let yin = crate::earth::earth_plate(ju, false);
+        // 九个天干各出现一次，不重不漏。
+        let mut sy = yang.to_vec();
+        sy.sort_unstable();
+        let mut si = yin.to_vec();
+        si.sort_unstable();
+        assert_eq!(sy, si, "{ju} 局阴阳遁用的是同一组天干");
+        assert_eq!(sy.len(), 9);
+        assert!(sy.windows(2).all(|w| w[0] != w[1]), "{ju} 局阳遁有重复天干：{yang:?}");
+        // 阳遁起宫落在 ju 宫（0-based ju−1），阴遁同起宫但反向。
+        assert_eq!(
+            yang[(ju as usize + 8) % 9],
+            yin[(ju as usize + 8) % 9],
+            "{ju} 局阴阳遁的起宫应是同一个天干"
+        );
+    }
+}
+
+/// 全盘伏吟是三个条件的**合取**，扫一段时间把「与」和「或」分开。
+///
+/// `full_fu_yin = star_fu_yin && gate_fu_yin && !stem_fu_yin_palaces.is_empty()`。
+/// 现有的伏吟测试要么三者同真、要么三者同假——那两种盘上 `&&` 与 `||` 给的是同一个答案。
+/// 变异扫描因此在那两个 `&&` 上各留了一个漏网。
+///
+/// 这里扫一段时刻，要求：全盘伏吟为真时三个条件都真；且**确实存在**一张盘
+/// 三者不全同（否则这条断言仍然是空的）。
+#[test]
+fn full_fu_yin_needs_all_three_not_any() {
+    let mut mixed = 0_u32;
+    let mut full = 0_u32;
+    for day in 1..=28_u32 {
+        for hour in [1_u32, 5, 9, 13, 17, 21] {
+            let c = compute(2024, 3, day, hour, 0, 8.0);
+            let p = &c.patterns;
+            let all = p.star_fu_yin && p.gate_fu_yin && !p.stem_fu_yin_palaces.is_empty();
+            let any = p.star_fu_yin || p.gate_fu_yin || !p.stem_fu_yin_palaces.is_empty();
+            assert_eq!(p.full_fu_yin, all, "2024-03-{day:02} {hour} 时：全盘伏吟应是三者皆真");
+            if any && !all {
+                mixed += 1;
+            }
+            if all {
+                full += 1;
+            }
+        }
+    }
+    // 实测（2026-09-03）：168 张盘里 46 张「有其一而非全部」、7 张三者皆真。
+    // 前者让「与」和「或」分得开，后者让「与」的真那一侧也走到；两个数变了都要重验。
+    assert_eq!(mixed, 46, "「有其一而非全部」的盘数变了");
+    assert_eq!(full, 7, "全盘伏吟的盘数变了");
+}
+
+/// 宫内注记把同宫五样东西都写进去。
+///
+/// `palace_note` 返回的是判读的依据（星 · 旺衰 · 门 · 神 · 天盘干）。
+/// 把整个函数换成空串或 "xyzzy" 都没有测试红——它的内容从来没被读过。
+#[test]
+fn the_palace_note_names_all_five_things_in_that_palace() {
+    let c = compute(2024, 3, 15, 10, 0, 8.0);
+    for palace in 1_u8..=9 {
+        let note = crate::bearings::palace_note(&c, palace);
+        let k = palace as usize - 1;
+        for piece in [
+            &c.sky.stars[k],
+            &c.gates.gates[k],
+            &c.spirits.spirits[k],
+            &c.sky.stems[k],
+        ] {
+            assert!(note.contains(piece), "{palace} 宫的注记里没有「{piece}」：{note}");
+        }
+        assert!(note.contains(" · "), "注记应以「 · 」分节：{note}");
+    }
+}

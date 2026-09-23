@@ -13,7 +13,7 @@ mingli-contract = { workspace = true }
 mingli-engine = { workspace = true }
 # 本服务装全部二十四片叶——「全都要」在这里是显式声明，不是缺省
 mingli-registry = { workspace = true, features = ["full"] }
-mingli-app = { workspace = true, features = ["astrology", "jyotish"] }
+mingli-app = { workspace = true, features = ["astrology", "jyotish", "bazi-report"] }
 mingli-interpret = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -27,3 +27,6 @@ tracing-subscriber = "0.3"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 mingli-wasm = { path = "../../crates/mingli-wasm" }
+
+[build-dependencies]
+sha2 = "0.10"

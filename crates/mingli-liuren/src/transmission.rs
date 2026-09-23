@@ -31,8 +31,17 @@ pub(crate) fn meng_zhong_ji(ground: u8) -> u8 {
 pub(crate) fn shehai_depth(course: &Course) -> u32 {
     let target = branch_element(course.up);
     let mut depth = 0;
-    let mut g = (course.down + 1) % 12;
-    while g != course.up {
+    // 从 `down` 的下一支走到 `up`，两端都不计——十二支一圈，最多走十一步。
+    //
+    // 从前这里是 `while g != course.up`，靠 `(g + 1) % 12` 转回来收尾。那个环没有上限：
+    // 把那个 `%` 改成 `/`、或让 `heaven_plate` 交出一个 ≥ 12 的支序，`g` 就永远等不到
+    // `up`，测试挂在这里而不是红。变异扫描里三个超时全出自这一处。
+    // 步数上限本来就有（一圈十二支），写出来即可。
+    for step in 1..12u8 {
+        let g = (course.down + step) % 12;
+        if g == course.up {
+            break;
+        }
         if branch_element(g).controls() == target {
             depth += 1;
         }
@@ -43,7 +52,6 @@ pub(crate) fn shehai_depth(course: &Course) -> u32 {
                 depth += 1;
             }
         }
-        g = (g + 1) % 12;
     }
     depth
 }
@@ -266,6 +274,18 @@ pub(crate) fn resolve_kede(
     let best = pool.iter().map(|c| meng_zhong_ji(c.down)).min().unwrap_or(2);
     pool.retain(|c| meng_zhong_ji(c.down) == best);
     // 第三层（复等 / 缀瑕）：阳日取干上神，阴日取支上神。
+    //
+    // 实测（2026-09-03，全枚举 17,280 组）：这一层被走到 936 次，而把 `==` 换成 `!=`
+    // 结果**一次都没变**——前两层筛完之后剩下的两课共用同一个上神，于是「取哪一个」
+    // 无从区分。变异扫描会把这里的判等列成漏网，它是等价变异，不是守卫的缺口。
+    //
+    // 记下来是因为它也说明了算法本身的一件事：在当前的深浅与孟仲季两层之下，
+    // 复等这一层没有实际裁决过。哪天前两层松了、或补了别的流派，它才会开始起作用。
+    //
+    // 再往下推一步：`prefer` 在池中时池里两课上神相同，不在池中时 `find` 落空回到
+    // `pool[0].up`——两种情形都得 `pool[0].up`，所以整个 else 分支眼下**恒等于**它。
+    // 于是连 `pool.len() == 1` 那个判断也成了等价变异（两支给同一个答案）。
+    // 保留这条规则是因为它是古法里的一层（阳日取干上神、阴日取支上神），不是因为它此刻在起作用。
     let first = if pool.len() == 1 {
         pool[0].up
     } else {

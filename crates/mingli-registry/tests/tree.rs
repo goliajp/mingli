@@ -178,7 +178,8 @@ fn every_leaf_reports_the_principal_it_is_supposed_to() {
         ("zeri", "建除", "定"),
         ("maya", "Tzolkʼin 数", "12"),
         ("pawukon", "Pancawara", "Pon"),
-        ("mahabote", "本命宫", "Binga"),
+        // 2024-06-15 是周六（1 月 1 日周一，相隔 166 天），周六配土星。
+        ("mahabote", "出生行星", "Saturn"),
         ("liuren", "日支", "10"),
         ("qimen", "局数", "6"),
         ("taiyi", "太乙宫", "2"),
@@ -846,6 +847,17 @@ fn the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris() {
     /// 走行星星历的三片。它们贵是本分——VSOP87 每次求值要跑几百项级数。
     const EPHEMERIS: [&str; 3] = ["astrology", "jyotish", "qizhengsiyu"];
 
+    // 两道界之间要留出空地，界别贴着数据放。
+    //
+    // 本机实测（2026-09-03，倍数对非星历叶的中位数）：便宜那一档最贵的是
+    // ziwei 10.2 与 bazi 9.4（两者都要走农历，而农历要算朔与节气），
+    // 星历那一档是 309–340。两档之间差三十倍，空得很大。
+    //
+    // 从前两道界都写成 20——贴着便宜这一档的上沿。CI 的共享机器抖动一下就过：
+    // 实测有一轮 ziwei 正好量到 20.0 倍，于是从 2026-08-29 起每一次 push 都红。
+    // 现在下界 50、上界 100，两侧各留五倍余量，落在两档的几何中点附近（√(10×310) ≈ 56）。
+    // 它仍然拦得住这条测试要拦的事：一片普通叶开始驮星历，量级是几百倍不是几十倍。
+
     let q = sample();
     let m = mingli_astro::Moment::new(q.year, q.month, q.day, q.hour, q.minute, q.tz);
     let reg = registry();
@@ -866,13 +878,13 @@ fn the_expensive_leaves_are_exactly_the_ones_that_walk_an_ephemeris() {
         let ratio = *c / median;
         if EPHEMERIS.contains(id) {
             assert!(
-                ratio > 20.0,
+                ratio > 100.0,
                 "星历叶 `{id}` 只比中位数贵 {ratio:.1} 倍——它多半已经不真的在走星历了。\n\
                  查表或缓存能换来这个数，但那通常意味着精度悄悄降了；若确是有意的，改这条并说明。",
             );
         } else {
             assert!(
-                ratio < 20.0,
+                ratio < 50.0,
                 "叶 `{id}` 比中位数贵 {ratio:.1} 倍，却不在星历名单里——\n\
                  它多半顺手起了一张本命盘或别的重活。若它真的开始走星历，把它加进 EPHEMERIS。",
             );
@@ -990,6 +1002,35 @@ fn every_school_option_actually_changes_the_chart() {
     ];
     let clocks = [(0, 30), (7, 0), (12, 0), (15, 0), (23, 30)];
     let seeds = [None, Some(1_u64), Some(7), Some(2024), Some(99_991)];
+
+    // 哪些叶声明了流派，先钉住。
+    //
+    // 下面那句 `continue` 会把空列表静默放过——于是把某片叶的 `schools()` 整个清空，
+    // 这条测试照常绿。变异扫描正是这么发现它的：`AstrologyEngine::schools` 返回空表，
+    // 没有一条测试红。空集合能满足的断言，等于没有断言。
+    //
+    // 这张表是实测的（2026-09-02）。加减流派是有意的改动，改这里一行就是；
+    // 而无意中把一片叶的流派丢掉，这里会红。
+    let with_schools: std::collections::BTreeMap<&str, usize> = mingli_registry::registry()
+        .iter()
+        .filter(|e| !e.schools().is_empty())
+        .map(|e| (e.id(), e.schools().len()))
+        .collect();
+    assert_eq!(
+        with_schools,
+        std::collections::BTreeMap::from([
+            ("astrology", 5),
+            ("bazi", 4),
+            ("jyotish", 4),
+            ("liuren", 2),
+            ("meihua", 2),
+            ("numerology", 2),
+            ("tarot", 7),
+            ("yijing", 2),
+            ("ziwei", 2),
+        ]),
+        "哪片叶有几个流派变了——是有意的就改这张表"
+    );
 
     for e in mingli_registry::registry() {
         let opts = e.schools();

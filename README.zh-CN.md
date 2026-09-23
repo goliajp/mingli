@@ -9,7 +9,7 @@
 　　核心原则是**「算 / 释 / 说」三层分离**——本仓库只做「算」：可复现、可校验、可证的纯计算。
 「这意味着什么」属于释义层，被显式隔离在 `mingli-interpret` 之后，且永远标记为非计算产物。
 
-> 39 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 807 个测试全绿
+> 39 个 crate · 24 片叶（21 片时刻叶走并行 fan-out，4 片字词叶走 `/api/word`，其中一片两边都答）· 8 类问局（HTTP 与 wasm 都接）· 847 个测试全绿
 > `unsafe_code = "forbid"` · `missing_docs = "deny"` · `clippy::all = "deny"`
 
 ---
@@ -144,13 +144,13 @@ cargo add mingli-registry --no-default-features --features bazi,yijing   # 两�
 
 | npm 包 | 装配 | 模块 | gzip 后 |
 |---|---|---:|---:|
-| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 229 KB | 119 KB |
+| `mingli-wasm-astrology-thin` | 占星排盘，自带截断星历 | 230 KB | 120 KB |
 | `mingli-wasm-yijing` | 只要易经起卦 | 156 KB | 72 KB |
 | `mingli-wasm-astrology-lite` | 占星排盘，位置你给 | 162 KB | 73 KB |
-| `mingli-wasm-bazi` | 只要四柱 | 194 KB | 89 KB |
-| `mingli-wasm-chinese` | 中华十片 | 341 KB | 143 KB |
-| `mingli-wasm-chart` | 二十四片，只排盘 | 1237 KB | 712 KB |
-| `mingli-wasm` | 二十四片 + 跨叶用例 | 1443 KB | 789 KB |
+| `mingli-wasm-bazi` | 只要四柱 | 195 KB | 89 KB |
+| `mingli-wasm-chinese` | 中华十片 | 342 KB | 143 KB |
+| `mingli-wasm-chart` | 二十四片，只排盘 | 1238 KB | 713 KB |
+| `mingli-wasm` | 二十四片 + 跨叶用例 | 1444 KB | 790 KB |
 
 
 ### 自带星历
@@ -189,24 +189,41 @@ Rust 那边对应 `mingli_astrology::compute_at_with`，把叶的 `ephemeris` fe
 
 　　守卫自己也要被验。一条永远绿的守卫和一条真守着东西的守卫，在日常测试里长得一模一样；
 分辨它们只有一个办法——把它该拦的东西种回去，看它拦不拦。`guard-probe.sh` 把这件事从
-「我当时手工试过」变成一条能重跑的命令：种 117 个已知的错，逐条问该拦它的守卫红没红。
+「我当时手工试过」变成一条能重跑的命令：种 122 个已知的错，逐条问该拦它的守卫红没红。
 它上一次就抓到一处名不副实——「装配根是唯一列叶的地方」那条，其实并不看释义层。
 
 
 ## 测试 / 校验
 
 ```bash
-cargo test --workspace     # 807 个测试
+cargo test --workspace     # 847 个测试
 cargo clippy --workspace   # deny-clean
 cargo doc --workspace      # 全文档
 ./scripts/coverage.sh      # 低于门槛的文件必须逐个写明理由
 ./scripts/api-snapshot.sh check snap.txt   # 43 个请求逐字节
 ./scripts/test-count.sh    # 本文自称的测试数，对回真跑一遍的结果
 ./scripts/feature-matrix.sh  # 每片叶各单独装配、每个 crate 各单独跑一次测试 + wasm32 + 查依赖图
-./scripts/guard-probe.sh   # 种 117 个已知的错，看该拦它的那条守卫拦不拦
+./scripts/guard-probe.sh   # 种 122 个已知的错，看该拦它的那条守卫拦不拦
 ```
 
 　　以上连同截图断言，每次 push 都会跑一遍——见顶部徽章。
+
+　　还有一条故意不在其中：
+
+```bash
+./scripts/mutants.sh mingli-astro   # 把一个 crate 里每处都改坏一遍，看哪处改了没人管
+```
+
+　　`guard-probe.sh` 种的是挑好的错，问「这条守卫真在守吗」；这条问的是反面——
+这个 crate 里有没有哪块地方根本没人看着——办法是把每处依次改坏。一轮以小时计，
+所以它是手上工具，不是关卡。它在本仓库找出来的正是全绿套件盖得住的那类东西：
+小到在本项目支持的年代里看不见的系数、遇到坏输入不报错直接不返回的循环，
+以及比它要拦的抖动还宽的容差。
+
+　　漏网不都是缺口。有些是等价变异——`+180` 与 `-180` 在模 360 下相同，
+某个象限的公式恰好等于邻居的。证明这件事比扫一轮还费功夫，所以结论连同理由存在
+`scripts/mutants-known.txt` 里，每轮扫完对账：只报还没人解释过的，
+同时反查清单里不再出现的条目，免得它悄悄变旧。
 
 　　引擎校验的权威参照值均经**多源交叉确认**，全部落在各 crate 的 `#[test]` 里，例如：
 
@@ -228,8 +245,14 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | 路由 | 说明 |
 |---|---|
 | `GET  /api/health` | 健康检查 |
+| `GET  /api/build` | 编译内嵌源码与构建身份；计算响应附带 `x-mingli-build-id` |
+| `GET  /api/calendar/chinese-year` | 完整中国农历年表，参数 `year=1900..2099`，固定东八区月界；无需出生输入 |
+| `GET  /api/calendar/tibetan-year` | 年度藏历循环，参数 `year=1900..2099`；不作洛萨/日期换算，不输出日卦或个人预测 |
 | `POST /api/cast` | 全叶并行 fan-out——一次输入，所有术数同时排盘 |
 | `POST /api/bazi` · `/api/bazi/overlay-strength` | 四柱盘 / 运层旺衰叠加 |
+| `POST /api/bazi/report` | 钟面时间四柱盘及未舍入起运计算依据；须提供计算性别（[契约](services/mingli-api/BAZI-REPORT.md)） |
+| `POST /api/bazi/report/utc` | 采用固定历史UTC/闰秒表的独立v2报告 ([v2](services/mingli-api/BAZI-REPORT-UTC.md)) |
+| `POST /api/bazi/report/utc/minute` | 请求同上；节气交界严格落在所记出生分钟之内时，交界前后各给一份完整报告，否则只给一份（[契约](services/mingli-api/BAZI-REPORT-UTC.md#recorded-minute-alternatives)） |
 | `POST /api/ziwei` | 紫微斗数盘 |
 | `POST /api/fortune` | 某时刻的岁运聚合 + 百年供给时序 |
 | `POST /api/word` | 字词类叶（数字学 / gematria / abjad / 五格） |
@@ -244,6 +267,7 @@ curl -X POST http://127.0.0.1:6027/api/bazi -H 'content-type: application/json' 
 | `POST /api/interpret` | 释义层（🔮 INT，非计算产物） |
 
 　　请求字段：`year month day hour`（必填）、`minute`（默认 0）、`tz`（默认 +8）、`gender`（`male` / `female`，也收 `男` / `女`；缺省不算大运，写别的会被拒而不是默默忽略）。支持 1900–2100。
+`/api/election` 与 `/api/locative` 收 `category`（事类 / 所寻），但只原样回显：既不改变择日的排序，也不改变方位结果。什么事取什么规则各家不同，交释义层。
 端口可用 `MINGLI_API_BIND` 覆盖。
 
 ---

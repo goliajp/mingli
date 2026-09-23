@@ -389,6 +389,62 @@ fn the_direction_follows_the_year_stem_and_the_gender() {
     }
 }
 
+/// 起运岁数落在「三天折一年」该给的范围里，并与到节的天数对得上。
+///
+/// 现有的大运测试验的是方向、有无、步序单调——没有一条碰过**起运岁数**本身，
+/// 而那正是「几岁起运」这个对外头条输出。于是求下一个/上一个节所用的那两行初值
+/// （`jd ± (Δλ mod 360) / 0.98565`）改坏了也没人红：变异扫描在那两行上留了八个漏网。
+///
+/// 那两行是喂给牛顿迭代的**起点**，可这里的不动点不唯一——每年都有一个同名的节。
+/// 初值偏一格，迭代就收敛到隔壁年的那个节，天数从二十几天变成三百多天，
+/// 起运岁数从几岁变成一百多岁。所以这里钉两件事：
+///
+/// 一、`start_age_years × 3` 就是到节的天数，而节相邻两个之间至多约 31 天，
+///    故起运岁数必在 `[0, 11)` 内。落到隔壁年的话这条立刻红。
+/// 二、十步大运的 `start_age` 逐步 +10，且第一步等于起运岁数取整。
+#[test]
+fn the_starting_age_is_the_days_to_the_term_divided_by_three() {
+    for (y, mo, d, h, g) in [
+        (1987_i32, 9_u32, 17_u32, 14_u32, Gender::Male),
+        (1990, 6, 15, 12, Gender::Female),
+        (1989, 6, 15, 12, Gender::Male),
+        (2000, 1, 1, 0, Gender::Female),
+        (2024, 2, 4, 23, Gender::Male),
+    ] {
+        let chart = compute(BirthInput {
+            year: y,
+            month: mo,
+            day: d,
+            hour: h,
+            minute: 0,
+            tz: 8.0,
+            gender: Some(g),
+        });
+        let dy = chart.dayun.as_ref().expect("给了性别就该有大运");
+        assert!(
+            (0.0..11.0).contains(&dy.start_age_years),
+            "{y}-{mo:02}-{d:02}：起运 {} 岁——两节之间至多约 31 天，三天折一年最多 11 岁，\
+             超出说明求节时收敛到了隔壁年",
+            dy.start_age_years
+        );
+        assert_eq!(dy.pillars.len(), 10, "大运应排十步");
+        assert_eq!(
+            dy.pillars[0].start_age,
+            dy.start_age_years.round() as u32,
+            "第一步的起运岁数应与 start_age_years 取整一致"
+        );
+        for (i, w) in dy.pillars.windows(2).enumerate() {
+            assert_eq!(
+                w[1].start_age,
+                w[0].start_age + 10,
+                "第 {} 步与第 {} 步之间应差十年",
+                i + 1,
+                i + 2
+            );
+        }
+    }
+}
+
 #[test]
 fn dayun_reverse_for_yin_year_male() {
     // 1989 己巳（阴年）男 → 逆行
@@ -477,7 +533,7 @@ fn strength_oracle_1987_male_yin_earth() {
     assert_eq!(c.strength.got_shi, 20, "丁印10+己比10");
     assert_eq!(c.strength.score, 61);
     assert_eq!(c.strength.level, "偏强");
-    // 五行分布合 100（整数 round 凑巧；允差 1）。
+    // 此例五行分布凑巧合 100；独立舍入的一般合计范围为 98–102。
     let s = c.strength.wuxing;
     let sum = s.wood + s.fire + s.earth + s.metal + s.water;
     assert!((99..=101).contains(&sum), "wuxing 合 ≈ 100，实 {sum}");
@@ -624,7 +680,7 @@ fn strength_score_bounds() {
         assert!(s.got_shi <= 30);
         assert!(s.score <= 100);
         let sum = s.wuxing.wood + s.wuxing.fire + s.wuxing.earth + s.wuxing.metal + s.wuxing.water;
-        assert!((99..=101).contains(&sum));
+        assert!((98..=102).contains(&sum));
     }
 }
 
@@ -869,6 +925,194 @@ fn true_solar_changes_pillar_across_chen_boundary() {
     assert_eq!(no_solar.day.ganzhi, with_solar.day.ganzhi);
 }
 
+/// 真太阳时推过午夜时，校正后的年月日时分逐项对得上。
+///
+/// 上面几条真太阳时的测试都在长沙（112.94°E，偏移约 −22 分钟）上，一整天之内动不出去，
+/// 而且只比干支。于是两处没人守：跨日的那两支（`total < 0` 往前一天、
+/// `total >= 24×60` 往后一天）从没走到过；分钟数从来没被断言过——干支只认时辰，
+/// 把 `in_day_min % 60` 改成 `/ 60` 也看不出来。变异扫描在那几行上留了十个漏网。
+///
+/// 喀什（75.99°E）用北京时间，偏移约 −3 小时，是这条路的现实用例；往东取 135°E
+/// 走另一支。`BaziChart::input` 带的是**校正后**的时刻，所以这里逐项比它，
+/// 而不是只比干支。期望值由已经对过公开值的 `true_solar_offset_minutes` 推出。
+#[test]
+fn crossing_midnight_moves_the_whole_moment() {
+    for (lon, y, mo, d, h, mi) in [
+        (75.99_f64, 1987_i32, 9_u32, 17_u32, 1_u32, 0_u32),  // 往前跨到前一天
+        (75.99, 2000, 1, 1, 0, 30),                          // 跨年那一天，往前
+        (135.0, 1987, 9, 17, 23, 40),                        // 往后跨到次日
+        (135.0, 1999, 12, 31, 23, 50),                       // 跨年，往后
+    ] {
+        let off = true_solar_offset_minutes(lon, 8.0, y, mo, d).round() as i32;
+        let total = i32::try_from(h).expect("小时在 0..24") * 60
+            + i32::try_from(mi).expect("分钟在 0..60")
+            + off;
+        assert!(
+            !(0..24 * 60).contains(&total),
+            "{y}-{mo:02}-{d:02} {h:02}:{mi:02} 在 {lon}°E 的真太阳时是 {total} 分，\
+             没有跨日——这条测试要的正是跨日"
+        );
+        let (delta, in_day) = if total < 0 { (-1, total + 24 * 60) } else { (1, total - 24 * 60) };
+        let (ey, em, ed) = add_days_civil(y, mo, d, delta);
+        let got = compute_with_true_solar(
+            BirthInput { year: y, month: mo, day: d, hour: h, minute: mi, tz: 8.0, gender: Some(Gender::Male) },
+            lon,
+        );
+        assert_eq!(
+            (got.input.year, got.input.month, got.input.day, got.input.hour, got.input.minute),
+            (
+                ey,
+                em,
+                ed,
+                u32::try_from(in_day / 60).expect("0..24"),
+                u32::try_from(in_day % 60).expect("0..60")
+            ),
+            "{y}-{mo:02}-{d:02} {h:02}:{mi:02} @{lon}°E 的真太阳时刻不对"
+        );
+        let expected = compute(BirthInput {
+            year: got.input.year,
+            month: got.input.month,
+            day: got.input.day,
+            hour: got.input.hour,
+            minute: got.input.minute,
+            tz: 8.0,
+            gender: Some(Gender::Male),
+        });
+        assert_eq!(got.day.ganzhi, expected.day.ganzhi, "日柱应随跨日改成那一天的");
+        assert_eq!(got.hour.ganzhi, expected.hour.ganzhi);
+    }
+}
+
+/// 真太阳时正好落在午夜零点时，算作当天的 00:00，不往前退一天。
+///
+/// `total < 0` 与 `total <= 0` 的分岔只在这一刻上：松成 `<=`，零点会被当成
+/// 「前一天的 24:00」，时刻直接坏掉。取样得刚好把偏移抵消掉才走得到。
+#[test]
+fn midnight_exactly_stays_on_the_same_day() {
+    let (lon, y, mo, d) = (112.94_f64, 1987_i32, 9_u32, 17_u32);
+    let off = true_solar_offset_minutes(lon, 8.0, y, mo, d).round() as i32;
+    assert!((-60..0).contains(&off), "这条取样要一个 −60..0 分钟的偏移，实得 {off}");
+    let mi = u32::try_from(-off).expect("上面已限定在 0..60");
+    let got = compute_with_true_solar(
+        BirthInput { year: y, month: mo, day: d, hour: 0, minute: mi, tz: 8.0, gender: Some(Gender::Male) },
+        lon,
+    );
+    assert_eq!(
+        (got.input.year, got.input.month, got.input.day, got.input.hour, got.input.minute),
+        (y, mo, d, 0, 0),
+        "真太阳时恰为 00:00 时应留在当天"
+    );
+}
+
+/// 五行取值、互补打分、调候月支 —— 三张多路映射逐支走一遍。
+///
+/// 三处形状相同：一个五路（或更多路）的 `match`，而测试只走过其中几支。
+/// 变异扫描因此报出「把 `wx_pct` 整个换成常数 0」「删掉 `complement_score` 的
+/// 火/金/水三支」「删掉调候里 `2..=3` 那支」都没有一条测试红。
+///
+/// 表测试是这类缺口最直接的答案：把每一支都点一遍，且让每一支的期望值互不相同，
+/// 于是「走错支」和「整个函数被换掉」都会红。
+#[test]
+fn the_five_element_lookups_hit_every_arm() {
+    let wx = WuxingPower { wood: 11, fire: 22, earth: 33, metal: 44, water: 55 };
+
+    // 一、按 Element 取百分比：五支各取各的字段。数值互不相同，走错一支就红。
+    for (e, want) in [
+        (Element::Wood, 11_u32),
+        (Element::Fire, 22),
+        (Element::Earth, 33),
+        (Element::Metal, 44),
+        (Element::Water, 55),
+    ] {
+        assert_eq!(crate::strength::wx_pct(&wx, e), want, "{e:?} 取错了字段");
+    }
+
+    // 二、团队互补打分：按用神五行的中文名取对方那一行的百分比；认不出的给 0。
+    for (name, want) in [("木", 11_u32), ("火", 22), ("土", 33), ("金", 44), ("水", 55)] {
+        assert_eq!(complement_score(name, &wx), want, "{name} 取错了字段");
+    }
+    assert_eq!(complement_score("土星", &wx), 0, "认不出的五行名应给 0 而不是撞上某一支");
+}
+
+/// 中和局的调候，十二个月支各取到该取的那一行。
+///
+/// 调候那张表按月支分成五段（寒/燥/春木/秋金/杂气）。原有的用神测试只覆盖到其中几段，
+/// 于是删掉「寅卯春木月 — 取金修剪」那一支、让它落到杂气那条兜底上，也没有测试红。
+///
+/// 这里直接喂一个中和的 `Strength`（score 落在 41..=59），十二个月支逐个问。
+#[test]
+fn the_balanced_chart_takes_its_seasonal_remedy_from_the_month_branch() {
+    let strength = Strength {
+        score: 50,
+        level: "中和".to_string(),
+        got_ling: 15,
+        got_di: 15,
+        got_shi: 20,
+        wuxing: WuxingPower { wood: 20, fire: 20, earth: 20, metal: 20, water: 20 },
+    };
+    // 日干取甲（木）；杂气那一段取日主同行，故期望是「木」。
+    for (branch, want) in [
+        (0_u8, "火"), (1, "火"), (11, "火"),      // 亥子丑 寒月 → 火
+        (5, "水"), (6, "水"), (7, "水"),          // 巳午未 燥月 → 水
+        (2, "金"), (3, "金"),                     // 寅卯 春木月 → 金
+        (8, "火"), (9, "火"),                     // 申酉 秋金月 → 火
+        (4, "木"), (10, "木"),                    // 辰戌 杂气月 → 日主同行
+    ] {
+        let ys = determine_yongshen(0, branch, &strength);
+        assert_eq!(
+            ys.primary_wuxing, want,
+            "月支 {branch} 的调候应取 {want}，实得 {}（{}）",
+            ys.primary_wuxing, ys.reasoning
+        );
+    }
+}
+
+/// 月令本气与日主同五行时，同阴阳出建禄、异阴阳出月刃。
+///
+/// 这两格由 `(main_qi % 2) == (dm % 2)` 分开。而同五行的两个天干本来就同属一对
+/// （0/1 木、2/3 火……），所以把那个 `%` 改成 `/` 之后两边恒等，**一切都成了建禄**——
+/// 没有一条测试红，因为整个套件里**从来没有出现过月刃格**。
+///
+/// 1980-03-12 日柱甲申、月柱己卯：卯的本气是乙（阴木），日主甲（阳木），同五行异阴阳 → 月刃。
+#[test]
+fn the_yang_blade_and_the_prosperity_pattern_are_told_apart_by_polarity() {
+    let blade = compute(BirthInput {
+        year: 1980, month: 3, day: 12, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(blade.day.ganzhi, "甲申", "取样的日柱变了，下面这条结论要重验");
+    assert_eq!(blade.month.ganzhi, "己卯", "取样的月柱变了，下面这条结论要重验");
+    assert_eq!(
+        blade.pattern.name, "月刃格",
+        "甲日主生卯月，本气乙（阴木）与日主甲（阳木）同五行异阴阳，应是月刃而非建禄"
+    );
+
+    // 同五行同阴阳的对照：寅月本气甲，甲日主 → 建禄。
+    let lu = compute(BirthInput {
+        year: 1980, month: 2, day: 21, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(lu.pattern.name, "建禄格", "甲日主生寅月本气甲，同阴阳应是建禄，实得 {}", lu.pattern.name);
+
+    // 换一个日主再走一遍——甲的序号是 0，`0 % 2` 与 `0 / 2` 都是 0，
+    // 单看甲这一对分不出「取余」和「整除」。丙的序号是 2：`2 % 2 = 0`，`2 / 2 = 1`。
+    let blade_bing = compute(BirthInput {
+        year: 1980, month: 6, day: 12, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(blade_bing.day.ganzhi, "丙辰", "取样的日柱变了，下面这条结论要重验");
+    assert_eq!(
+        blade_bing.pattern.name, "月刃格",
+        "丙日主生午月，本气丁（阴火）与丙（阳火）同五行异阴阳，应是月刃"
+    );
+    let lu_bing = compute(BirthInput {
+        year: 1980, month: 5, day: 13, hour: 12, minute: 0, tz: 8.0, gender: None,
+    });
+    assert_eq!(lu_bing.day.ganzhi, "丙戌", "取样的日柱变了，下面这条结论要重验");
+    assert_eq!(
+        lu_bing.pattern.name, "建禄格",
+        "丙日主生巳月本气丙，同阴阳应是建禄，实得 {}",
+        lu_bing.pattern.name
+    );
+}
+
 #[test]
 fn true_solar_helpers_round_trip() {
     // 校验 day_of_year 闰年分支 + add_days_civil 跨月跨年。
@@ -878,6 +1122,25 @@ fn true_solar_helpers_round_trip() {
     assert_eq!(add_days_civil(2023, 12, 31, 1), (2024, 1, 1));
     assert_eq!(add_days_civil(2024, 2, 28, 2), (2024, 3, 1)); // 闰年 +2 跨 29
     assert_eq!(add_days_civil(2023, 2, 28, 2), (2023, 3, 2)); // 平年 28→3/2
+
+    // 二月本身，闰年与平年各问一次。
+    //
+    // 上面两条问的都是 3 月 1 日，那时 `m > 2` 与 `m >= 2` 给的是同一个答案；
+    // 分岔只在二月里：闰年的 2 月 29 日之前不该加那一天。
+    // 变异扫描因此把 `m > 2` 改成 `m >= 2` 也没人拦。
+    assert_eq!(day_of_year(2024, 2, 1), 32, "闰年 2 月 1 日仍是第 32 天，闰日在这天之后");
+    assert_eq!(day_of_year(2024, 2, 29), 60);
+    assert_eq!(day_of_year(2023, 2, 28), 59);
+    assert_eq!(day_of_year(2024, 1, 31), 31, "一月不受闰日影响");
+
+    // 往回退恰好落在某月 1 日。
+    //
+    // `while d < 1` 与 `while d <= 1` 的分岔只在结果正好是 1 号时：松成 `<=`，
+    // 1 号会被再退一个月、加上那个月的天数，变成上个月的 32 号这种数。
+    // 上面几条的结果分别是 31、1、1、2 号——落在 1 号的那两条是**加**出来的，
+    // 走的是另一个循环，退的那条落在 31 号，所以这一支一直没被问到。
+    assert_eq!(add_days_civil(2024, 3, 2, -1), (2024, 3, 1));
+    assert_eq!(add_days_civil(2024, 5, 2, -1), (2024, 5, 1));
 }
 
 #[test]
@@ -1034,4 +1297,85 @@ fn hidden_stems_oracle() {
     assert_eq!(c.month.day_twelve, "长生");
     assert_eq!(c.day.day_twelve, "帝旺");
     assert_eq!(c.hour.day_twelve, "沐浴");
+}
+
+#[test]
+fn score_40_has_one_consistent_weak_classification() {
+    // Observed API counterexample: formerly level=中和 but method=身弱宜扶.
+    let c = compute(BirthInput { year:1991, month:3, day:20, hour:14, minute:30, tz:5.75, gender:None });
+    assert_eq!(c.strength.score, 40);
+    assert_eq!(c.strength.level, "偏弱");
+    assert_eq!(c.yongshen.method, "扶抑 · 身弱宜扶");
+    assert!(!c.yongshen.reasoning.contains("中和"));
+}
+
+#[test]
+fn peer_qi_revealed_does_not_become_an_eight_pattern() {
+    // Both actual dates used to return 比肩格 / 劫财格 with is_lu_ren=false.
+    for (month, day, name, stem) in [(5,15,"暗七杀格","丙"),(3,5,"暗正官格","甲")] {
+        let c = compute(BirthInput { year:1990, month, day, hour:14, minute:30, tz:5.75, gender:None });
+        assert_eq!(c.pattern.name, name);
+        assert_eq!(c.pattern.qi_stem, stem);
+        assert!(!c.pattern.revealed);
+        assert!(!c.pattern.is_lu_ren);
+        assert_eq!(c.pattern.revealed_in, None);
+        assert!(c.pattern.source.contains("无可取八正格的透干"));
+    }
+    // 辰藏戊乙癸，日主甲：中气乙劫财虽在年柱透出，仍继续找余气癸正印。
+    let p = determine_pattern(GanZhi{stem:1,branch:1},GanZhi{stem:6,branch:4},GanZhi{stem:0,branch:0},GanZhi{stem:9,branch:1});
+    assert_eq!(p.name,"正印格");
+    assert_eq!(p.qi_kind,"余气");
+    assert_eq!(p.revealed_in.as_deref(),Some("时柱"));
+}
+
+#[test]
+fn every_pattern_symbol_combination_has_consistent_attribution() {
+    // Exhaust all 120,000 relevant inputs: day stem × month branch × three revealed stems.
+    // Other branches and civil-calendar correlations do not enter determine_pattern.
+    let eight=["正官","七杀","正财","偏财","正印","偏印","食神","伤官"];
+    for dm in 0..10 { for mb in 0..12 { for year in 0..10 { for month in 0..10 { for hour in 0..10 {
+        let p=determine_pattern(GanZhi{stem:year,branch:year%2},GanZhi{stem:month,branch:mb},GanZhi{stem:dm,branch:dm%2},GanZhi{stem:hour,branch:hour%2});
+        let hidden=hidden_stems(mb);
+        let qi=STEMS.iter().position(|s|*s==p.qi_stem).unwrap() as u8;
+        assert!(hidden.contains(&qi));
+        assert_eq!(p.ten_god,ten_god(dm,qi));
+        if p.is_lu_ren {
+            assert!(matches!(p.name.as_str(),"建禄格"|"月刃格"));
+            assert!(matches!(p.ten_god.as_str(),"比肩"|"劫财"));
+            assert_eq!(qi,hidden[0]);assert!(!p.revealed);assert!(p.revealed_in.is_none());
+        } else {
+            assert!(eight.contains(&p.ten_god.as_str()));
+            if p.revealed {
+                let stem=match p.revealed_in.as_deref(){Some("年柱")=>year,Some("月柱")=>month,Some("时柱")=>hour,_=>panic!("missing source")};
+                assert_eq!(stem,qi);
+                assert_eq!(p.name,format!("{}格",p.ten_god));
+            } else {
+                assert_eq!(qi,hidden[0]);assert!(p.revealed_in.is_none());
+                assert_eq!(p.name,format!("暗{}格",p.ten_god));
+                // Falling back never overlooks a revealed non-peer monthly stem.
+                for &h in hidden { if [year,month,hour].contains(&h) { assert!(matches!(ten_god(dm,h),"比肩"|"劫财")); } }
+            }
+        }
+    }}}}}
+}
+
+#[test]
+fn all_sixty_pillar_combinations_keep_strength_and_method_consistent() {
+    // All 60^4 = 12,960,000 symbol charts; civil-calendar feasibility is not assumed.
+    // This is an arithmetic contract check, not an independent calendar oracle.
+    for y in 0..60 { for d in 0..60 { for m in 0..60 { for h in 0..60 {
+        let gz=|n:u8|GanZhi{stem:n%10,branch:n%12};
+        let (year,month,day,hour)=(gz(y),gz(m),gz(d),gz(h));
+        let s=compute_strength(year,month,day,hour);
+        let y=determine_yongshen(day.stem,month.branch,&s);
+        assert!(s.got_ling<=30 && s.got_di<=30 && s.got_shi<=30 && s.score<=100);
+        assert_eq!(s.score,(s.got_ling+s.got_di+s.got_shi)*100/90);
+        match s.score {
+            0..=40=>{assert!(matches!(s.level.as_str(),"弱"|"偏弱"));assert_eq!(y.method,"扶抑 · 身弱宜扶");},
+            41..=59=>{assert_eq!(s.level,"中和");assert_eq!(y.method,"调候为主");},
+            _=>{assert!(matches!(s.level.as_str(),"偏强"|"强"));assert_eq!(y.method,"扶抑 · 身强宜耗");},
+        }
+        let sum=s.wuxing.wood+s.wuxing.fire+s.wuxing.earth+s.wuxing.metal+s.wuxing.water;
+        assert!((98..=102).contains(&sum));
+    }}}}
 }

@@ -135,6 +135,8 @@ pub fn nayin_element(gz: GanZhi) -> Element {
     let s = (gz.stem / 2) + 1; // 甲乙=1…壬癸=5
     let b = ((gz.branch / 2) % 3) + 1; // 子丑/午未=1， 寅卯/申酉=2， 辰巳/戌亥=3
     let mut n = s + b;
+    // 这个 `>` 松成 `>=` 是等价变异：n 为 5 时不减也落到下面的 `_ => Earth`，
+    // 减成 0 之后同样落 `_`。两条路给同一个五行。
     if n > 5 {
         n -= 5;
     }

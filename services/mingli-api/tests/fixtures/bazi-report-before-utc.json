@@ -1,0 +1,239 @@
+{
+  "build": {
+    "build_id": "mingli-v1-30cb05084bd1498933719dc130bf8866613f69ad46a7d4de332cfa6593a159a5",
+    "source_sha256": "f8a04aa5eafad09e3687648173cc71748debb1a07d1fd90aaf24400f5cf88650"
+  },
+  "input": {
+    "day": 15,
+    "gender": "female",
+    "hour": 14,
+    "minute": 30,
+    "month": 6,
+    "true_solar_time": false,
+    "tz": 8,
+    "year": 1990
+  },
+  "response": {
+    "chart": {
+      "day": {
+        "branch": "亥",
+        "branch_wuxing": "水",
+        "day_twelve": "沐浴",
+        "ganzhi": "辛亥",
+        "hidden": [
+          {
+            "stem": "壬",
+            "ten_god": "伤官"
+          },
+          {
+            "stem": "甲",
+            "ten_god": "正财"
+          }
+        ],
+        "nayin": "金",
+        "shensha": [],
+        "stem": "辛",
+        "stem_wuxing": "金",
+        "ten_god": "日主"
+      },
+      "day_master": "辛",
+      "day_master_wuxing": "金",
+      "dayun": {
+        "forward": false,
+        "pillars": [
+          {
+            "ganzhi": "辛巳",
+            "start_age": 3
+          },
+          {
+            "ganzhi": "庚辰",
+            "start_age": 13
+          },
+          {
+            "ganzhi": "己卯",
+            "start_age": 23
+          },
+          {
+            "ganzhi": "戊寅",
+            "start_age": 33
+          },
+          {
+            "ganzhi": "丁丑",
+            "start_age": 43
+          },
+          {
+            "ganzhi": "丙子",
+            "start_age": 53
+          },
+          {
+            "ganzhi": "乙亥",
+            "start_age": 63
+          },
+          {
+            "ganzhi": "甲戌",
+            "start_age": 73
+          },
+          {
+            "ganzhi": "癸酉",
+            "start_age": 83
+          },
+          {
+            "ganzhi": "壬申",
+            "start_age": 93
+          }
+        ],
+        "start_age_years": 3.11
+      },
+      "hour": {
+        "branch": "未",
+        "branch_wuxing": "土",
+        "day_twelve": "衰",
+        "ganzhi": "乙未",
+        "hidden": [
+          {
+            "stem": "己",
+            "ten_god": "偏印"
+          },
+          {
+            "stem": "乙",
+            "ten_god": "偏财"
+          },
+          {
+            "stem": "丁",
+            "ten_god": "七杀"
+          }
+        ],
+        "nayin": "金",
+        "shensha": [],
+        "stem": "乙",
+        "stem_wuxing": "木",
+        "ten_god": "偏财"
+      },
+      "input": {
+        "day": 15,
+        "gender": "female",
+        "hour": 14,
+        "minute": 30,
+        "month": 6,
+        "tz": 8.0,
+        "year": 1990
+      },
+      "lunar": {
+        "day": 23,
+        "leap": false,
+        "month": 5,
+        "year": 1990
+      },
+      "month": {
+        "branch": "午",
+        "branch_wuxing": "火",
+        "day_twelve": "病",
+        "ganzhi": "壬午",
+        "hidden": [
+          {
+            "stem": "丁",
+            "ten_god": "七杀"
+          },
+          {
+            "stem": "己",
+            "ten_god": "偏印"
+          }
+        ],
+        "nayin": "木",
+        "shensha": [
+          "将星"
+        ],
+        "stem": "壬",
+        "stem_wuxing": "水",
+        "ten_god": "伤官"
+      },
+      "pattern": {
+        "is_lu_ren": false,
+        "name": "暗七杀格",
+        "qi_kind": "本气",
+        "qi_stem": "丁",
+        "revealed": false,
+        "revealed_in": null,
+        "source": "月令本气暗藏（年/月/时三干头无可取八正格的透干）",
+        "ten_god": "七杀"
+      },
+      "strength": {
+        "got_di": 14,
+        "got_ling": 9,
+        "got_shi": 10,
+        "level": "偏弱",
+        "score": 36,
+        "wuxing": {
+          "earth": 22,
+          "fire": 27,
+          "metal": 16,
+          "water": 18,
+          "wood": 18
+        }
+      },
+      "three_houses": {
+        "ming_gong": "丁亥",
+        "shen_gong": "己丑",
+        "tai_yuan": "癸酉"
+      },
+      "xunkong": [
+        "寅",
+        "卯"
+      ],
+      "year": {
+        "branch": "午",
+        "branch_wuxing": "火",
+        "day_twelve": "病",
+        "ganzhi": "庚午",
+        "hidden": [
+          {
+            "stem": "丁",
+            "ten_god": "七杀"
+          },
+          {
+            "stem": "己",
+            "ten_god": "偏印"
+          }
+        ],
+        "nayin": "土",
+        "shensha": [
+          "将星"
+        ],
+        "stem": "庚",
+        "stem_wuxing": "金",
+        "ten_god": "劫财"
+      },
+      "yongshen": {
+        "avoid_wuxing": [
+          "火",
+          "木"
+        ],
+        "method": "扶抑 · 身弱宜扶",
+        "primary_role": "印星",
+        "primary_wuxing": "土",
+        "reasoning": "日主辛偏弱（综合 36），宜以助身五行扶之；印星土双重作用（生身+化杀）优先，比劫金副选。忌官杀火克身、财木损印。",
+        "secondary_role": "比劫",
+        "secondary_wuxing": "金"
+      }
+    },
+    "cycle_basis": {
+      "birth_jd_ut": 2448057.770833333,
+      "birth_jde_tt": 2448057.771495284,
+      "birth_longitude_deg": 83.91066156201163,
+      "days_per_year": 3,
+      "interval_days": 9.321996149607005,
+      "model_id": "vsop87d-iau1980-delta-t-v1",
+      "next_jie": {
+        "jd_ut": 2448079.875347048,
+        "target_longitude_deg": 105.0
+      },
+      "previous_jie": {
+        "jd_ut": 2448048.4488371834,
+        "target_longitude_deg": 75.0
+      },
+      "schema_version": 1,
+      "selected": "previous",
+      "unrounded_start_age_years": 3.107332049869001
+    }
+  }
+}

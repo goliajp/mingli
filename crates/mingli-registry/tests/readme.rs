@@ -189,6 +189,9 @@ fn the_snapshot_request_count_agrees_everywhere() {
         .lines()
         .filter(|l| l.starts_with("g /api") || l.starts_with("p /api"))
         .count();
+    // 两个数都是 0 时上面那个相等也成立——脚本一行请求都不发、自称抓 0 个，
+    // 这条检查会安静通过。数出来的东西要先确实存在。
+    assert!(calls > 20, "只数出 {calls} 行 g/p 调用，解析方式怕是失效了");
     assert_eq!(
         calls.to_string(),
         n,
@@ -241,10 +244,16 @@ fn every_workspace_member_appears_in_the_layer_tree() {
             .map(str::to_string)
             .collect()
     };
+    // members 解析不出来时，「一个都不缺」对空集合成立——分层树从此不再被检查，
+    // 而没有任何迹象说明这件事。同样，readmes() 空了这个循环一次也不跑。
+    assert!(members.len() >= 35, "只从根清单解析出 {} 个成员，解析方式怕是失效了", members.len());
+    let mut checked = 0;
     for (name, text) in readmes() {
+        checked += 1;
         let missing: Vec<_> = members.iter().filter(|m| !text.contains(m.as_str())).collect();
         assert!(missing.is_empty(), "{name} 的分层树漏了这些 crate：{missing:?}");
     }
+    assert_eq!(checked, 2, "应当检查两份 README，实际 {checked} 份");
 }
 
 #[test]

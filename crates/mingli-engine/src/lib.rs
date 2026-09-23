@@ -188,6 +188,30 @@ mod tests {
         assert!(cast_one(&reg, "nope", &q).is_none());
     }
 
+    /// 问局目录：每一类问局都要列出「谁来答」，且答的人真在注册表里。
+    ///
+    /// `intent_catalog` 此前可以整个返回空表而没有测试红——它是承接层直接拿去展示的东西，
+    /// 空表意味着界面上一类问局都不显示，而算层这边一声不响。
+    #[test]
+    fn the_intent_catalog_names_who_answers_each_intent() {
+        let reg = fake_registry();
+        let cat = intent_catalog(&reg);
+        assert!(!cat.is_empty(), "问局目录不许为空");
+        assert_eq!(cat.len(), intents().len(), "每一类问局各占一行");
+
+        let ids: Vec<&str> = reg.iter().map(|e| e.id()).collect();
+        let mut answered = 0_usize;
+        for (spec, leaves) in &cat {
+            for leaf in leaves {
+                assert!(ids.contains(leaf), "{:?} 说 `{leaf}` 会答，而它不在注册表里", spec.id);
+            }
+            if !leaves.is_empty() {
+                answered += 1;
+            }
+        }
+        assert!(answered > 0, "没有一类问局有人答——认领与目录之间断了");
+    }
+
     #[test]
     fn detailed_preserves_order_and_carries_metadata() {
         let out = cast_all_detailed(&fake_registry(), &sample());

@@ -54,7 +54,11 @@ pub fn pythagorean(c: char) -> Option<u64> {
 #[must_use]
 pub fn reduce_with_master(n: u64) -> u64 {
     let mut x = n;
-    loop {
+    // 至多二十步：u64 最多二十位，而每一步的数位和都严格小于原数（x ≥ 10 时）。
+    //
+    // 从前这里是没有上限的 `loop`，靠 `x < 10` 收尾。把那个 `<` 改成 `==` 或 `>`，
+    // 它就再也收不了——变异扫描里两个超时出自这一处，而超时既不算拦住也不算漏网。
+    for _ in 0..20 {
         if matches!(x, 11 | 22 | 33) {
             return x;
         }
@@ -63,6 +67,7 @@ pub fn reduce_with_master(n: u64) -> u64 {
         }
         x = sum_digits(x);
     }
+    unreachable!("u64 至多二十位，逐次取数位和二十步内必落到个位")
 }
 
 /// Chaldean 字母值（A..Z，索引 0..26）。1：AIJQY 2：BKR 3：CGLS 4：DMT 5：EHNX 6：UVW 7：OZ 8：FP。
@@ -139,7 +144,11 @@ fn digit_sum_u64(mut n: u64) -> u64 {
         return 0;
     }
     let mut s = 0;
-    while n > 0 {
+    // 同上，至多二十位。`while n > 0` 靠 `n /= 10` 收尾；把它改成 `%=` 就不动了。
+    for _ in 0..20 {
+        if n == 0 {
+            break;
+        }
         s += n % 10;
         n /= 10;
     }

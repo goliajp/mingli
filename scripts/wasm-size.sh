@@ -22,6 +22,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# wasm-opt 要显式开 reference-types 与 bulk-memory。
+#
+# wasm-bindgen 的胶水在初始化时要 `table.grow(4)` 撑开 externref 表。wasm-opt 若不知道
+# 目标支持 reference-types，会把那张表的上限压成初始大小，于是初始化直接抛
+# `RangeError: WebAssembly.Table.grow(): failed to grow table by 4`——包能打出来、
+# 体积也正常，只是一加载就废。
+#
+# 本机的 binaryen 132 默认放行，CI 上 apt 装的那版不放行，所以只有 CI 显形。
+# 这不是 CI 的毛病：用那套工具链打出来的包在浏览器里同样是坏的。显式开着，两边一致。
+WASM_OPT_FEATURES=(--enable-reference-types --enable-bulk-memory)
+
+
 BUDGET=scripts/wasm-budget.txt
 LEAVES="bazi,ziwei,astrology,jyotish,qizhengsiyu,yijing,geomancy,sikidy,ifa,cartomancy,meihua,xiaoliuren,zeri,maya,pawukon,mahabote,liuren,qimen,taiyi,tibetan,numerology,gematria,abjad,wuge"
 
@@ -52,7 +64,7 @@ measure() {
   cargo build -q --release --target wasm32-unknown-unknown -p mingli-wasm $flags
   wasm-bindgen --target web --out-dir "$work/$name" \
     target/wasm32-unknown-unknown/release/mingli_wasm.wasm >/dev/null 2>&1
-  wasm-opt -Oz -o "$work/$name/o.wasm" "$work/$name/mingli_wasm_bg.wasm"
+  wasm-opt -Oz "${WASM_OPT_FEATURES[@]}" -o "$work/$name/o.wasm" "$work/$name/mingli_wasm_bg.wasm"
   local raw gz
   raw=$(wc -c < "$work/$name/o.wasm" | tr -d ' ')
   gz=$(gzip -9 -c "$work/$name/o.wasm" | wc -c | tr -d ' ')
@@ -90,9 +102,19 @@ while read -r name raw gz; do
     printf '  ✗ %-20s 预算表里没有这一档\n' "$name"; over=$((over+1)); continue
   fi
   seen=$((seen+1))
-  gz_ceil=$(( want_gz + want_gz / 200 ))   # +0.5%
-  if [ "$raw" -gt "$want_raw" ]; then
-    printf '  ✗ %-20s %9s / %8s  产物超预算 %s\n' "$name" "$raw" "$gz" "$want_raw"
+  # 两条上限都留余量，因为「同一份源码」并不给出同一串字节。
+  #
+  # 实测（2026-09-03）：源码一字未动，只是工具链版本不同，七个档位一律涨 650–740 字节
+  # （约 0.35%，与包含哪几片叶无关，说明是胶水层而非我们的代码）；同一份源码在本机与
+  # CI 上再差约 450 字节（0.22%）。预算在本机录、在 CI 上判，这两笔叠起来必然超。
+  #
+  # 从前 -Oz 那条是零容差，于是这个闸从 2026-08-29 起一直红——报的不是我们把包做大了，
+  # 是两台机器的编译器不一样。留 1.5%：gzip 侧实测最大漂 0.81%，留出近两倍；
+  # 对最小的档位是 3 KB，而真正值得拦的增长（多带一片叶、多一张表）都是几十上百 KB。
+  raw_ceil=$(( want_raw + want_raw * 3 / 200 ))   # +1.5%
+  gz_ceil=$(( want_gz + want_gz * 3 / 200 ))      # +1.5%
+  if [ "$raw" -gt "$raw_ceil" ]; then
+    printf '  ✗ %-20s %9s / %8s  产物超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_raw" "$raw_ceil"
     over=$((over+1))
   elif [ "$gz" -gt "$gz_ceil" ]; then
     printf '  ✗ %-20s %9s / %8s  gzip 超预算 %s（上限 %s）\n' "$name" "$raw" "$gz" "$want_gz" "$gz_ceil"

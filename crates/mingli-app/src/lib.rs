@@ -9,6 +9,7 @@
 
 pub mod analysis;
 pub mod bazi;
+pub mod calendar;
 pub mod election;
 pub mod event;
 pub mod input;

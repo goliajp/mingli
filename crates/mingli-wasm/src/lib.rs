@@ -351,4 +351,62 @@ mod tests {
         assert!(abjad("الله").contains("66"));
         assert!(wuge("[7]", "[16,9]").unwrap().contains("\"value\""));
     }
+
+    /// 这扇门的三个出口，内容要真出得来。
+    ///
+    /// `analysis`、`longitudes`、`astrology_with` 都可以整个返回空串或 `"xyzzy"`
+    /// 而没有测试红——这一层从前只验「排盘那棵树」（`wasm-parity.sh` 比的是它），
+    /// 而这三个出口不在那棵树上。实测把 `analysis` 换成空串，那条闸也是绿的。
+    ///
+    /// 断言取「结构上必须有的东西」，不取具体数值：数值该由各叶自己的测试守，
+    /// 这里守的是「这扇门交出来的不是空的」。
+    #[test]
+    fn the_three_exports_return_something_shaped_like_their_contract() {
+        // 跨叶相关矩阵：至少要有叶名与矩阵本身。
+        let a = analysis();
+        assert!(a.len() > 100, "跨叶分析太短，像是空的：{a}");
+        assert!(a.contains("\"nmi\"") && a.contains("\"leaves\""), "缺 nmi / leaves 字段：{a}");
+        let parsed: serde_json::Value = serde_json::from_str(&a).expect("应是合法 JSON");
+        let leaves = parsed["leaves"].as_array().expect("leaves 应是数组");
+        assert!(leaves.len() >= 10, "只有 {} 片叶入了分析", leaves.len());
+
+        // 九个天体的黄经：九个数，且都落在 [0,360)。
+        let l = longitudes(QY).expect("合法 query 应出黄经");
+        let lons: Vec<f64> = serde_json::from_str(&l).expect("应是数组");
+        assert_eq!(lons.len(), 9, "应有九个黄经，实得 {}", lons.len());
+        assert!(lons.iter().all(|v| (0.0..360.0).contains(v)), "黄经越界：{lons:?}");
+
+    }
+
+    /// 自带位置的占星排盘：给九个黄经，出来的盘要认得出那九颗；个数不对要报错。
+    ///
+    /// 单独一条是因为 `astrology_with` 只在 `astrology-lite` 档下编译——
+    /// 那正是「位置你给」那个发布档位的入口。
+    #[cfg(feature = "astrology-lite")]
+    #[test]
+    fn the_bring_your_own_positions_door_charts_what_it_is_handed() {
+        let l = longitudes(QY).expect("合法 query 应出黄经");
+        let chart = astrology_with(QY, &l).expect("九个黄经应能排盘");
+        assert!(chart.len() > 200, "盘太短，像是空的");
+        // 天体名在盘上是中文（"太阳"/"月亮"/…），不是英文——第一版按英文写，测试当场红。
+        for body in ["太阳", "月亮", "土星"] {
+            assert!(chart.contains(body), "盘里没有 {body}");
+        }
+        assert!(chart.contains(""ascendant""), "自带位置的盘应带上升点");
+        // 「个数不对要报错」这条本机验不了：错误路径要造 `JsValue`，
+        // 而 wasm-bindgen 在非 wasm32 上对它是 `unimplemented!`。
+        // 本文件里所有既有测试都只走 Ok 路径（那条叫 `ok_paths` 就是这个缘故），
+        // 错误路径由浏览器侧的 `web/e2e` 覆盖。
+    }
+
+    /// 提示词这扇门交出来的不是空的。
+    ///
+    /// 「未知叶要报错」验不了：那条路要造 `JsValue`，而 wasm-bindgen 在非 wasm32 上
+    /// 对它是 `unimplemented!`，一调就 panic。这一层的错误路径归浏览器侧的 e2e。
+    #[test]
+    fn the_prompt_door_builds_something_usable() {
+        let p = prompt("bazi", QY).expect("已知叶应出提示词");
+        assert!(p.len() > 100, "提示词太短，像是空的");
+        assert!(p.contains("bazi") || p.contains("四柱"), "提示词里应认得出是哪片叶");
+    }
 }

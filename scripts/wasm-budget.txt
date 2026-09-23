@@ -1,9 +1,26 @@
-# 各发布档位的体积预算（字节）。由 ./scripts/wasm-size.sh --record 写入。
-# 列：档位 -Oz后 gzip后。改这张表必须是有意的，且要写进 commit message。
-chart-solo-bazi 198777 91166
-chart-solo-yijing 159557 73226
-astrology-lite 165487 74498
-astrology-thin 234811 122258
-chart-chinese 348983 146268
-chart-all 1266883 729194
-full 1478027 808411
+# 各发布档位的体积预算（字节）。列：档位 -Oz后 gzip后。
+#
+# 这张表是一个**记录下来的上限**，不是「发出去的字节必须等于它」的契约。
+#
+# 同一份源码在本机与 CI 上差约 450 字节（-Oz，0.22%），gzip 侧更大——压缩把
+# 微小差异放大到 0.8%；换个工具链版本还会再动 650–740 字节。所以凡是拿它当
+# 「相等」用的地方，跨机器一定崩：2026-08-29 起 CI 连红五天，就是这么来的。
+#
+# 数由 `./scripts/wasm-size.sh --record` 在**本机**写出（发布者看到的就是这些），
+# 各处消费它时一律留 1.5% 余量（wasm-size.sh 与 npm-pack.sh 里各有注释说明来由）。
+#
+# 改这张表必须是有意的，且要写进 commit message。
+#
+# 改完它，下面这四处要一起跟上——实测每一处都因为没跟上而红过：
+#   1. README.md / README.zh-CN.md 的体积表（KB 值 = (字节 + 512) / 1024）
+#   2. scripts/feature-matrix.sh 里核对那张表的那一段
+#   3. scripts/guard-probe.sh 里两条按具体数字定位的探测
+#   4. crates/mingli-registry/tests/readme.rs（它从本文件读，不必手改，但会红）
+# `./scripts/guard-probe.sh 预算表` 能一次问完前三处。
+chart-solo-bazi 199669 91559
+chart-solo-yijing 160208 73479
+astrology-lite 166215 74778
+astrology-thin 235528 122473
+chart-chinese 349995 146581
+chart-all 1267962 729809
+full 1479073 808892
