@@ -23,18 +23,45 @@ fn part(hash: &mut Sha256, bytes: &[u8]) {
     hash.update((bytes.len() as u64).to_be_bytes());
     hash.update(bytes);
 }
+/// The repository this crate was checked out in, if it is being built there.
+///
+/// Built from a published package (`cargo publish` verification, `cargo install`,
+/// a registry dependency) there is no repository around it: two levels up is
+/// `target/` or the registry cache, and the old unconditional walk of `crates/`
+/// panicked there. Only a directory whose `Cargo.toml` declares a workspace and
+/// whose `services/mingli-api` is this manifest counts.
+fn repository_root(manifest: &Path) -> Option<&Path> {
+    let root = manifest.parent()?.parent()?;
+    let is_workspace = fs::read_to_string(root.join("Cargo.toml"))
+        .is_ok_and(|toml| toml.lines().any(|l| l.trim() == "[workspace]"));
+    let is_this_member = root
+        .join("services/mingli-api")
+        .canonicalize()
+        .is_ok_and(|p| manifest.canonicalize().is_ok_and(|m| m == p));
+    (is_workspace && is_this_member).then_some(root)
+}
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let root = manifest.parent().unwrap().parent().unwrap();
-    let mut files = vec![root.join("Cargo.toml"), root.join("Cargo.lock")];
-    walk(&root.join("crates"), &mut files);
+    // In the repository: every crate's source plus the workspace lockfile.
+    // From a package: the package's own files, whose Cargo.lock pins every
+    // dependency by version and checksum. A distinct domain tag keeps the two
+    // kinds of digest from ever being compared as if they were the same thing.
+    let (root, tag, mut files) = match repository_root(&manifest) {
+        Some(root) => {
+            let mut files = vec![root.join("Cargo.toml"), root.join("Cargo.lock")];
+            walk(&root.join("crates"), &mut files);
+            (root.to_owned(), b"mingli-source-v1".as_slice(), files)
+        }
+        None => (manifest.clone(), b"mingli-package-source-v1".as_slice(), Vec::new()),
+    };
     walk(&manifest, &mut files);
     files.sort();
+    files.dedup();
     let mut source = Sha256::new();
-    part(&mut source, b"mingli-source-v1");
+    part(&mut source, tag);
     for path in files {
         println!("cargo:rerun-if-changed={}", path.display());
-        let name = path.strip_prefix(root).unwrap().to_str().unwrap();
+        let name = path.strip_prefix(&root).unwrap().to_str().unwrap();
         part(&mut source, name.as_bytes());
         part(&mut source, &fs::read(path).unwrap());
     }

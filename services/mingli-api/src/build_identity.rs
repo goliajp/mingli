@@ -11,7 +11,8 @@ pub struct BuildIdentity {
     pub service: &'static str,
     /// Deterministic source and compiler-configuration identifier, not a binary-file checksum.
     pub build_id: &'static str,
-    /// SHA-256 of sorted, length-framed repository build inputs, including Cargo.lock.
+    /// SHA-256 of sorted, length-framed build inputs including Cargo.lock: every crate in
+    /// the repository when built there, the package's own files when built from crates.io.
     pub source_sha256: &'static str,
     /// Cargo package version.
     pub package_version: &'static str,
