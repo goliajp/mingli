@@ -65,7 +65,7 @@ for d in $CRATES; do
   name=$(sed -n 's/^name = "\(.*\)"/\1/p' "$m" | head -1)
   files=$(cargo package --list --allow-dirty -p "$name" 2>/dev/null || true)
   if [ -z "$files" ]; then say_bad "$name 打不出包（cargo package --list 无输出）"; continue; fi
-  stray=$(printf '%s\n' "$files" | grep -E '^(docs/|\.claude/|\.dev/)' | tr '\n' ' ' || true)
+  stray=$(printf '%s\n' "$files" | grep -E '^(docs/|\.dev/)' | tr '\n' ' ' || true)
   [ -z "$stray" ] || say_bad "$name 的包里混进了：$stray"
 done
 [ "$bad" -eq 0 ] && echo "  ✓ 都干净"

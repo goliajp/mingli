@@ -18,7 +18,6 @@ web/e2e/shots/
 
 # Local working material — design notes, plans, tooling state.
 # The repository ships library sources, tests and the README only.
-.claude/
 docs/
 mutants.out*/
 bench/browser/node_modules/
