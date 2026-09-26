@@ -246,3 +246,5 @@ mingli-gua lib.rs replace | with ^ in Hexagram::mutual|1|同上
 mingli-gua lib.rs replace | with ^ in value_from_full_name|2|同上
 mingli-engine lib.rs replace map_leaves -> Vec<T> with vec![]|1|被改的是 #[cfg(target_arch = "wasm32")] 那一份，本机不编译（同 eph-lite 那类档位假象）
 mingli-engine lib.rs replace map_leaves -> Vec<T> with vec![Default::default()]|1|同上
+mingli-analysis lib.rs replace > with >= in cross_leaf|1|真实的叶没有一片是常量列（由 no_leaf_principal_is_a_constant_column 断言），那条 else 到不了；nmi 的常量列行为另有测试钉住
+mingli-analysis lib.rs replace + with * in cross_leaf|1|同上：内层从 i 起会重算自身 NMI，非常量列下与对角线同值
