@@ -21,13 +21,57 @@ async fn post(path: &str, input: &Value) -> (u16, Value) {
         serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap(),
     )
 }
+/// Equal in shape, strings, integers and booleans; floats within 1e-9 (degrees or days).
+///
+/// The fixture was recorded on aarch64 macOS. sin/cos come from the platform math
+/// library, which is not correctly rounded, so VSOP87 sums differ in their last digits
+/// between platforms: x86_64 Linux gives a birth longitude 1.25e-12 degree away.
+fn assert_same_evidence(got: &Value, want: &Value, path: &str) {
+    match (got, want) {
+        (Value::Object(g), Value::Object(w)) => {
+            let gk: Vec<_> = g.keys().collect();
+            let wk: Vec<_> = w.keys().collect();
+            assert_eq!(gk, wk, "{path}: keys");
+            for (k, v) in g {
+                assert_same_evidence(v, &w[k], &format!("{path}.{k}"));
+            }
+        }
+        (Value::Array(g), Value::Array(w)) => {
+            assert_eq!(g.len(), w.len(), "{path}: length");
+            for (i, (a, b)) in g.iter().zip(w).enumerate() {
+                assert_same_evidence(a, b, &format!("{path}[{i}]"));
+            }
+        }
+        (Value::Number(a), Value::Number(b)) if a.is_f64() || b.is_f64() => {
+            let (a, b) = (a.as_f64().unwrap(), b.as_f64().unwrap());
+            assert!((a - b).abs() <= 1e-9, "{path}: {a} vs {b}");
+        }
+        _ => assert_eq!(got, want, "{path}"),
+    }
+}
+
+#[test]
+fn evidence_comparison_tolerates_last_digits_and_nothing_more() {
+    let want = json!({"deg": 83.910_661_562_011_63, "n": 3, "s": "previous"});
+    assert_same_evidence(&json!({"deg": 83.910_661_562_010_38, "n": 3, "s": "previous"}), &want, "");
+    for bad in [
+        json!({"deg": 83.910_661_57, "n": 3, "s": "previous"}),
+        json!({"deg": 83.910_661_562_011_63, "n": 4, "s": "previous"}),
+        json!({"deg": 83.910_661_562_011_63, "n": 3, "s": "next"}),
+        json!({"deg": 83.910_661_562_011_63, "n": 3}),
+    ] {
+        let r = std::panic::catch_unwind(|| assert_same_evidence(&bad, &want, ""));
+        assert!(r.is_err(), "should differ: {bad}");
+    }
+}
+
 #[tokio::test]
 async fn new_utc_report_preserves_existing_v1_and_has_separate_evidence() {
     let f: Value =
         serde_json::from_str(include_str!("fixtures/bazi-report-before-utc.json")).unwrap();
     let (s, v1) = post("/api/bazi/report", &f["input"]).await;
     assert_eq!(s, 200);
-    assert_eq!(v1, f["response"]);
+    assert_same_evidence(&v1, &f["response"], "response");
     let (s, v2) = post("/api/bazi/report/utc", &f["input"]).await;
     assert_eq!(s, 200);
     let b = &v2["cycle_basis"];
