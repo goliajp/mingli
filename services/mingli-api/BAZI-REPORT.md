@@ -38,3 +38,5 @@ A source review found `astro`'s lunar argument F cubic term has the opposite sig
 The dependencies already exist in the full API's planetary ephemeris dependency graph. New direct dependencies are optional: default standalone Bazi and default app/WASM builds do not gain the report-only feature. No runtime coefficient download is needed.
 
 The maximum omitted general FK5 latitude term across the 2,412 tested high-order jie roots is **0.000000318760 arcseconds**. This is a sampled contribution, not an all-time mathematical bound. All 9,648 high-order adjacent-minute/direction cases pass year/month/root consistency checks; an additional 72 cases cover timezone extremes, civil year boundaries and 23:00. The legacy model’s separate 28,944-case consistency suite remains passing.
+
+Floating-point evidence is reproducible on one platform, not bit for bit across platforms. Sines and cosines come from the platform math library, which is not correctly rounded, so the last digits of VSOP87 sums can differ: the same birth gives a solar longitude 1.25e-12 degree apart on aarch64 macOS and x86_64 Linux. Compare floating-point fields with a tolerance rather than byte for byte.
