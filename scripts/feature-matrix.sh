@@ -14,10 +14,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# 成败只看 cargo 的退出码。从前是 `if cargo … | tail | grep -q FAILED`：pipefail 下
+# cargo 失败时整条管道返回 101，if 走 else 打 ✓；成功时 grep 无匹配也走 else——
+# 两头都是 ✓，这一整支矩阵因此很久没能红过一次。
 run() {
   printf '\n=== %s\n' "$1"
   shift
-  if cargo test -p mingli-registry "$@" 2>&1 | tail -25 | grep -qE '^error|FAILED'; then
+  local out
+  if ! out=$(cargo test --no-fail-fast -p mingli-registry "$@" 2>&1); then
+    printf '%s\n' "$out" | tail -25
     printf '  ✗ 挂了\n'
     return 1
   fi
@@ -39,12 +44,20 @@ if [ "$LEAF_COUNT" -lt 20 ]; then
   exit 1
 fi
 
+# 只跑其中一节：FEATURE_MATRIX_SECTION=combos|light-tree|crates|readme。
+# 种错探测只需要拦下那条错的那一节；不设时四节全跑。
+case "${FEATURE_MATRIX_SECTION:-}" in
+  ''|combos|light-tree|crates|readme) ;;
+  *) echo "FEATURE_MATRIX_SECTION 只认 combos / light-tree / crates / readme，收到 ${FEATURE_MATRIX_SECTION}" >&2; exit 2 ;;
+esac
+section() { [ -z "${FEATURE_MATRIX_SECTION:-}" ] || [ "$FEATURE_MATRIX_SECTION" = "$1" ]; }
+
 fail=0
-run "全开（默认）"                                                     || fail=1
-run "全关（无星历，轻量构建）"  --no-default-features                    || fail=1
-run "只开 astrology"           --no-default-features --features astrology || fail=1
-run "只开 jyotish"             --no-default-features --features jyotish   || fail=1
-run "只开 qizhengsiyu"         --no-default-features --features qizhengsiyu || fail=1
+if section combos; then
+NO_EPHEMERIS=$(printf '%s\n' "$LEAVES" | grep -vxE 'astrology|astrology-lite|astrology-thin|jyotish|qizhengsiyu' | paste -sd, -)
+run "全开（默认）"                                                   || fail=1
+run "一片不装"                  --no-default-features                  || fail=1
+run "去掉三片星历叶，其余全开"  --no-default-features --features "$NO_EPHEMERIS" || fail=1
 
 # 逐叶开关：每片各自单独装配一次。
 #
@@ -62,7 +75,9 @@ done
 wasm() {
   printf '\n=== %s\n' "$1"
   shift
-  if cargo check -p mingli-wasm --target wasm32-unknown-unknown "$@" 2>&1 | tail -25 | grep -qE '^error'; then
+  local out
+  if ! out=$(cargo check -p mingli-wasm --target wasm32-unknown-unknown "$@" 2>&1); then
+    printf '%s\n' "$out" | tail -25
     printf '  ✗ 挂了\n'
     return 1
   fi
@@ -76,6 +91,7 @@ if rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown; 
 else
   printf '\n没装 wasm32-unknown-unknown，跳过 wasm 两条（rustup target add wasm32-unknown-unknown）\n'
 fi
+fi
 
 # 「关掉即裁掉」不能只验编译得过——编译永远过，星历照样被拉进来。
 # 这一条直接查依赖图：轻量构建里 vsop87 必须不在。
@@ -84,6 +100,7 @@ fi
 # 从前这里查的是 `--no-default-features`：一片叶都不装，当然没有 vsop87——
 # 那句「轻量构建裁掉了星历」对一个什么也算不出的空壳成立，等于没验。
 # 同一形状的洞让 `mingli-wasm-astrology-thin@1.1.0` 带着空注册表发了出去。
+if section light-tree; then
 printf '\n=== 轻量构建真的裁掉了星历（且叶还在）\n'
 LIGHT="bazi,ziwei,yijing,meihua,qimen"
 light_tree=$(cargo tree -p mingli-wasm --no-default-features --features "$LIGHT" -e normal --prefix none 2>/dev/null | awk '{print $1}' | sort -u)
@@ -101,6 +118,7 @@ if grep -qx vsop87 <<<"$light_tree"; then
 else
   printf '  ✓\n'
 fi
+fi
 
 
 # 每个 crate 各自单独跑一遍测试。
@@ -109,6 +127,7 @@ fi
 # 整条依赖图上的那个 crate 就带着它编。于是一个 crate 的 dev-dependency 少写了 feature，
 # 整仓一起跑照样绿，单独跑才炸。`mingli-app` 就这么坏过一次——它的 dev-dependency
 # 停在旧的三个叶名上，占卜那几片压根不在注册表里，八条测试全挂，而日常一次都没红过。
+if section crates; then
 printf '\n=== 每个 crate 单独跑（feature 合并掩盖不了）\n'
 # 门面 crate 叫 `mingli`，没有连字符——从前这里写死了 `mingli-` 前缀，
 # 于是它一个人被漏在这条检查之外，而输出照样是「都跑过」。
@@ -117,7 +136,8 @@ members=$(cargo metadata --no-deps --format-version 1 \
 n=0
 for m in $members; do
   n=$((n+1))
-  if cargo test -p "$m" 2>&1 | grep -qE '^error|FAILED'; then
+  if ! out=$(cargo test --no-fail-fast -p "$m" 2>&1); then
+    printf '%s\n' "$out" | tail -25
     printf '  ✗ %s 单独跑挂了\n' "$m"
     fail=1
   fi
@@ -128,6 +148,7 @@ if [ "$n" -lt 35 ]; then
 else
   printf '  ✓ %d 个 crate 各自单独跑过\n' "$n"
 fi
+fi
 
 
 # README 那张 wasm 体积表，核对它与预算表逐格一致。
@@ -135,6 +156,7 @@ fi
 # 「关掉即裁掉」上面已经验过（依赖图里没有 vsop87），但**裁掉多少**是 README 对外给的数字，
 # 而那种数字没人验就会慢慢失真：一片叶悄悄拖进星历，体积翻倍，表里还写着旧值。
 #
+if section readme; then
 printf '\n=== README 的 wasm 体积表与预算表一致\n'
 # 这里**不再自己量一遍**。曾经量过：用 cargo 直出的裸 .wasm，既没过 wasm-bindgen
 # 也没过 wasm-opt，于是同一个包在这里是 1.86 MB、在体积闸里是 1.48 MB，
@@ -161,6 +183,7 @@ else
   done < scripts/wasm-budget.txt
   [ "$n_row" -ge 5 ] || { printf '  ✗ 预算表只有 %s 行，读法怕是失效了\n' "$n_row"; fail=1; }
   [ "$fail" -ne 0 ] || printf '  ✓ %s 档都与预算表对上\n' "$n_row"
+fi
 fi
 
 if [ "$fail" -ne 0 ]; then
