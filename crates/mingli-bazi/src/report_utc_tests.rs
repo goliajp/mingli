@@ -84,7 +84,7 @@ fn check(input: BirthInput) -> BaziUtcReport {
     r
 }
 #[test]
-fn utc_reports_boundary_matrix_and_all_covered_jie() {
+fn utc_reports_boundary_matrix() {
     let mut dump = Vec::new();
     for (y, m, d, h, min) in [
         (1900, 1, 1, 0, 0),
@@ -116,7 +116,17 @@ fn utc_reports_boundary_matrix_and_all_covered_jie() {
             }
         }
     }
-    for y in 1900..=2026 {
+    if let Ok(path) = std::env::var("MINGLI_UTC_BOUNDARIES_DUMP") {
+        std::fs::write(path, serde_json::to_string_pretty(&dump).unwrap()).unwrap();
+    }
+}
+
+/// Every covered jie minute and the one after it, both genders, split by year range so the
+/// shards run on separate test threads; together they must cover 1900–2026 exactly once.
+const UTC_JIE_YEARS: [(i32, i32); 4] = [(1900, 1931), (1932, 1963), (1964, 1995), (1996, 2026)];
+
+fn utc_jie_years(from: i32, to: i32) {
+    for y in from..=to {
         for target in (15..360).step_by(30) {
             let tt = report_utc_solar_term_tt(y, f64::from(target)).unwrap();
             let root = report_tt_to_civil(tt).unwrap();
@@ -144,8 +154,34 @@ fn utc_reports_boundary_matrix_and_all_covered_jie() {
             }
         }
     }
-    if let Ok(path) = std::env::var("MINGLI_UTC_BOUNDARIES_DUMP") {
-        std::fs::write(path, serde_json::to_string_pretty(&dump).unwrap()).unwrap();
+}
+
+#[test]
+fn utc_all_covered_jie_1900_1931() {
+    let (from, to) = UTC_JIE_YEARS[0];
+    utc_jie_years(from, to);
+}
+#[test]
+fn utc_all_covered_jie_1932_1963() {
+    let (from, to) = UTC_JIE_YEARS[1];
+    utc_jie_years(from, to);
+}
+#[test]
+fn utc_all_covered_jie_1964_1995() {
+    let (from, to) = UTC_JIE_YEARS[2];
+    utc_jie_years(from, to);
+}
+#[test]
+fn utc_all_covered_jie_1996_2026() {
+    let (from, to) = UTC_JIE_YEARS[3];
+    utc_jie_years(from, to);
+}
+#[test]
+fn utc_jie_shards_cover_1900_to_2026_once() {
+    assert_eq!(UTC_JIE_YEARS[0].0, 1900);
+    assert_eq!(UTC_JIE_YEARS[UTC_JIE_YEARS.len() - 1].1, 2026);
+    for w in UTC_JIE_YEARS.windows(2) {
+        assert_eq!(w[1].0, w[0].1 + 1, "shards must be contiguous: {w:?}");
     }
 }
 

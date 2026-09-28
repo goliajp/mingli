@@ -171,12 +171,17 @@ fn verify_vsop(input: BirthInput) -> BaziReport {
     );
     r
 }
+/// The 1900–2100 sweep below is split into year ranges so its shards run on separate
+/// test threads; together they must cover every supported year exactly once.
 #[cfg(feature = "report-vsop")]
-#[test]
-fn high_model_all_years_and_boundaries_use_one_model() {
-    let mut dump = Vec::new();
+const HIGH_MODEL_YEARS: [(i32, i32); 4] = [(1900, 1950), (1951, 2000), (2001, 2050), (2051, 2100)];
+
+/// Every supported jie in `from..=to`: both real minute inputs and both cycle directions.
+/// Returns the largest omitted general FK5 latitude contribution seen, in arcseconds.
+#[cfg(feature = "report-vsop")]
+fn high_model_years(from: i32, to: i32) -> f64 {
     let mut max_lat_correction = 0.0f64;
-    for y in 1900..=2100 {
+    for y in from..=to {
         for target in (15..360).step_by(30) {
             let term = report_solar_term_jd(y, f64::from(target));
             let tt = report_jd_ut_to_jde(term);
@@ -186,15 +191,65 @@ fn high_model_all_years_and_boundaries_use_one_model() {
                 - (1.397 * t + 0.00031 * t * t).to_radians();
             let omitted = (0.03916 * (p.cos() + p.sin()) * (-earth.latitude()).tan()).abs();
             max_lat_correction = max_lat_correction.max(omitted);
-            // Every supported jie: both real minute inputs and both cycle directions.
+            let minute = ((term + 0.5) * 1440.0).floor() as i64;
+            for offset in [0, 1] {
+                for gender in [Gender::Male, Gender::Female] {
+                    verify_vsop(input_at_minute(y, minute + offset, 0.0, gender));
+                }
+            }
+        }
+    }
+    println!("Maximum omitted general FK5 latitude contribution, {from}–{to}: {max_lat_correction:.12} arcsec");
+    max_lat_correction
+}
+
+#[cfg(feature = "report-vsop")]
+#[test]
+fn high_model_years_1900_1950() {
+    let (from, to) = HIGH_MODEL_YEARS[0];
+    assert!(high_model_years(from, to) < 0.000_001);
+}
+#[cfg(feature = "report-vsop")]
+#[test]
+fn high_model_years_1951_2000() {
+    let (from, to) = HIGH_MODEL_YEARS[1];
+    assert!(high_model_years(from, to) < 0.000_001);
+}
+#[cfg(feature = "report-vsop")]
+#[test]
+fn high_model_years_2001_2050() {
+    let (from, to) = HIGH_MODEL_YEARS[2];
+    assert!(high_model_years(from, to) < 0.000_001);
+}
+#[cfg(feature = "report-vsop")]
+#[test]
+fn high_model_years_2051_2100() {
+    let (from, to) = HIGH_MODEL_YEARS[3];
+    assert!(high_model_years(from, to) < 0.000_001);
+}
+#[cfg(feature = "report-vsop")]
+#[test]
+fn high_model_shards_cover_1900_to_2100_once() {
+    assert_eq!(HIGH_MODEL_YEARS[0].0, 1900);
+    assert_eq!(HIGH_MODEL_YEARS[HIGH_MODEL_YEARS.len() - 1].1, 2100);
+    for w in HIGH_MODEL_YEARS.windows(2) {
+        assert_eq!(w[1].0, w[0].1 + 1, "shards must be contiguous: {w:?}");
+    }
+}
+
+#[cfg(feature = "report-vsop")]
+#[test]
+fn high_model_boundaries_use_one_model() {
+    let mut dump = Vec::new();
+    for y in [1900, 2013, 2100] {
+        for target in [45, 315] {
+            let term = report_solar_term_jd(y, f64::from(target));
             let minute = ((term + 0.5) * 1440.0).floor() as i64;
             for offset in [0, 1] {
                 for gender in [Gender::Male, Gender::Female] {
                     let input = input_at_minute(y, minute + offset, 0.0, gender);
                     let response = verify_vsop(input);
-                    if [1900, 2013, 2100].contains(&y) && [45, 315].contains(&target) {
-                        dump.push(serde_json::json!({"input":{ "year":input.year,"month":input.month,"day":input.day,"hour":input.hour,"minute":input.minute,"tz":input.tz,"gender":input.gender,"true_solar_time":false},"response":response}));
-                    }
+                    dump.push(serde_json::json!({"input":{ "year":input.year,"month":input.month,"day":input.day,"hour":input.hour,"minute":input.minute,"tz":input.tz,"gender":input.gender,"true_solar_time":false},"response":response}));
                 }
             }
         }
@@ -223,8 +278,6 @@ fn high_model_all_years_and_boundaries_use_one_model() {
             }
         }
     }
-    println!("Maximum omitted general FK5 latitude contribution over 2412 jie: {max_lat_correction:.12} arcsec");
-    assert!(max_lat_correction < 0.000_001);
     if let Ok(path) = std::env::var("MINGLI_VSOP_BOUNDARIES_DUMP") {
         std::fs::write(path, serde_json::to_string_pretty(&dump).unwrap()).unwrap();
     }

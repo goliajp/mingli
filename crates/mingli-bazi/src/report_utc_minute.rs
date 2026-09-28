@@ -168,10 +168,14 @@ pub fn compute_report_utc_minute(input: BirthInput) -> Result<BaziUtcMinuteRepor
 mod tests {
     use super::*;
     use mingli_astro::julian_day;
-    #[test]
-    fn all_modern_jie_minutes_have_two_complete_consistent_alternatives() {
+    /// Every jie minute 1900–2026, both genders, split by year range so the shards run on
+    /// separate test threads; together they must cover 1900–2026 exactly once.
+    const MINUTE_YEARS: [(i32, i32); 4] = [(1900, 1931), (1932, 1963), (1964, 1995), (1996, 2026)];
+
+    /// Returns how many (jie, gender) minutes were checked.
+    fn jie_minutes_have_two_alternatives(from: i32, to: i32) -> usize {
         let mut count = 0;
-        for year in 1900..=2026 {
+        for year in from..=to {
             for target in (15..360).step_by(30) {
                 let tt = report_utc_solar_term_tt(year, f64::from(target)).unwrap();
                 let root = report_tt_to_civil(tt).unwrap();
@@ -224,7 +228,37 @@ mod tests {
                 }
             }
         }
-        assert_eq!(count, 3048);
+        count
+    }
+
+    fn jie_minute_shard(i: usize) {
+        let (from, to) = MINUTE_YEARS[i];
+        let years = usize::try_from(to - from + 1).expect("shard ranges run forward");
+        assert_eq!(jie_minutes_have_two_alternatives(from, to), years * 12 * 2);
+    }
+    #[test]
+    fn all_jie_minutes_1900_1931_have_two_complete_consistent_alternatives() {
+        jie_minute_shard(0);
+    }
+    #[test]
+    fn all_jie_minutes_1932_1963_have_two_complete_consistent_alternatives() {
+        jie_minute_shard(1);
+    }
+    #[test]
+    fn all_jie_minutes_1964_1995_have_two_complete_consistent_alternatives() {
+        jie_minute_shard(2);
+    }
+    #[test]
+    fn all_jie_minutes_1996_2026_have_two_complete_consistent_alternatives() {
+        jie_minute_shard(3);
+    }
+    #[test]
+    fn jie_minute_shards_cover_1900_to_2026_once() {
+        assert_eq!(MINUTE_YEARS[0].0, 1900);
+        assert_eq!(MINUTE_YEARS[MINUTE_YEARS.len() - 1].1, 2026);
+        for w in MINUTE_YEARS.windows(2) {
+            assert_eq!(w[1].0, w[0].1 + 1, "shards must be contiguous: {w:?}");
+        }
     }
     #[test]
     fn leap_duration_historical_overlap_and_civil_rollover_are_explicit() {

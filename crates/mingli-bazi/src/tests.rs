@@ -1359,11 +1359,13 @@ fn every_pattern_symbol_combination_has_consistent_attribution() {
     }}}}}
 }
 
-#[test]
-fn all_sixty_pillar_combinations_keep_strength_and_method_consistent() {
-    // All 60^4 = 12,960,000 symbol charts; civil-calendar feasibility is not assumed.
-    // This is an arithmetic contract check, not an independent calendar oracle.
-    for y in 0..60 { for d in 0..60 { for m in 0..60 { for h in 0..60 {
+/// All 60^4 = 12,960,000 symbol charts; civil-calendar feasibility is not assumed.
+/// This is an arithmetic contract check, not an independent calendar oracle.
+/// Split by year pillar so the shards run on separate test threads.
+const PILLAR_YEAR_SHARDS: [(u8, u8); 4] = [(0, 15), (15, 30), (30, 45), (45, 60)];
+
+fn sixty_pillar_combinations_keep_strength_and_method_consistent(years: std::ops::Range<u8>) {
+    for y in years { for d in 0..60 { for m in 0..60 { for h in 0..60 {
         let gz=|n:u8|GanZhi{stem:n%10,branch:n%12};
         let (year,month,day,hour)=(gz(y),gz(m),gz(d),gz(h));
         let s=compute_strength(year,month,day,hour);
@@ -1378,4 +1380,33 @@ fn all_sixty_pillar_combinations_keep_strength_and_method_consistent() {
         let sum=s.wuxing.wood+s.wuxing.fire+s.wuxing.earth+s.wuxing.metal+s.wuxing.water;
         assert!((98..=102).contains(&sum));
     }}}}
+}
+
+fn pillar_shard(i: usize) {
+    let (from, to) = PILLAR_YEAR_SHARDS[i];
+    sixty_pillar_combinations_keep_strength_and_method_consistent(from..to);
+}
+#[test]
+fn sixty_pillar_combinations_year_pillars_0_to_14() {
+    pillar_shard(0);
+}
+#[test]
+fn sixty_pillar_combinations_year_pillars_15_to_29() {
+    pillar_shard(1);
+}
+#[test]
+fn sixty_pillar_combinations_year_pillars_30_to_44() {
+    pillar_shard(2);
+}
+#[test]
+fn sixty_pillar_combinations_year_pillars_45_to_59() {
+    pillar_shard(3);
+}
+#[test]
+fn sixty_pillar_shards_cover_every_year_pillar_once() {
+    assert_eq!(PILLAR_YEAR_SHARDS[0].0, 0);
+    assert_eq!(PILLAR_YEAR_SHARDS[PILLAR_YEAR_SHARDS.len() - 1].1, 60);
+    for w in PILLAR_YEAR_SHARDS.windows(2) {
+        assert_eq!(w[1].0, w[0].1, "shards must be contiguous: {w:?}");
+    }
 }
