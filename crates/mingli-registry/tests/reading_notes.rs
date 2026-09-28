@@ -69,6 +69,8 @@ fn named_fields(notes: &str) -> Vec<String> {
         .collect()
 }
 
+// 下限 200 是全部叶的说明书合计，只在全部叶都装上时成立。
+#[cfg(feature = "full")]
 #[test]
 fn every_field_a_reading_note_names_is_on_the_chart() {
     let mut checked = 0;

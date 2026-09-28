@@ -69,11 +69,7 @@ full = [
     "abjad",
     "wuge",
 ]
-default = [
-    "bazi", "ziwei", "astrology", "jyotish", "qizhengsiyu", "yijing", "geomancy", "sikidy",
-    "ifa", "cartomancy", "meihua", "xiaoliuren", "zeri", "maya", "pawukon", "mahabote",
-    "liuren", "qimen", "taiyi", "tibetan", "numerology", "gematria", "abjad", "wuge",
-]
+default = ["full"]
 bazi = ["dep:mingli-bazi"]
 ziwei = ["dep:mingli-ziwei"]
 # 整片叶（含本地 VSOP87 星历）。

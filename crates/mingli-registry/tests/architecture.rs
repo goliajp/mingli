@@ -334,6 +334,8 @@ fn without_test_modules(src: &str) -> String {
     out
 }
 
+// 扫的是源码，与 feature 组合无关；叶名清单取自注册表，所以只在全部叶都装上时编译。
+#[cfg(feature = "full")]
 #[test]
 fn the_inner_layers_do_not_name_any_leaf() {
     // 依赖只向内这条规则是按 Cargo 依赖判定的，看不见字符串。可「装配根是唯一列叶的地方」
