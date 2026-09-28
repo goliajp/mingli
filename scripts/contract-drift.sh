@@ -20,8 +20,15 @@ trap cleanup EXIT
 printf '\n把 %s 的契约抓下来，跟当前工作树比\n\n' "$BASE_REF"
 
 git worktree add -q --detach "$WORK" "$BASE_REF"
-( cd "$WORK" && cargo build -q -p mingli-api )
-MINGLI_SNAPSHOT_BIN="$WORK/target/debug/mingli-api" ./scripts/api-snapshot.sh save "$SNAP" | sed 's/^/  基准 /'
+# 基准版建在固定的独立目录里，不与当前版共用：两棵树的工作区 crate 产物名相同，
+# 共用一个 target 会互相覆盖，基准可能根本不是上一版（实测种下的错因此漏过）。
+# 目录不随每次运行新建，第三方依赖第二次起就是热的；先前用 worktree 自己的空 target，
+# 每次都把全部依赖冷编一遍。
+TARGET=${CARGO_TARGET_DIR:-$PWD/target}
+BASE_TARGET=$TARGET/contract-base
+( cd "$WORK" && CARGO_TARGET_DIR="$BASE_TARGET" cargo build -q -p mingli-api )
+cp "$BASE_TARGET/debug/mingli-api" "$WORK/mingli-api-base"
+MINGLI_SNAPSHOT_BIN="$WORK/mingli-api-base" ./scripts/api-snapshot.sh save "$SNAP" | sed 's/^/  基准 /'
 
 cargo build -q -p mingli-api
-./scripts/api-snapshot.sh check "$SNAP"
+MINGLI_SNAPSHOT_BIN="$TARGET/debug/mingli-api" ./scripts/api-snapshot.sh check "$SNAP"
