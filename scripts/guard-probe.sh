@@ -223,8 +223,11 @@ probe() {
 #
 # 与 probe 的差别：守卫不是某条 cargo 测试，而是一支脚本；与 probe_cmd 的差别：
 # 不要求 dev server，也不在 web 下执行。
+#
+# 第五个参数可选：守卫拦下时必打的那句话（grep -E）。只看退出码时，脚本因为别的原因
+# 失败——缺工具、另一段检查先红——也会被记成「拦住了」；给了它，输出里没有就记 ✗。
 probe_script() {
-  local group=$1 cmd=$2 file=$3 expr=$4
+  local group=$1 cmd=$2 file=$3 expr=$4 want=${5:-}
   wanted "$group" || return 0
 
   printf '  %-46s ' "$group"
@@ -232,16 +235,18 @@ probe_script() {
     printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
   fi
 
-  local rc=0 t0 dt
+  local rc=0 t0 dt out
   t0=$SECONDS
-  eval "$cmd" >/dev/null 2>&1 || rc=$?
+  out=$(eval "$cmd" 2>&1) || rc=$?
   dt=$((SECONDS - t0))
   restore
 
-  if [ "$rc" -ne 0 ]; then
-    printf '✓ 红了（脚本 · %ss）\n' "$dt"; pass=$((pass+1))
-  else
+  if [ "$rc" -eq 0 ]; then
     printf '✗ 种了错它还是绿的\n'; fail=$((fail+1))
+  elif [ -n "$want" ] && ! grep -qE "$want" <<<"$out"; then
+    printf '✗ 红了，但不是这条守卫拦的（输出里没有「%s」）\n' "$want"; fail=$((fail+1))
+  else
+    printf '✓ 红了（脚本 · %ss）\n' "$dt"; pass=$((pass+1))
   fi
 }
 
@@ -601,9 +606,10 @@ probe_script "装配：类型化出口又拖上了 serde" \
   's@^serde = { workspace = true, optional = true }$@serde = { workspace = true }@'
 
 probe_script "可裁：轻量档位其实是个空壳" \
-  "./scripts/feature-matrix.sh" \
+  "FEATURE_MATRIX_SECTION=light-tree ./scripts/feature-matrix.sh" \
   crates/mingli-wasm/Cargo.toml \
-  's@^bazi = \["mingli-registry/bazi"\]$@bazi = []@'
+  's@^bazi = \["mingli-registry/bazi"\]$@bazi = []@' \
+  '轻量档位里没有 mingli-bazi'
 
 probe_script "装配：单叶档连自己那片都没有" \
   "bash scripts/leaf-isolation.sh yijing" \
@@ -753,9 +759,10 @@ probe_script "契约：拒绝的措辞悄悄改了" \
 # 种的是「[features] 段换了写法」——推导取空，逐叶单装那一整段就会跑零次。
 # 守卫要在此处出声，而不是安静地跑完什么也没验。
 probe_script "可裁：逐叶名单推空了却不出声" \
-  './scripts/feature-matrix.sh' \
+  'FEATURE_MATRIX_SECTION=light-tree ./scripts/feature-matrix.sh' \
   crates/mingli-registry/Cargo.toml \
-  's|^\([a-z][a-z0-9_-]*\) = \[|  \1 = [|'
+  's|^\([a-z][a-z0-9_-]*\) = \[|  \1 = [|' \
+  '从 manifest 只推出'
 
 # 覆盖率那支不在 CI 里（llvm-cov 一趟十来分钟），故这条也慢。种的是「判词过期」——
 # 文件补上测试爬过门槛后判词没撤，理由随之作废而没人知道。
@@ -766,10 +773,13 @@ probe_script "覆盖：判词过期了却还留着" \
 
 # 种的是「一种数法只匹配到一部分」——非零但错，零产出的下限拦不住它，
 # 而 --fix 会把错数直接写回 README。两种数法交叉对账要在此处出声。
+# 对账不需要整个工作区：两个包的输出已有十几条汇总行，而两种数法的比对排在
+# README 那一步之前，数目与 README 不符也不会抢先把它打红。
 probe_script "计数：一种数法坏了却照样写回" \
-  './scripts/test-count.sh' \
+  'log=$(mktemp); cargo test -p mingli-api -p mingli-registry >"$log" 2>&1; MINGLI_TEST_LOG=$log ./scripts/test-count.sh; rc=$?; rm -f "$log"; exit $rc' \
   scripts/test-count.sh \
-  's|ok\\. \[0-9\]+ passed|ok\\. 1[0-9]+ passed|'
+  's|ok\\. \[0-9\]+ passed|ok\\. 1[0-9]+ passed|' \
+  '两种数法对不上'
 
 # ── 两道门 ────────────────────────────────────────────────────────
 # 这一族是真出过的那种坏法：HTTP 那边补上校验，wasm 那边忘了，两扇门收的东西不一样。
