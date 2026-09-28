@@ -220,6 +220,30 @@ const VIEWPORTS = [
   { tag: '1024', width: 1024, height: 900 },
 ]
 
+// 内容断言的棘轮：屏数与带断言的屏数都摆出来，少了就红。
+// 只在整跑时对——按名字挑几屏跑时，屏表本来就是裁过的。
+// 放在开浏览器之前：它只比两张表，对不上时整跑必红，不必先拍完两个视口的图。
+if (!only.length) {
+  const checked = SCREENS.filter((s) => CHECKS[s.name]).length
+  const stray = Object.keys(CHECKS).filter((k) => !SCREENS.some((s) => s.name === k))
+  console.log(`\n${SCREENS.length} 屏，其中 ${checked} 屏带内容断言（其余只保证选择器出现）`)
+  if (checked < CHECKED_FLOOR) {
+    problems.push(
+      `带内容断言的屏由 ${CHECKED_FLOOR} 降到 ${checked}——摘掉断言只会让图更多、看得更少。`
+        + '确实不该再验了就把 CHECKED_FLOOR 调下来，并写明为什么',
+    )
+  }
+  // 断言写给一个不存在的屏名，等于没写：改屏名时最容易留下这种孤儿。
+  for (const k of stray) {
+    problems.push(`CHECKS 里的「${k}」不在屏表上——屏名改过而断言没跟着改，这条从来没跑过`)
+  }
+}
+if (problems.length) {
+  console.log(`\n屏表问题 ${problems.length} 条：`)
+  for (const p of problems) console.log(`  · ${p}`)
+  process.exit(1)
+}
+
 const browser = await chromium.launch()
 await rm(OUT, { recursive: true, force: true })
 
@@ -304,24 +328,6 @@ for (const vp of VIEWPORTS) {
 }
 
 await browser.close()
-
-// 内容断言的棘轮：屏数与带断言的屏数都摆出来，少了就红。
-// 只在整跑时对——按名字挑几屏跑时，屏表本来就是裁过的。
-if (!only.length) {
-  const checked = SCREENS.filter((s) => CHECKS[s.name]).length
-  const stray = Object.keys(CHECKS).filter((k) => !SCREENS.some((s) => s.name === k))
-  console.log(`\n${SCREENS.length} 屏，其中 ${checked} 屏带内容断言（其余只保证选择器出现）`)
-  if (checked < CHECKED_FLOOR) {
-    problems.push(
-      `带内容断言的屏由 ${CHECKED_FLOOR} 降到 ${checked}——摘掉断言只会让图更多、看得更少。`
-        + '确实不该再验了就把 CHECKED_FLOOR 调下来，并写明为什么',
-    )
-  }
-  // 断言写给一个不存在的屏名，等于没写：改屏名时最容易留下这种孤儿。
-  for (const k of stray) {
-    problems.push(`CHECKS 里的「${k}」不在屏表上——屏名改过而断言没跟着改，这条从来没跑过`)
-  }
-}
 
 if (problems.length) {
   console.log(`\n运行时问题 ${problems.length} 条：`)
