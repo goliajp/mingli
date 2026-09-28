@@ -49,6 +49,8 @@ fn number_before(text: &str, phrase: &str) -> Option<usize> {
 /// 开头那行摘要里的一项：(项目名, 数字后面紧挨着的说法, 应为多少)。
 type Claim = (&'static str, &'static str, usize);
 
+// README 写的是全部叶的数目，只在全部叶都装上时对得上。
+#[cfg(feature = "full")]
 #[test]
 fn the_headline_counts_match_the_workspace() {
     let crates = member_count();
