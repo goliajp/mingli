@@ -11,6 +11,7 @@
 #   ./scripts/guard-probe.sh              # 全跑
 #   ./scripts/guard-probe.sh 架构          # 只跑名字含「架构」的组
 #   ./scripts/guard-probe.sh -前端         # 跑除「前端」以外的组
+#   ./scripts/guard-probe.sh -前端,覆盖    # 排除多组，逗号分隔
 #
 # 前端那一族要 :6026 与 :6027 都在应答，所以 CI 里它挂在已经起了服务的那个 job 上，
 # 别处用 `-前端` 排除。分开跑而不是「服务不在就当过」——后者正是这脚本要治的病。
@@ -45,7 +46,12 @@ case "$filter" in -?*) exclude=${filter#-}; filter="";; esac
 # 这一组要不要跑
 wanted() {
   [ -z "$filter" ] || [[ "$1" == *"$filter"* ]] || return 1
-  [ -z "$exclude" ] || [[ "$1" != *"$exclude"* ]] || return 1
+  [ -n "$exclude" ] || return 0
+  local x xs
+  IFS=, read -ra xs <<<"$exclude"
+  for x in "${xs[@]}"; do
+    [[ "$1" != *"$x"* ]] || return 1
+  done
   return 0
 }
 pass=0; fail=0; skipped=0; mismatched=0
@@ -156,31 +162,41 @@ probe() {
     printf '⊘ 种下去的错没落地（表达式没匹配上）\n'; restore; skipped=$((skipped+1)); return 0
   fi
 
+  # 只编被探的那个测试目标：多测试二进制的包（registry 七个、api 十个）不必全部重链。
+  # 由测试所在的文件推：tests/<名>.rs → --test <名>，src/ 下（不含 main.rs、bin/）→ --lib；
+  # 推不出唯一一个就不限定，退回整包。
+  local dir target=() hits
+  for dir in "crates/$pkg" "services/$pkg"; do [ -d "$dir" ] && break; done
+  hits=$(grep -rlE "fn $test\b" "$dir/tests" "$dir/src" 2>/dev/null || true)
+  if [ "$(grep -c . <<<"$hits")" -eq 1 ]; then
+    case "$hits" in
+      "$dir"/tests/*/*) ;;
+      "$dir"/tests/*.rs) target=(--test "$(basename "$hits" .rs)") ;;
+      "$dir"/src/main.rs|"$dir"/src/bin/*) ;;
+      "$dir"/src/*) target=(--lib) ;;
+    esac
+  fi
+
+  local red='test result: FAILED|^error(\[|:)|could not compile'
+  local out t0 dt
+  t0=$SECONDS
+  out=$(cargo test -p "$pkg" ${target[@]+"${target[@]}"} "$test" 2>&1 || true)
+  dt=$((SECONDS - t0))
+
   # 清单类的种错（Cargo.toml）本来就可能编译期就被拦下——那是正当的拦法，算红。
   # 源码类的不行：`.rs` 改完编不过，说明**表达式写坏了**，那一跑测的不是守卫是语法。
   # 第一版把两者混为一谈，于是「handler 多加一个字段」那条靠一个没用到的 import 假红了一次。
-  local red='test result: FAILED|^error(\[|:)|could not compile'
+  # 这里直接看测试那一跑的输出，不再为此单独先编一遍。
   case "$file" in
     *.toml) ;;
     *)
-      # 先收进变量再判，**不要** `cargo … | grep -q`：本脚本开着 pipefail，
-      # 那种写法的退出码取自 cargo 那一端的非零，于是「构建真的挂了」时这个 if 反而不成立——
-      # 闸只在构建成功时才可能触发，等于形同虚设。第一版就是这么写的，
-      # 三条源码类种错因此带着编译错跑完全程，还被记成了「✓ 红了」。
-      local bo
-      bo=$(cargo build -p "$pkg" --tests 2>&1 || true)
-      if grep -qE '^error\[|^error: |could not compile' <<<"$bo"; then
+      if grep -qE '^error\[|could not compile' <<<"$out"; then
         restore
         printf '⊘ 种下去的错编译不过（表达式写坏了，这一跑证明不了守卫）\n'
         skipped=$((skipped+1)); return 0
       fi
       ;;
   esac
-  local out t0 dt
-  t0=$SECONDS
-  out=$(cargo test -p "$pkg" "$test" 2>&1 || true)
-  dt=$((SECONDS - t0))
-
   if grep -qE "$red" <<<"$out"; then
     # 「怎么红的」跟「红没红」一样重要：断言红说明守卫真的在看，
     # 编译红说明是构建拦下的（清单类种错的正当拦法，源码类则该在上面的闸就被挡住）
@@ -543,12 +559,14 @@ probe "六壬：昴星末传不再归干" mingli-liuren the_three_rare_courses_t
 probe_script "两门：wasm 与 native 算出不同的盘" \
   './scripts/wasm-parity.sh' \
   crates/mingli-meihua/src/lib.rs \
-  's|    let base = u32::from(yb) + month + day;|    let base = u32::from(yb) + month + day + u32::from(cfg!(target_arch = "wasm32"));|'
+  's|    let base = u32::from(yb) + month + day;|    let base = u32::from(yb) + month + day + u32::from(cfg!(target_arch = "wasm32"));|' \
+  '非数值的内容对不上'
 
 probe_script "两门：两边比的不是同一批输入" \
   './scripts/wasm-parity.sh' \
   scripts/wasm-cast.mjs \
-  's|  \[1990, 6, 15, 14, 30\],|  [1991, 6, 15, 14, 30],|'
+  's|  \[1990, 6, 15, 14, 30\],|  [1991, 6, 15, 14, 30],|' \
+  '两边的输入清单不是同一组'
 
 probe_script "两档：优化改变了排出来的盘" \
   './scripts/profile-parity.sh' \
@@ -582,12 +600,16 @@ probe "星历：光行时收敛变慢了" mingli-ephemeris the_third_light_time_
 probe_script "浏览器：四柱与 lunar-javascript 不再一致" \
   "bash scripts/npm-pack.sh >/dev/null 2>&1 && bash scripts/perf-vs-js.sh '' 200" \
   crates/mingli-ganzhi/src/cycle.rs \
-  's@^pub const DAY_ANCHOR_JDN: i64 = 2_460_311;$@pub const DAY_ANCHOR_JDN: i64 = 2_460_312;@'
+  's@^pub const DAY_ANCHOR_JDN: i64 = 2_460_311;$@pub const DAY_ANCHOR_JDN: i64 = 2_460_312;@' \
+  '对拍分歧'
 
+# 预算表是上限加 1.5% 余量：种的错要越过余量才算数。从前种的是「+1 字节」，那只会让
+# 上限更宽，在余量口径下永远拦不住——它在 CI 上一直因缺工具被记成红，没人看出来。
 probe_script "发版：发出去的字节与预算表对不上" \
   "bash scripts/npm-pack.sh" \
   scripts/wasm-budget.txt \
-  's@^chart-solo-yijing 160208@chart-solo-yijing 160209@'
+  's@^chart-solo-yijing 160208@chart-solo-yijing 150000@' \
+  '两条管线对不上'
 
 probe "门面：少转发了一片叶" mingli the_facade_forwards_exactly_the_leaves_the_composition_root_registers \
   crates/mingli/Cargo.toml \
@@ -621,10 +643,13 @@ probe_script "装配：单叶档混进了别的叶" \
   crates/mingli-wasm/Cargo.toml \
   's@^yijing = \["mingli-registry/yijing"\]$@yijing = ["mingli-registry/yijing", "mingli-registry/bazi"]@'
 
+# 关掉 LTO 只让这一档胖 260 字节（0.16%），落在 1.5% 的余量里；把 release 降到
+# opt-level 1 胖约 2.4%，越过余量。只改 [profile.release] 那一段。
 probe_script "装配：产物胖了没人拦" \
   "bash scripts/wasm-size.sh chart-solo-yijing" \
   Cargo.toml \
-  's@^lto = "thin"$@lto = false@'
+  '/^\[profile.release\]/,/^\[/ s@^opt-level = 3$@opt-level = 1@' \
+  '超预算'
 
 probe "六十四卦：八卦符号取错格" mingli-gua every_trigram_has_its_own_name_symbol_and_number \
   crates/mingli-gua/src/lib.rs \
