@@ -168,11 +168,25 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # 两门、发版、体积这几条探测要 wasm 工具链；少了它们，脚本一开头就因缺工具退出，
+      # 从前被记成「红了」，其实什么也没验。
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      # 前端那一族要两个服务在应答，故不在这里跑，挂到下面 web job 的末尾
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.122
+      - name: 装 binaryen（与 wasm job 同一版）
+        run: |
+          v=version_132
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/${v}/binaryen-${v}-x86_64-linux.tar.gz" \
+            | tar xz -C /tmp
+          echo "/tmp/binaryen-${v}/bin" >> "$GITHUB_PATH"
+      # 前端那一族要两个服务在应答，挂到下面 web job 的末尾；覆盖率那条要跑 llvm-cov
+      # 十来分钟，留给本地整跑
       - name: 逐条往源码里种一个已知的错，问该拦它的守卫红不红
-        run: ./scripts/guard-probe.sh -前端
+        run: ./scripts/guard-probe.sh -前端,覆盖
 
   web:
     name: 前端构建 · 截图断言
