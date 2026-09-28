@@ -2,6 +2,29 @@
 //!
 //! 这些断言天然需要「知道有哪些叶」，因此住在装配根这一层——编排层
 //! （`mingli-engine`）自身只用假叶测机制，不认识任何真叶。
+//!
+//! 只在十八片非星历叶都装上时编译：单装一两片的组合里「全树」不存在，由 `src/lib.rs`
+//! 的顺序表校验装配。三片星历叶仍逐处按各自的 feature 开关。
+#![cfg(all(
+    feature = "bazi",
+    feature = "ziwei",
+    feature = "yijing",
+    feature = "geomancy",
+    feature = "sikidy",
+    feature = "ifa",
+    feature = "cartomancy",
+    feature = "meihua",
+    feature = "xiaoliuren",
+    feature = "zeri",
+    feature = "maya",
+    feature = "pawukon",
+    feature = "mahabote",
+    feature = "liuren",
+    feature = "qimen",
+    feature = "taiyi",
+    feature = "tibetan",
+    feature = "numerology"
+))]
 
 use mingli_contract::{
     d, AskTime, CastingEngine, Determinism, Family, Gender, Moment, Query, QueryKind,
@@ -522,7 +545,15 @@ fn route_non_natal_dispatches_to_declared_leaves() {
     // 四柱的大运/流年、印度占星的 Vimshottari、紫微的大限、西洋占星的二次推运。
     // 这四片曾只有前两片——后两片是把各自那条时间线做出来之后才回到这张名单上的。
     let r = route(&registry(), &QueryKind::Fortune { natal: sample(), t_target: ask_2026() });
-    for id in ["bazi", "jyotish", "ziwei", "astrology"] {
+    let with_timelines = [
+        "bazi",
+        #[cfg(feature = "jyotish")]
+        "jyotish",
+        "ziwei",
+        #[cfg(any(feature = "astrology", feature = "astrology-thin"))]
+        "astrology",
+    ];
+    for id in with_timelines {
         assert!(r.contains(&id), "叶 `{id}` 有自己的时间序列，应被路由到「运」");
     }
     // 反过来：没有时间序列的叶不该混进来
@@ -1019,8 +1050,10 @@ fn every_school_option_actually_changes_the_chart() {
     assert_eq!(
         with_schools,
         std::collections::BTreeMap::from([
+            #[cfg(any(feature = "astrology", feature = "astrology-thin"))]
             ("astrology", 5),
             ("bazi", 4),
+            #[cfg(feature = "jyotish")]
             ("jyotish", 4),
             ("liuren", 2),
             ("meihua", 2),

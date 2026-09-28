@@ -163,29 +163,46 @@ pub fn word_registry() -> Vec<Box<dyn WordEngine>> {
 mod tests {
     use super::*;
 
-    /// 默认 feature 下的叶顺序。**这是对外契约**——`/api/cast` 与 `/api/health` 按此序输出，
-    /// 前端的叶签也照此排。改动这张表就是改动接口，不是内部调整。
-    #[cfg(all(feature = "astrology", feature = "jyotish", feature = "qizhengsiyu"))]
-    const EXPECTED: [&str; 21] = [
-        "bazi", "ziwei", "astrology", "jyotish", "qizhengsiyu", "yijing", "geomancy", "sikidy",
-        "ifa", "tarot", "meihua", "xiaoliuren", "zeri", "maya", "pawukon", "mahabote", "liuren",
-        "qimen", "taiyi", "tibetan", "numerology",
+    /// 全开时的叶顺序，连同装进每一片的 feature。**这是对外契约**——`/api/cast` 与
+    /// `/api/health` 按此序输出，前端的叶签也照此排。改动这张表就是改动接口。
+    ///
+    /// 任何 feature 组合下的期望顺序都从这张表里按「开了哪些」筛出来：少装、多装、
+    /// 调换两行的位置，都对不上。
+    const ORDER: [(&str, bool); 21] = [
+        ("bazi", cfg!(feature = "bazi")),
+        ("ziwei", cfg!(feature = "ziwei")),
+        ("astrology", cfg!(any(feature = "astrology", feature = "astrology-thin"))),
+        ("jyotish", cfg!(feature = "jyotish")),
+        ("qizhengsiyu", cfg!(feature = "qizhengsiyu")),
+        ("yijing", cfg!(feature = "yijing")),
+        ("geomancy", cfg!(feature = "geomancy")),
+        ("sikidy", cfg!(feature = "sikidy")),
+        ("ifa", cfg!(feature = "ifa")),
+        ("tarot", cfg!(feature = "cartomancy")),
+        ("meihua", cfg!(feature = "meihua")),
+        ("xiaoliuren", cfg!(feature = "xiaoliuren")),
+        ("zeri", cfg!(feature = "zeri")),
+        ("maya", cfg!(feature = "maya")),
+        ("pawukon", cfg!(feature = "pawukon")),
+        ("mahabote", cfg!(feature = "mahabote")),
+        ("liuren", cfg!(feature = "liuren")),
+        ("qimen", cfg!(feature = "qimen")),
+        ("taiyi", cfg!(feature = "taiyi")),
+        ("tibetan", cfg!(feature = "tibetan")),
+        ("numerology", cfg!(feature = "numerology")),
     ];
 
-    /// 三个星历 feature 全关时的叶顺序——其余十八片的**相对次序不变**，只是少了三片。
-    #[cfg(not(any(feature = "astrology", feature = "jyotish", feature = "qizhengsiyu")))]
-    const EXPECTED: [&str; 18] = [
-        "bazi", "ziwei", "yijing", "geomancy", "sikidy", "ifa", "tarot", "meihua", "xiaoliuren",
-        "zeri", "maya", "pawukon", "mahabote", "liuren", "qimen", "taiyi", "tibetan", "numerology",
+    /// 字词叶的顺序同样是契约（`/api/word` 的 system 取值与前端下拉的排序）。
+    const WORD_ORDER: [(&str, bool); 4] = [
+        ("gematria", cfg!(feature = "gematria")),
+        ("abjad", cfg!(feature = "abjad")),
+        ("wuge", cfg!(feature = "wuge")),
+        ("numerology", cfg!(feature = "numerology")),
     ];
 
-    /// 只开 `astrology` 时。
-    #[cfg(all(feature = "astrology", not(feature = "jyotish"), not(feature = "qizhengsiyu")))]
-    const EXPECTED: [&str; 19] = [
-        "bazi", "ziwei", "astrology", "yijing", "geomancy", "sikidy", "ifa", "tarot", "meihua",
-        "xiaoliuren", "zeri", "maya", "pawukon", "mahabote", "liuren", "qimen", "taiyi", "tibetan",
-        "numerology",
-    ];
+    fn enabled(order: &[(&'static str, bool)]) -> Vec<&'static str> {
+        order.iter().filter(|(_, on)| *on).map(|(id, _)| *id).collect()
+    }
 
     /// 顺序锁定，不只是集合。
     ///
@@ -194,26 +211,7 @@ mod tests {
     #[test]
     fn the_registry_order_is_part_of_the_contract() {
         let ids: Vec<&str> = registry().iter().map(|e| e.id()).collect();
-        assert_eq!(ids, EXPECTED, "注册表顺序即 /api/cast 的输出顺序，改它就是改接口");
-    }
-
-    /// 三片星历叶由 feature 开关控制，其余十八片在任何组合下都在，且相对次序不变。
-    #[test]
-    fn the_optional_leaves_are_the_only_thing_features_change() {
-        const OPTIONAL: [&str; 3] = ["astrology", "jyotish", "qizhengsiyu"];
-        const ALWAYS: [&str; 18] = [
-            "bazi", "ziwei", "yijing", "geomancy", "sikidy", "ifa", "tarot", "meihua",
-            "xiaoliuren", "zeri", "maya", "pawukon", "mahabote", "liuren", "qimen", "taiyi",
-            "tibetan", "numerology",
-        ];
-        let ids: Vec<&str> = registry().iter().map(|e| e.id()).collect();
-        let core: Vec<&str> = ids.iter().copied().filter(|id| !OPTIONAL.contains(id)).collect();
-        assert_eq!(core, ALWAYS, "非可选的十八片在任何 feature 组合下都该在，且次序不变");
-        assert!(
-            ids.len() >= ALWAYS.len() && ids.len() <= ALWAYS.len() + OPTIONAL.len(),
-            "叶数只该在 18..=21 之间浮动，实得 {}",
-            ids.len()
-        );
+        assert_eq!(ids, enabled(&ORDER), "注册表顺序即 /api/cast 的输出顺序，改它就是改接口");
     }
 
     #[test]
@@ -227,11 +225,10 @@ mod tests {
         assert!(reg.iter().all(|e| !e.id().is_empty() && !e.name().is_empty()));
     }
 
-    /// 字词叶的顺序同样是契约（`/api/word` 的 system 取值与前端下拉的排序）。
     #[test]
     fn word_registry_covers_the_word_leaves_in_order() {
         let ids: Vec<&str> = word_registry().iter().map(|e| e.id()).collect();
-        assert_eq!(ids, ["gematria", "abjad", "wuge", "numerology"]);
+        assert_eq!(ids, enabled(&WORD_ORDER));
     }
 
     /// 同时长在两条端口上的叶，以及为什么它是同一套术数而非两样东西。

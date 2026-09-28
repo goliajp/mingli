@@ -7,6 +7,9 @@
 #
 #   ./scripts/test-count.sh            # 对一遍
 #   ./scripts/test-count.sh --fix      # 数出来直接写回两份 README
+#
+# MINGLI_TEST_LOG=<文件> 时不再自己跑套件，直接数这份输出——CI 里测试那一步已经跑过
+# 一遍 `cargo test --workspace`，再跑一遍是纯重复。那份输出必须来自一次全绿的完整运行。
 
 set -euo pipefail
 
@@ -20,10 +23,18 @@ fi
 
 cd "$(dirname "$0")/.."
 
-out=$(mktemp)
-trap 'rm -f "$out"' EXIT
-
-cargo test --workspace >"$out" 2>&1 || { cat "$out"; echo "套件没全绿，数出来的不作数" >&2; exit 1; }
+if [ -n "${MINGLI_TEST_LOG:-}" ]; then
+  out=$MINGLI_TEST_LOG
+  [ -s "$out" ] || { echo "MINGLI_TEST_LOG 指的 ${out} 不存在或是空的" >&2; exit 1; }
+  if grep -qE '^test result: FAILED' "$out"; then
+    echo "${out} 里有没过的测试二进制，数出来的不作数" >&2
+    exit 1
+  fi
+else
+  out=$(mktemp)
+  trap 'rm -f "$out"' EXIT
+  cargo test --workspace >"$out" 2>&1 || { cat "$out"; echo "套件没全绿，数出来的不作数" >&2; exit 1; }
+fi
 
 # 数两遍，两种数法：一遍加各二进制的汇总行，一遍数逐条 `... ok`。
 #
