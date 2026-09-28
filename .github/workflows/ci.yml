@@ -135,6 +135,12 @@ jobs:
           fetch-depth: 2
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # contract-drift.sh 把上一个提交建在 target/contract-base。rust-cache 只在缓存键初次出现时保存，
+      # 键在这个目录出现之前就存过了，它从未进缓存，基准版每次冷编。单独缓存它，键随依赖变。
+      - uses: actions/cache@v4
+        with:
+          path: target/contract-base
+          key: contract-base-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
 
       # 两件事，都不是同义反复：
       # 1. 没有一个请求把服务打崩、也没有一个连不上（`000` 是连不上——
@@ -174,6 +180,12 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+      # contract-drift.sh 把上一个提交建在 target/contract-base。rust-cache 只在缓存键初次出现时保存，
+      # 键在这个目录出现之前就存过了，它从未进缓存，基准版每次冷编。单独缓存它，键随依赖变。
+      - uses: actions/cache@v4
+        with:
+          path: target/contract-base
+          key: contract-base-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.122
