@@ -10,6 +10,10 @@
 # 判在 scripts/wasm-parity.mjs，量在 examples/tree_fingerprint.rs 与 scripts/wasm-cast.mjs。
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# cargo 实际写产物的目录。CARGO_TARGET_DIR、.cargo/config 的 build.target-dir 都会改它；
+# 写死 target/ 时，只要其中之一在，量到的就是 target/ 里留下的旧产物。
+TARGET_DIR=$(cargo metadata --format-version 1 --no-deps | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
+[ -n "$TARGET_DIR" ] || { echo "取不到 cargo 的 target 目录" >&2; exit 1; }
 
 for tool in node wasm-bindgen; do
   command -v "$tool" >/dev/null 2>&1 || { printf '缺 %s，这条跑不了\n' "$tool"; exit 127; }
@@ -25,7 +29,7 @@ cargo run -q --example tree_fingerprint -p mingli-registry -- "$work/native.json
 
 cargo build -q -p mingli-wasm --release --target wasm32-unknown-unknown
 wasm-bindgen --target nodejs --out-dir "$work/wasm" \
-  target/wasm32-unknown-unknown/release/mingli_wasm.wasm
+  "$TARGET_DIR/wasm32-unknown-unknown/release/mingli_wasm.wasm"
 node scripts/wasm-cast.mjs "$work/wasm/mingli_wasm.js" "$work/wasm.json"
 
 printf '\n'
