@@ -16,9 +16,7 @@ web/e2e/shots/
 .env
 .env.local
 
-# Local working material — design notes, plans, tooling state.
-# The repository ships library sources, tests and the README only.
-docs/
+# Tool output
 mutants.out*/
 bench/browser/node_modules/
 bench/browser/package-lock.json
