@@ -9,6 +9,10 @@
 # 而那正是本项目已经踩过一次的坑（同一个包，两条管线量出 1,512,240 与 1,528,046）。
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# cargo 实际写产物的目录。CARGO_TARGET_DIR、.cargo/config 的 build.target-dir 都会改它；
+# 写死 target/ 时，只要其中之一在，量到的就是 target/ 里留下的旧产物。
+TARGET_DIR=$(cargo metadata --format-version 1 --no-deps | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
+[ -n "$TARGET_DIR" ] || { echo "取不到 cargo 的 target 目录" >&2; exit 1; }
 
 # wasm-opt 要显式开 reference-types 与 bulk-memory。
 #
@@ -59,7 +63,7 @@ while IFS='|' read -r pkg profile feats kw blurb check; do
   cargo build -q --release --target wasm32-unknown-unknown -p mingli-wasm \
     --no-default-features --features "$feats"
   wasm-bindgen --target web --out-dir "$d" \
-    target/wasm32-unknown-unknown/release/mingli_wasm.wasm >/dev/null 2>&1
+    "$TARGET_DIR/wasm32-unknown-unknown/release/mingli_wasm.wasm" >/dev/null 2>&1
   wasm-opt -Oz "${WASM_OPT_FEATURES[@]}" -o "$d/mingli_wasm_bg.wasm.opt" "$d/mingli_wasm_bg.wasm"
   mv "$d/mingli_wasm_bg.wasm.opt" "$d/mingli_wasm_bg.wasm"
   rm -f "$d/.gitignore" "$d/package.json"

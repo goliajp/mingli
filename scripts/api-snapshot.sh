@@ -20,6 +20,10 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# cargo 实际写产物的目录。CARGO_TARGET_DIR、.cargo/config 的 build.target-dir 都会改它；
+# 写死 target/ 时，只要其中之一在，量到的就是 target/ 里留下的旧产物。
+TARGET_DIR=$(cargo metadata --format-version 1 --no-deps | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
+[ -n "$TARGET_DIR" ] || { echo "取不到 cargo 的 target 目录" >&2; exit 1; }
 
 mode=${1:-}
 file=${2:-}
@@ -32,7 +36,7 @@ if [ -z "$file" ]; then
   exit 2
 fi
 
-BIN=${MINGLI_SNAPSHOT_BIN:-target/debug/mingli-api}
+BIN=${MINGLI_SNAPSHOT_BIN:-$TARGET_DIR/debug/mingli-api}
 PORT=${MINGLI_SNAPSHOT_PORT:-6099}
 B="http://127.0.0.1:$PORT"
 
